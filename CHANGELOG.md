@@ -1,6 +1,13 @@
 # Changelog
 Formato SemVer.
 
+## [2.4.0] - 2026-10-06
+### Adicionado
+- Categoria e checklist "Tratamento de Email" (política de email: retenção por tipo, bases legais, transparência, segurança, exclusão, incidentes)
+- Admin recebe automaticamente categorias com guia que faltarem na lista
+### Observações
+- Citações legais do documento original corrigidas e registradas em "Notas de revisão"; o documento original termina na seção 3.5 (itens da seção 7 marcados como extra)
+
 ## [2.3.1] - 2026-10-06
 ### Corrigido
 - Cache do navegador: arquivos agora carregam com `?v=versão`, então cada publicação aparece sem precisar limpar cache

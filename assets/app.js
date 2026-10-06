@@ -3,10 +3,10 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
   createUserWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js?v=2.3.1';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.3.1';
+import { firebaseConfig } from './firebase-config.js?v=2.4.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.4.0';
 
-const VERSION = '2.3.1';
+const VERSION = '2.4.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -126,6 +126,11 @@ async function loadCore() {
   if (c.exists()) db.categorias = c.data().lista || [];
   else if (can.admin()) { await setDoc(doc(fs, 'config', 'app'), { lista: DEFAULT_CATS }); db.categorias = DEFAULT_CATS.slice(); }
   else db.categorias = [];
+  // Categorias com guia: o admin ganha automaticamente as que ainda não existem na lista.
+  if (can.admin() && c.exists()) {
+    const faltam = Object.keys(GUIAS).filter(k => !db.categorias.includes(k));
+    if (faltam.length) { db.categorias = [...db.categorias, ...faltam]; await setDoc(doc(fs, 'config', 'app'), { lista: db.categorias }); }
+  }
 
   db.users = can.admin() ? (await getDocs(collection(fs, 'users'))).docs.map(d => ({ id: d.id, ...d.data() })) : [me];
   if (cid) {

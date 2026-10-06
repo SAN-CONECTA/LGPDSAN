@@ -2,6 +2,8 @@
 // Fonte do conteúdo: "Contratos e Operadores — Guia de Conformidade LGPD para Escritório de Contabilidade" (2026).
 // Itens com extra:true foram acrescentados pela equipe técnica (não estão no guia original) e precisam de validação jurídica.
 
+import { GUIA_EMAIL } from './guia-email.js?v=2.4.0';
+
 export const RESP = ['Conforme', 'Parcial', 'Não conforme', 'N/A']; // 'Não avaliado' = campo vazio
 
 export const GUIAS = {
@@ -80,6 +82,7 @@ export const GUIAS = {
       </ul>`
   }
 };
+GUIAS['Tratamento de Email'] = GUIA_EMAIL;
 
 // Helpers
 export const guiaDe = cat => GUIAS[cat] || null;
