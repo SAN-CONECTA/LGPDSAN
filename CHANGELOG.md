@@ -1,6 +1,13 @@
 # Changelog
 Formato SemVer.
 
+## [2.5.0] - 2026-10-06
+### Adicionado
+- Checklists das categorias "Direitos dos Titulares" (art. 18 e 19) e "Governança e Políticas" (papéis, comitê, princípios do art. 6º, bases legais do art. 7º)
+### Observações
+- Os dois documentos recebidos estão incompletos (Direitos termina na seção 2.1; Governança na 3.2); itens complementares marcados como extra
+- Erros legais dos documentos corrigidos e listados nas Notas de revisão
+
 ## [2.4.0] - 2026-10-06
 ### Adicionado
 - Categoria e checklist "Tratamento de Email" (política de email: retenção por tipo, bases legais, transparência, segurança, exclusão, incidentes)
