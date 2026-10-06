@@ -18,7 +18,8 @@ service cloud.firestore {
         && s.evidencias is string && s.evidencias.size() <= 5000
         && s.status in ['Rascunho', 'Em vigor', 'Em revisão', 'Arquivado']
         && s.prioridade in ['Baixa', 'Média', 'Alta']
-        && s.categoria is string && s.responsavel is string && s.prazo is string;
+        && s.categoria is string && s.responsavel is string && s.prazo is string
+        && s.get('dados', {}) is map && s.get('dados', {}).size() <= 80;
     }
 
     // Perfis. Cada usuário lê o próprio; só o administrador lista e altera.

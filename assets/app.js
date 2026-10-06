@@ -4,8 +4,9 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js';
 
-const VERSION = '2.2.0';
+const VERSION = '2.3.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -15,6 +16,9 @@ const DEFAULT_CATS = ['Governança e Políticas', 'Direitos dos Titulares', 'Con
   'Incidentes', 'Retenção e Descarte', 'Treinamento e Cultura', 'Mapeamento de Dados'];
 const FIELDS = [['titulo', 'Título'], ['categoria', 'Categoria'], ['descricao', 'Descrição / procedimento'],
   ['status', 'Status'], ['prioridade', 'Prioridade'], ['responsavel', 'Responsável'], ['prazo', 'Prazo'], ['evidencias', 'Evidências (links/referências)']];
+// campos comparáveis de um registro: os fixos + os itens do checklist da categoria
+const fieldList = cat => { const g = guiaDe(cat); return g ? FIELDS.concat(itensDe(g).flatMap(i => i.tipo === 'sn' ? [['d:' + i.id, i.label], ['d:' + i.id + '#o', 'Observação: ' + i.label]] : [['d:' + i.id, i.label]])) : FIELDS; };
+const fval = (snap, k) => k.startsWith('d:') ? fmtVal((snap.dados || {})[k.slice(2)]) : (snap[k] ?? '');
 const FIRM_ACTS = new Set(['Exportação CSV', 'Backup exportado (contabilidade)']);
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -238,6 +242,7 @@ async function renderDash() {
     <div class="card"><h2>Atribuídos a mim</h2>${mine.length ? miniTable(mine) : '<p class="muted">Nada atribuído a você.</p>'}</div>
     <div class="card"><h2>Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted">Sem atividade.</p>'}</div>`;
 }
+const chkCell = (g, d) => { const p = progresso(g, d); return `<span class="tag ${p.nao ? 'bad' : p.pend ? 'warn' : 'ok'}">${p.pct}%</span> <span class="muted small">${p.pend} pend.</span>`; };
 const miniTable = rs => `<div class="tablewrap"><table><tr><th>Registro</th><th>Status</th><th>Prazo</th></tr>${rs.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${statusTag(cur(r).status)}</td><td>${fmtD(cur(r).prazo)}</td></tr>`).join('')}</table></div>`;
 
 /* ---------- lista ---------- */
@@ -255,22 +260,24 @@ function renderList() {
       $('#rows').innerHTML = shown.map(r => { const c = cur(r);
         return `<tr><td><a href="${recLink(r)}">${esc(c.titulo)}</a>${r.deleted ? ' <span class="tag bad">excluído</span>' : ''}<br><span class="muted small">${esc(c.categoria)}</span></td>
         <td>${statusTag(c.status)}</td><td>${priorTag(c.prioridade)}</td><td>${esc(c.responsavel) || '—'}</td>
-        <td>${overdue(r) ? '<span class="tag bad">vencido</span> ' : ''}${fmtD(c.prazo)}</td><td>v${r.versao}</td></tr>`; }).join('') || '<tr><td colspan="6" class="muted">Nenhum registro encontrado.</td></tr>';
+        <td>${overdue(r) ? '<span class="tag bad">vencido</span> ' : ''}${fmtD(c.prazo)}</td><td>${guiaDe(c.categoria) ? chkCell(guiaDe(c.categoria), c.dados) : '<span class="muted">—</span>'}</td><td>v${r.versao}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">Nenhum registro encontrado.</td></tr>';
+      const gb = $('#gbtn'); if (gb) gb.hidden = !guiaDe(fc.value);
     };
     [q, fc, fs_, fp, fd].forEach(el => el.addEventListener('input', draw)); draw();
     const nb = $('#new'); if (nb) nb.onclick = () => recordForm();
     const ex = $('#exp'); if (ex) ex.onclick = guard(() => exportCSV(shown));
     $('#prn').onclick = () => window.print();
+    $('#gbtn').onclick = () => { const g = guiaDe(fc.value); if (g) modal(`<h2>Guia de referência · ${esc(g.titulo)}</h2><div class="guide-ref">${g.referencia}</div><div class="actions"><button id="x">Fechar</button></div>`, d => { $('#x', d).onclick = () => d.close(); }); };
   };
   return `<div class="bar"><div><h1>Registros</h1><p class="muted" id="cnt"></p></div><div class="actions" style="margin:0">
     ${can.edit() ? '<button class="primary" id="new">+ Novo registro</button>' : ''}
-    ${can.export() ? '<button id="exp">Exportar CSV</button>' : ''}<button id="prn">Imprimir relatório</button></div></div>
+    ${can.export() ? '<button id="exp">Exportar CSV</button>' : ''}<button id="gbtn" hidden>Guia de referência</button><button id="prn">Imprimir relatório</button></div></div>
     <div class="filters"><div><label for="q">Pesquisa</label><input id="q" type="search" placeholder="Palavra-chave…"></div>
     <div><label for="fc">Categoria</label><select id="fc">${opts(catList(), '', 'Todas')}</select></div>
     <div><label for="fs">Status</label><select id="fs">${opts(STATUS, '', 'Todos')}</select></div>
     <div><label for="fp">Prioridade</label><select id="fp">${opts(PRIOR, '', 'Todas')}</select></div>
     <div><label for="fd">Exibir</label><select id="fd"><option value="">Ativos</option>${can.admin() ? '<option value="del">Excluídos</option>' : ''}</select></div></div>
-    <div class="card tablewrap"><table><thead><tr><th>Registro</th><th>Status</th><th>Prioridade</th><th>Responsável</th><th>Prazo</th><th>Versão</th></tr></thead><tbody id="rows"></tbody></table></div>`;
+    <div class="card tablewrap"><table><thead><tr><th>Registro</th><th>Status</th><th>Prioridade</th><th>Responsável</th><th>Prazo</th><th>Checklist</th><th>Versão</th></tr></thead><tbody id="rows"></tbody></table></div>`;
 }
 async function exportCSV(rs) {
   if (!can.export()) return;
@@ -286,6 +293,48 @@ function download(name, text, type) {
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+/* ---------- checklist (guias por categoria) ---------- */
+const fieldUnion = (c1, c2) => { const m = new Map(); [...fieldList(c1), ...fieldList(c2)].forEach(([k, l]) => m.set(k, l)); return [...m.entries()]; };
+const respTag = v => `<span class="tag ${{ 'Conforme': 'ok', 'Parcial': 'warn', 'Não conforme': 'bad' }[v] || ''}">${esc(v || 'Não avaliado')}</span>`;
+function checklistForm(g, dados) {
+  const dd = dados || {};
+  const item = i => {
+    const v = dd[i.id], help = i.ajuda ? `<div class="muted small">${esc(i.ajuda)}</div>` : '';
+    const extra = i.extra ? ' <span class="tag brand" title="Item acrescentado pela equipe técnica; validar juridicamente">extra</span>' : '';
+    const lab = `<label>${esc(i.label)}${extra}</label>`;
+    if (i.tipo === 'texto') return `<div class="gi">${lab}<input data-k="${i.id}" maxlength="300" value="${esc(v)}">${help}</div>`;
+    if (i.tipo === 'area') return `<div class="gi">${lab}<textarea data-k="${i.id}" maxlength="2000" style="min-height:70px">${esc(v)}</textarea>${help}</div>`;
+    if (i.tipo === 'select') return `<div class="gi">${lab}<select data-k="${i.id}">${opts(i.opcoes, v, '— selecione —')}</select>${help}</div>`;
+    if (i.tipo === 'multi') { const sel = new Set(Array.isArray(v) ? v : []);
+      return `<div class="gi">${lab}${i.opcoes.map(o => `<label class="chk"><input type="checkbox" data-m="${i.id}" value="${esc(o)}" ${sel.has(o) ? 'checked' : ''}> ${esc(o)}</label>`).join('')}${help}</div>`; }
+    return `<div class="gi">${lab}<div class="row"><select data-k="${i.id}">${opts(RESP, v, 'Não avaliado')}</select><input data-k="${i.id}#o" maxlength="300" placeholder="Observação / evidência (opcional)" value="${esc(dd[i.id + '#o'])}"></div>${help}</div>`;
+  };
+  return `<div class="card guide"><h3>Checklist · ${esc(g.titulo)}</h3><p class="muted small">${esc(g.resumo)}</p>
+    ${g.secoes.map(sec => `<details open><summary>${esc(sec.titulo)}</summary>${sec.itens.map(item).join('')}</details>`).join('')}</div>`;
+}
+function collectDados(root) {
+  const o = {};
+  root.querySelectorAll('[data-k]').forEach(el => { const v = el.value.trim(); if (v) o[el.dataset.k] = v.slice(0, el.tagName === 'TEXTAREA' ? 2000 : 300); });
+  const ms = {};
+  root.querySelectorAll('[data-m]:checked').forEach(el => { (ms[el.dataset.m] = ms[el.dataset.m] || []).push(el.value); });
+  Object.assign(o, ms);
+  return o;
+}
+function checklistView(g, dados) {
+  const dd = dados || {}, pr = progresso(g, dd), alerts = g.alertas(dd);
+  const val = i => {
+    const v = dd[i.id];
+    if (i.tipo === 'sn') return respTag(v) + (dd[i.id + '#o'] ? `<div class="muted small">${esc(dd[i.id + '#o'])}</div>` : '');
+    return v && v.length ? esc(fmtVal(v)) : '<span class="muted">—</span>';
+  };
+  return `<div class="card"><h2>Checklist · ${esc(g.titulo)}</h2>
+    <div class="prog" title="${pr.pct}% conforme"><span style="width:${pr.pct}%"></span></div>
+    <p class="small"><b>${pr.pct}% conforme</b> (itens aplicáveis) · ${pr.ok} conformes · ${pr.parcial} parciais · ${pr.nao} não conformes · ${pr.na} N/A · ${pr.pend} sem avaliação</p>
+    ${alerts.length ? `<div class="notice bad"><b>Pontos de atenção</b><ul>${alerts.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
+    ${g.secoes.map(sec => `<h3 style="margin-top:1rem">${esc(sec.titulo)}</h3><div class="tablewrap"><table>${sec.itens.map(i =>
+      `<tr><td style="width:55%">${esc(i.label)}${i.extra ? ' <span class="tag brand">extra</span>' : ''}</td><td>${val(i)}</td></tr>`).join('')}</table></div>`).join('')}</div>`;
+}
+
 /* ---------- formulário de registro ---------- */
 function recordForm(rec) {
   const c = rec ? cur(rec) : { titulo: '', categoria: catList()[0] || '', descricao: '', status: 'Rascunho', prioridade: 'Média', responsavel: me.nome, prazo: '', evidencias: '' };
@@ -299,14 +348,24 @@ function recordForm(rec) {
     <div><label for="z">Prazo</label><input id="z" type="date" value="${esc(c.prazo)}"></div></div>
     <label for="d">Descrição / procedimento</label><textarea id="d" maxlength="20000">${esc(c.descricao)}</textarea>
     <label for="e">Evidências (um link ou referência por linha)</label><textarea id="e" maxlength="5000" style="min-height:70px">${esc(c.evidencias)}</textarea>
+    <div id="gx"></div>
     <label for="j">Justificativa da alteração *</label><input id="j" required maxlength="300" placeholder="${rec ? 'Por que está alterando?' : 'Criação inicial'}">
     <div class="actions"><button class="primary" id="sv">Salvar</button><button type="button" id="x">Cancelar</button></div></form>`,
     d => {
+      let dadosAtual = JSON.parse(JSON.stringify(c.dados || {}));
+      const drawGuide = () => {
+        const g = guiaDe($('#c', d).value);
+        $('#gx', d).innerHTML = g ? checklistForm(g, dadosAtual) : '';
+        $('#t', d).placeholder = g ? g.tituloHint : '';
+      };
+      $('#c', d).onchange = () => { if (guiaDe(c0)) dadosAtual = collectDados($('#gx', d)); c0 = $('#c', d).value; drawGuide(); };
+      let c0 = $('#c', d).value; drawGuide();
       $('#x', d).onclick = () => d.close();
       $('#rf', d).onsubmit = guard(async e => {
         e.preventDefault();
         const snap = { titulo: $('#t', d).value.trim(), categoria: $('#c', d).value, descricao: $('#d', d).value, status: $('#s', d).value,
           prioridade: $('#p', d).value, responsavel: $('#r', d).value, prazo: $('#z', d).value, evidencias: $('#e', d).value };
+        if (guiaDe(snap.categoria)) snap.dados = collectDados($('#gx', d));
         const just = $('#j', d).value.trim();
         $('#sv', d).disabled = true;
         const batch = writeBatch(fs);
@@ -314,7 +373,7 @@ function recordForm(rec) {
         try {
           if (rec) {
             if (!can.editRec(rec)) { $('#sv', d).disabled = false; return toast('Sem permissão para editar este registro.'); }
-            const before = cur(rec), changed = FIELDS.filter(([k]) => before[k] !== snap[k]).map(([, l]) => l);
+            const before = cur(rec), changed = fieldUnion(before.categoria, snap.categoria).filter(([k]) => String(fval(before, k)) !== String(fval(snap, k))).map(([, l]) => l);
             if (!changed.length) { d.close(); return toast('Nenhuma alteração.'); }
             const n = rec.versao + 1; id = rec.id;
             batch.update(rdoc(id), { snap, versao: n, atualizado: serverTimestamp() });
@@ -367,8 +426,8 @@ async function renderRecord(id) {
     });
     const cmp = () => {
       const a = vs[+$('#va').value - 1].snap, b = vs[+$('#vb').value - 1].snap;
-      const ch = FIELDS.filter(([k]) => (a[k] || '') !== (b[k] || ''));
-      $('#diff').innerHTML = ch.length ? ch.map(([k, l]) => `<div class="fieldrow"><b>${l}</b><div class="diff pre">${wordDiff(a[k], b[k])}</div></div>`).join('') : '<p class="muted">Sem diferenças entre as versões selecionadas.</p>';
+      const ch = fieldUnion(a.categoria, b.categoria).filter(([k]) => String(fval(a, k)) !== String(fval(b, k)));
+      $('#diff').innerHTML = ch.length ? ch.map(([k, l]) => `<div class="fieldrow"><b>${l}</b><div class="diff pre">${wordDiff(fval(a, k), fval(b, k))}</div></div>`).join('') : '<p class="muted">Sem diferenças entre as versões selecionadas.</p>';
     };
     if (vs.length > 1) { $('#va').onchange = $('#vb').onchange = cmp; cmp(); }
   };
@@ -386,6 +445,7 @@ async function renderRecord(id) {
     <div><span class="muted">Criado em</span><br>${fmt(rec.criado)}</div></div>
     <h3 style="margin-top:1rem">Descrição / procedimento</h3><div class="pre">${esc(c.descricao) || '<span class="muted">—</span>'}</div>
     <h3 style="margin-top:1rem">Evidências</h3><div class="pre">${esc(c.evidencias) || '<span class="muted">—</span>'}</div></div>
+    ${guiaDe(c.categoria) ? checklistView(guiaDe(c.categoria), c.dados) : ''}
     <div class="card"><h2>Histórico de versões</h2><div class="tablewrap"><table><tr><th>Versão</th><th>Quando</th><th>Autor</th><th>Justificativa</th><th></th></tr>
     ${vs.slice().reverse().map(v => `<tr><td>v${v.n}${v.n === last ? ' <span class="tag ok">atual</span>' : ''}</td><td>${fmt(v.quando)}</td><td>${esc(v.autor)}</td><td>${esc(v.just)}</td>
     <td>${can.editRec(rec) && v.n !== last ? `<button data-restore="${v.n}">Restaurar</button>` : ''}</td></tr>`).join('')}</table></div></div>

@@ -1,6 +1,18 @@
 # Changelog
 Formato SemVer.
 
+## [2.3.0] - 2026-10-06
+### Adicionado
+- Checklist da categoria "Contratos e Operadores" dentro do registro (um registro por operador): identificação, dados processados, tipo de processamento, localização, retenção, incidentes
+- Respostas Conforme / Parcial / Não conforme / N/A + observação, % de conformidade, pontos de atenção automáticos e coluna Checklist na lista
+- Botão "Guia de referência" (com notas de revisão do guia original) ao filtrar a categoria
+- Versionamento, comparação e auditoria também cobrem as respostas do checklist
+### Alterado
+- `firestore.rules`: campo `dados` do registro validado (**publicar novamente**)
+### Notas
+- Erros legais do guia original não foram copiados; ver "Notas de revisão" no guia de referência
+- Itens marcados "extra" foram acrescentados pela equipe técnica e precisam de validação jurídica
+
 ## [2.2.0] - 2026-10-06
 ### Adicionado
 - Multi-contabilidade com isolamento no servidor: registros, versões e auditoria ficam sob `contabilidades/{cid}`
