@@ -69,3 +69,10 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
   .filters{grid-template-columns:1fr 1fr}.filters>div:first-child{grid-column:1/-1}
 }
 @media print{.side,.actions,.filters,#toast,button{display:none!important}.shell{display:block}main{padding:0}body{background:#fff;color:#000}}
+
+.logo{background:#fff;border-radius:10px;padding:.4rem .5rem;border:1px solid var(--line);margin-bottom:.4rem}
+.logo img{display:block;width:100%;height:auto}
+.logo.big{max-width:260px;margin:0 auto .75rem;border:0;padding:0}
+.prod{font-weight:700;font-size:.9rem;margin:0 0 1rem}
+.prod-title{font-size:1.1rem;text-align:center;margin:0 0 .5rem}
+@media(max-width:800px){.logo{width:150px;margin:0 1rem 0 0}.prod{display:none}}

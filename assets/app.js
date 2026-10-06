@@ -5,7 +5,9 @@ import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, dele
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
+const SITE = 'https://www.sanconecta.com';
+const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
 const STATUS = ['Rascunho', 'Em vigor', 'Em revisão', 'Arquivado'];
 const PRIOR = ['Baixa', 'Média', 'Alta'];
@@ -127,7 +129,7 @@ async function route() {
   }
   const nav = routes.filter(r => r[3] !== 'admin' || can.admin())
     .map(r => `<a href="${r[0]}" class="${r[0] === main ? 'on' : ''}">${r[1]}</a>`).join('');
-  app.innerHTML = `<div class="shell"><aside class="side"><div class="brand"><i>🛡</i><span>LGPDSAN</span></div>
+  app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><div class="prod">LGPDSAN <span class="muted">· Conformidade LGPD</span></div>
     <nav class="nav">${nav}</nav>
     <div class="who small"><b>${esc(me.nome)}</b><br><span class="muted">${ROLES[me.role]} · v${VERSION}</span><br><button class="link" id="out">Sair</button></div></aside>
     <main id="main"><p class="muted">Carregando…</p></main></div>`;
@@ -143,13 +145,13 @@ window.addEventListener('hashchange', route);
 
 /* ---------- login ---------- */
 function renderLogin(msg = '') {
-  app.innerHTML = `<div class="login"><div class="card"><div class="brand"><i>🛡</i><span>LGPDSAN · Conformidade LGPD</span></div>
+  app.innerHTML = `<div class="login"><div class="card"><div class="logo big"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><h1 class="prod-title">LGPDSAN <span class="muted">· Conformidade LGPD</span></h1>
     <form id="f"><label for="em">E-mail</label><input id="em" type="email" required autocomplete="username">
     <label for="pw">Senha</label><input id="pw" type="password" required autocomplete="current-password">
     <p id="err" class="small" style="color:var(--bad);min-height:1.2em">${esc(msg)}</p>
     <button class="primary" style="width:100%">Entrar</button></form>
     <p class="small" style="margin-top:.75rem"><button class="link" id="fp" type="button">Esqueci minha senha</button></p>
-    <p class="small muted">Acesso restrito a usuários cadastrados pelo administrador · v${VERSION}</p></div></div>`;
+    <p class="small muted">Acesso restrito a usuários cadastrados pelo administrador · v${VERSION}<br>${siteLink()}</p></div></div>`;
   const err = $('#err');
   $('#f').onsubmit = async e => {
     e.preventDefault(); err.textContent = '';
@@ -456,7 +458,8 @@ function renderAbout() {
     <div class="card"><h2>Limitações conhecidas</h2><ul><li>Sem upload de arquivos (links/referências), sem e-mails de prazo e sem links temporários.</li>
     <li>Tentativas de login falhas não entram na auditoria (o servidor limita tentativas, mas o log fica no console do Firebase).</li>
     <li>Sem política de retenção automática nem importação de backup.</li></ul></div>
-    <div class="card"><h2>Versionamento do sistema</h2><p>SemVer (<code>MAIOR.MENOR.CORREÇÃO</code>). Veja o CHANGELOG no repositório.</p></div>`;
+    <div class="card"><h2>Versionamento do sistema</h2><p>SemVer (<code>MAIOR.MENOR.CORREÇÃO</code>). Veja o CHANGELOG no repositório.</p>
+    <p>Desenvolvido por <b>SAN Conecta</b> — Conectando Empresas a Soluções · ${siteLink()}</p></div>`;
 }
 
 /* ---------- inicialização ---------- */

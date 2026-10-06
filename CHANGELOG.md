@@ -1,6 +1,13 @@
 # Changelog
 Formato SemVer.
 
+## [2.1.0] - 2026-10-06
+### Adicionado
+- Logo da SAN Conecta no login, no menu lateral e como ícone da aba
+- Link para www.sanconecta.com no login e na página Sobre
+### Corrigido
+- README: título "O que a v1.0 faz" -> "O que o sistema faz"
+
 ## [2.0.0] - 2026-10-06
 ### Adicionado
 - Firebase Authentication (e-mail/senha) e Firestore (São Paulo) no lugar do localStorage
