@@ -1,6 +1,10 @@
 # Changelog
 Formato SemVer.
 
+## [2.3.1] - 2026-10-06
+### Corrigido
+- Cache do navegador: arquivos agora carregam com `?v=versão`, então cada publicação aparece sem precisar limpar cache
+
 ## [2.3.0] - 2026-10-06
 ### Adicionado
 - Checklist da categoria "Contratos e Operadores" dentro do registro (um registro por operador): identificação, dados processados, tipo de processamento, localização, retenção, incidentes

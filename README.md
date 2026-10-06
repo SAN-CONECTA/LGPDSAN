@@ -3,7 +3,7 @@
 Registro, versionamento e auditoria de boas práticas de conformidade com a LGPD.
 Publicação: https://san-conecta.github.io/LGPDSAN/
 
-**Versão atual: 2.3.0** (Firebase Auth + Firestore, regras no servidor)
+**Versão atual: 2.3.1** (Firebase Auth + Firestore, regras no servidor)
 
 ## O que o sistema faz
 - Perfis: Consulta, Edição, Administrador (matriz da especificação, seção 3.5)
@@ -31,3 +31,9 @@ Cada release = tag `vX.Y.Z` + GitHub Release.
 
 
 Desenvolvido por SAN Conecta — https://www.sanconecta.com
+
+## Publicar uma nova versão
+1. Suba os arquivos (GitHub: Add file → Upload files, arrastando o CONTEÚDO da pasta).
+2. Se mudou `firestore.rules`, publique também no console do Firebase.
+3. Na próxima versão, troque o número em `?v=` (index.html e imports de `assets/app.js`) e em `VERSION`; assim o navegador não usa arquivos antigos.
+4. Confira a versão exibida no rodapé do menu lateral.

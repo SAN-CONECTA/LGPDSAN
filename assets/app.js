@@ -3,10 +3,10 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
   createUserWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js';
+import { firebaseConfig } from './firebase-config.js?v=2.3.1';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.3.1';
 
-const VERSION = '2.3.0';
+const VERSION = '2.3.1';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
