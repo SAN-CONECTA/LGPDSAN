@@ -1,6 +1,12 @@
 # Changelog
 Formato SemVer.
 
+## [2.6.0] - 2026-10-06
+### Adicionado
+- Checklist da categoria "Incidentes": definição e severidade, detecção, canais de reporte, plano de resposta, comunicação à ANPD/titulares, registro e seção de ocorrência para incidente real
+### Observações
+- Prazo "72h / Art. 33" do documento original corrigido (art. 48; 3 dias úteis, Res. CD/ANPD 15/2024); documento termina na seção 3.4
+
 ## [2.5.0] - 2026-10-06
 ### Adicionado
 - Checklists das categorias "Direitos dos Titulares" (art. 18 e 19) e "Governança e Políticas" (papéis, comitê, princípios do art. 6º, bases legais do art. 7º)
