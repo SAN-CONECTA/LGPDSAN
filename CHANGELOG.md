@@ -1,6 +1,17 @@
 # Changelog
 Formato SemVer.
 
+## [2.2.0] - 2026-10-06
+### Adicionado
+- Multi-contabilidade com isolamento no servidor: registros, versões e auditoria ficam sob `contabilidades/{cid}`
+- Cadastro de contabilidades (admin), seletor de contabilidade, vínculo de usuários a uma ou mais contabilidades
+- Auditoria do sistema separada (somente administrador)
+### Alterado
+- Edição e Consulta não listam mais todos os usuários; o campo Responsável usa as pessoas da contabilidade
+- Regras do Firestore reescritas (`firestore.rules`): **publicar novamente**
+### Atenção
+- Registros criados na v2.0/2.1 (coleção `registros` na raiz) ficam inacessíveis. Não havia registros reais.
+
 ## [2.1.0] - 2026-10-06
 ### Adicionado
 - Logo da SAN Conecta no login, no menu lateral e como ícone da aba

@@ -76,3 +76,5 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .prod{font-weight:700;font-size:.9rem;margin:0 0 1rem}
 .prod-title{font-size:1.1rem;text-align:center;margin:0 0 .5rem}
 @media(max-width:800px){.logo{width:150px;margin:0 1rem 0 0}.prod{display:none}}
+.csel{margin:0 0 1rem;font-size:.9rem}
+.csel select{margin-top:.2rem}

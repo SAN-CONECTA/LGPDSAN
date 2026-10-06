@@ -6,7 +6,11 @@ service cloud.firestore {
     function active() { return request.auth != null && exists(uPath()) && get(uPath()).data.ativo == true; }
     function role() { return get(uPath()).data.role; }
     function isAdmin() { return active() && role() == 'admin'; }
-    function canEdit() { return active() && role() in ['admin', 'edicao']; }
+    function myContabs() { return get(uPath()).data.get('contabilidades', []); }
+    // Acesso a uma contabilidade: Administrador (todas) ou usuário vinculado a ela.
+    function hasContab(cid) { return isAdmin() || (active() && cid in myContabs()); }
+    // Escrita em uma contabilidade: Administrador ou usuário de Edição vinculado.
+    function canEditIn(cid) { return isAdmin() || (active() && role() == 'edicao' && cid in myContabs()); }
 
     function validSnap(s) {
       return s.titulo is string && s.titulo.size() > 0 && s.titulo.size() <= 200
@@ -17,10 +21,10 @@ service cloud.firestore {
         && s.categoria is string && s.responsavel is string && s.prazo is string;
     }
 
-    // Perfis. Somente o administrador cria/altera/remove. Edição lista (para o campo Responsável).
+    // Perfis. Cada usuário lê o próprio; só o administrador lista e altera.
     match /users/{uid} {
       allow get: if request.auth != null && (request.auth.uid == uid || isAdmin());
-      allow list: if canEdit();
+      allow list: if isAdmin();
       allow create, update, delete: if isAdmin();
     }
 
@@ -29,42 +33,72 @@ service cloud.firestore {
       allow write: if isAdmin() && request.resource.data.lista is list;
     }
 
-    match /registros/{id} {
-      allow read: if active() && (resource.data.deleted == false || isAdmin());
-      allow create: if canEdit()
-        && validSnap(request.resource.data.snap)
-        && request.resource.data.versao == 1
-        && request.resource.data.deleted == false
-        && (isAdmin() || request.resource.data.snap.status != 'Arquivado');
-      allow update: if (isAdmin() && validSnap(request.resource.data.snap))
-        || (active() && role() == 'edicao'
-            && resource.data.deleted == false && request.resource.data.deleted == false
-            && resource.data.snap.status != 'Arquivado' && request.resource.data.snap.status != 'Arquivado'
-            && validSnap(request.resource.data.snap)
-            && request.resource.data.versao == resource.data.versao + 1);
-      allow delete: if isAdmin();
-
-      // Versões são imutáveis; só o administrador apaga (exclusão permanente do registro).
-      match /versoes/{n} {
-        allow read: if active() && (get(/databases/$(database)/documents/registros/$(id)).data.deleted == false || isAdmin());
-        allow create: if canEdit() && request.resource.data.autorId == request.auth.uid
-          && validSnap(request.resource.data.snap);
-        allow update: if false;
-        allow delete: if isAdmin();
-      }
-    }
-
-    // Auditoria: só cria, nunca edita nem apaga. Consulta lê apenas eventos ligados a registros.
+    // Auditoria do SISTEMA (login, usuários, contabilidades, categorias): só o administrador lê; ninguém edita ou apaga.
     match /auditoria/{id} {
-      allow read: if canEdit() || (active() && role() == 'consulta' && resource.data.escopo == 'registro');
+      allow read: if isAdmin();
       allow create: if active()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.ts == request.time
         && request.resource.data.user == get(uPath()).data.nome
         && request.resource.data.role == role()
-        && request.resource.data.escopo in ['registro', 'sistema']
+        && request.resource.data.escopo == 'sistema'
         && request.resource.data.acao is string;
       allow update, delete: if false;
+    }
+
+    // Tudo de uma contabilidade fica sob contabilidades/{cid}; o isolamento vem do caminho.
+    match /contabilidades/{cid} {
+      allow get: if hasContab(cid);
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && request.resource.data.nome is string
+        && request.resource.data.nome.size() > 0 && request.resource.data.nome.size() <= 100;
+      allow delete: if false;
+
+      // Nomes das pessoas da contabilidade (campo Responsável). Mantido pelo administrador.
+      match /pessoas/{uid} {
+        allow read: if hasContab(cid);
+        allow write: if isAdmin();
+      }
+
+      match /registros/{id} {
+        allow read: if hasContab(cid) && (resource.data.deleted == false || isAdmin());
+        allow create: if canEditIn(cid)
+          && validSnap(request.resource.data.snap)
+          && request.resource.data.versao == 1
+          && request.resource.data.deleted == false
+          && (isAdmin() || request.resource.data.snap.status != 'Arquivado');
+        allow update: if (isAdmin() && validSnap(request.resource.data.snap))
+          || (canEditIn(cid) && role() == 'edicao'
+              && resource.data.deleted == false && request.resource.data.deleted == false
+              && resource.data.snap.status != 'Arquivado' && request.resource.data.snap.status != 'Arquivado'
+              && validSnap(request.resource.data.snap)
+              && request.resource.data.versao == resource.data.versao + 1);
+        allow delete: if isAdmin();
+
+        // Versões são imutáveis; só o administrador apaga (exclusão permanente do registro).
+        match /versoes/{n} {
+          allow read: if hasContab(cid)
+            && (get(/databases/$(database)/documents/contabilidades/$(cid)/registros/$(id)).data.deleted == false || isAdmin());
+          allow create: if canEditIn(cid) && request.resource.data.autorId == request.auth.uid
+            && validSnap(request.resource.data.snap);
+          allow update: if false;
+          allow delete: if isAdmin();
+        }
+      }
+
+      // Auditoria da contabilidade: quem tem acesso lê; edição/admin criam; ninguém edita ou apaga.
+      match /auditoria/{id} {
+        allow read: if hasContab(cid);
+        allow create: if canEditIn(cid)
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.ts == request.time
+          && request.resource.data.user == get(uPath()).data.nome
+          && request.resource.data.role == role()
+          && request.resource.data.escopo == 'registro'
+          && request.resource.data.contabId == cid
+          && request.resource.data.acao is string;
+        allow update, delete: if false;
+      }
     }
   }
 }

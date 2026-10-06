@@ -5,7 +5,7 @@ import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, dele
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -15,6 +15,7 @@ const DEFAULT_CATS = ['Governança e Políticas', 'Direitos dos Titulares', 'Con
   'Incidentes', 'Retenção e Descarte', 'Treinamento e Cultura', 'Mapeamento de Dados'];
 const FIELDS = [['titulo', 'Título'], ['categoria', 'Categoria'], ['descricao', 'Descrição / procedimento'],
   ['status', 'Status'], ['prioridade', 'Prioridade'], ['responsavel', 'Responsável'], ['prazo', 'Prazo'], ['evidencias', 'Evidências (links/referências)']];
+const FIRM_ACTS = new Set(['Exportação CSV', 'Backup exportado (contabilidade)']);
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -22,6 +23,7 @@ const tms = t => (t && t.toMillis ? t.toMillis() : t);
 const fmt = t => t ? new Date(tms(t)).toLocaleString('pt-BR') : '—';
 const fmtD = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
 const today = () => new Date().toISOString().slice(0, 10);
+const byName = (a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true });
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -29,8 +31,16 @@ auth.languageCode = 'pt-BR';
 const fs = getFirestore(fbApp);
 
 let me = null;
-let db = { users: [], records: [], categorias: [] };
+let cid = null; // contabilidade ativa
+let db = { users: [], records: [], categorias: [], contabs: [], pessoas: [] };
 let justSignedIn = false;
+
+/* ---------- caminhos (tudo de uma contabilidade fica sob contabilidades/{cid}) ---------- */
+const rcol = () => collection(fs, 'contabilidades', cid, 'registros');
+const rdoc = id => doc(fs, 'contabilidades', cid, 'registros', id);
+const vcol = id => collection(fs, 'contabilidades', cid, 'registros', id, 'versoes');
+const vdoc = (id, n) => doc(fs, 'contabilidades', cid, 'registros', id, 'versoes', String(n));
+const contabNome = id => (db.contabs.find(c => c.id === id) || {}).nome || '(removida)';
 
 /* ---------- permissões ---------- */
 const cur = r => r.snap;
@@ -43,12 +53,14 @@ const can = {
 const catList = () => db.categorias.slice().sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
 /* ---------- auditoria (gravada no servidor, só criação) ---------- */
-function auditData(acao, rec, detalhe) {
+const isSys = (acao, rec) => !rec && !FIRM_ACTS.has(acao);
+const aCol = sys => sys ? collection(fs, 'auditoria') : collection(fs, 'contabilidades', cid, 'auditoria');
+function auditData(acao, rec, detalhe, sys) {
   return { ts: serverTimestamp(), userId: me.id, user: me.nome, role: me.role, acao, recId: rec ? rec.id : null,
-    recTitulo: rec ? cur(rec).titulo : '', detalhe: detalhe || '', escopo: rec ? 'registro' : 'sistema' };
+    recTitulo: rec ? cur(rec).titulo : '', detalhe: detalhe || '', escopo: sys ? 'sistema' : 'registro', contabId: sys ? null : cid };
 }
-const auditOp = (batch, acao, rec, detalhe) => batch.set(doc(collection(fs, 'auditoria')), auditData(acao, rec, detalhe));
-const auditNow = (acao, rec, detalhe) => setDoc(doc(collection(fs, 'auditoria')), auditData(acao, rec, detalhe));
+const auditOp = (batch, acao, rec, detalhe) => { const s = isSys(acao, rec); batch.set(doc(aCol(s)), auditData(acao, rec, detalhe, s)); };
+const auditNow = (acao, rec, detalhe) => { const s = isSys(acao, rec); return setDoc(doc(aCol(s)), auditData(acao, rec, detalhe, s)); };
 
 /* ---------- UI utilitários ---------- */
 let toastT;
@@ -95,48 +107,85 @@ function wordDiff(a, b) {
 
 /* ---------- carga de dados ---------- */
 async function loadCore() {
-  db.users = can.edit() ? (await getDocs(collection(fs, 'users'))).docs.map(d => ({ id: d.id, ...d.data() })) : [me];
+  // contabilidades acessíveis: admin lê todas; os demais apenas as vinculadas ao seu perfil
+  if (can.admin()) db.contabs = (await getDocs(collection(fs, 'contabilidades'))).docs.map(d => ({ id: d.id, ...d.data() }));
+  else db.contabs = (await Promise.all((me.contabilidades || []).map(async id => {
+    const s = await getDoc(doc(fs, 'contabilidades', id)); return s.exists() ? { id: s.id, ...s.data() } : null; }))).filter(Boolean);
+  db.contabs.sort(byName);
+  if (!db.contabs.some(c => c.id === cid)) {
+    let saved = null; try { saved = sessionStorage.getItem('lgpdsan:cid'); } catch (e) {}
+    cid = db.contabs.some(c => c.id === saved) ? saved : (db.contabs[0] ? db.contabs[0].id : null);
+  }
+  try { if (cid) sessionStorage.setItem('lgpdsan:cid', cid); } catch (e) {}
+
   const c = await getDoc(doc(fs, 'config', 'app'));
   if (c.exists()) db.categorias = c.data().lista || [];
   else if (can.admin()) { await setDoc(doc(fs, 'config', 'app'), { lista: DEFAULT_CATS }); db.categorias = DEFAULT_CATS.slice(); }
   else db.categorias = [];
-  const q = can.admin() ? collection(fs, 'registros') : query(collection(fs, 'registros'), where('deleted', '==', false));
-  db.records = (await getDocs(q)).docs.map(d => ({ id: d.id, ...d.data() }));
+
+  db.users = can.admin() ? (await getDocs(collection(fs, 'users'))).docs.map(d => ({ id: d.id, ...d.data() })) : [me];
+  if (cid) {
+    db.pessoas = (await getDocs(collection(fs, 'contabilidades', cid, 'pessoas'))).docs.map(d => ({ id: d.id, ...d.data() }));
+    const q = can.admin() ? rcol() : query(rcol(), where('deleted', '==', false));
+    db.records = (await getDocs(q)).docs.map(d => ({ id: d.id, ...d.data() }));
+  } else { db.pessoas = []; db.records = []; }
 }
 async function loadAudit(n = 500) {
-  const q = can.edit() ? query(collection(fs, 'auditoria'), orderBy('ts', 'desc'), limit(n))
-    : query(collection(fs, 'auditoria'), where('escopo', '==', 'registro'), limit(n));
+  const q = query(collection(fs, 'contabilidades', cid, 'auditoria'), orderBy('ts', 'desc'), limit(n));
   return (await getDocs(q)).docs.map(d => d.data()).sort((a, b) => tms(b.ts) - tms(a.ts));
 }
+async function loadSysAudit(n = 200) {
+  const q = query(collection(fs, 'auditoria'), orderBy('ts', 'desc'), limit(n));
+  return (await getDocs(q)).docs.map(d => d.data()).sort((a, b) => tms(b.ts) - tms(a.ts));
+}
+const responsaveis = () => [...new Set([me.nome, ...db.pessoas.map(p => p.nome)])].sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
 /* ---------- roteamento ---------- */
 const app = $('#app');
 const routes = [
-  ['#/', 'Painel', renderDash], ['#/registros', 'Registros', renderList], ['#/auditoria', 'Auditoria', renderAudit],
-  ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/categorias', 'Categorias', renderCats, 'admin'],
-  ['#/backup', 'Backup', renderBackup, 'admin'], ['#/sobre', 'Sobre / versão', renderAbout]
+  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true],
+  ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
+  ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
 let bind = null, seq = 0;
+function contabSelector() {
+  if (db.contabs.length > 1) return `<label for="cs" style="margin-top:0">Contabilidade</label><select id="cs">${db.contabs.map(c => `<option value="${esc(c.id)}" ${c.id === cid ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>`;
+  if (db.contabs.length === 1) return `<div class="small muted">Contabilidade</div><div><b>${esc(db.contabs[0].nome)}</b></div>`;
+  return '<div class="small muted">Nenhuma contabilidade</div>';
+}
 async function route() {
   if (!me) return renderLogin();
   const my = ++seq;
   const h = location.hash || '#/';
-  let view, main = h;
-  if (h.startsWith('#/registro/')) { view = () => renderRecord(h.split('/')[2]); main = '#/registros'; }
+  let view, main = h, needs = false, recRoute = null;
+  if (h.startsWith('#/registro/')) { const p = h.split('/'); recRoute = { c: p[2], id: p[3] }; main = '#/registros'; needs = true; }
   else {
     const r = routes.find(x => x[0] === h) || routes[0];
+    main = r[0]; needs = !!r[4];
     view = (r[3] === 'admin' && !can.admin()) ? () => `<h1>Acesso negado</h1><p class="muted">Seu perfil não permite acessar esta área.</p>` : r[2];
   }
   const nav = routes.filter(r => r[3] !== 'admin' || can.admin())
     .map(r => `<a href="${r[0]}" class="${r[0] === main ? 'on' : ''}">${r[1]}</a>`).join('');
   app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><div class="prod">LGPDSAN <span class="muted">· Conformidade LGPD</span></div>
+    <div id="csel" class="csel"></div>
     <nav class="nav">${nav}</nav>
     <div class="who small"><b>${esc(me.nome)}</b><br><span class="muted">${ROLES[me.role]} · v${VERSION}</span><br><button class="link" id="out">Sair</button></div></aside>
     <main id="main"><p class="muted">Carregando…</p></main></div>`;
   $('#out').onclick = guard(logout);
   let html;
-  try { bind = null; await loadCore(); html = await view(); }
-  catch (e) { console.error(e); html = `<h1>Não foi possível carregar</h1><p class="muted">${esc(errMsg(e))}</p>`; bind = null; }
+  try {
+    bind = null;
+    if (recRoute && recRoute.c) { cid = recRoute.c; }
+    await loadCore();
+    if (my !== seq) return;
+    $('#csel').innerHTML = contabSelector();
+    const cs = $('#cs'); if (cs) cs.onchange = () => { cid = cs.value; try { sessionStorage.setItem('lgpdsan:cid', cid); } catch (e) {} if (recRoute) location.hash = '#/registros'; else route(); };
+    if (needs && !cid) html = can.admin()
+      ? `<h1>Nenhuma contabilidade cadastrada</h1><p class="muted">Crie a primeira em <a href="#/contabilidades">Contabilidades</a>.</p>`
+      : `<h1>Sem contabilidade vinculada</h1><p class="muted">Seu usuário ainda não está vinculado a nenhuma contabilidade. Procure o administrador.</p>`;
+    else if (recRoute) html = await renderRecord(recRoute.id);
+    else html = await view();
+  } catch (e) { console.error(e); html = `<h1>Não foi possível carregar</h1><p class="muted">${esc(errMsg(e))}</p>`; bind = null; }
   if (my !== seq) return;
   $('#main').innerHTML = html;
   if (bind) { const f = bind; bind = null; f(); }
@@ -170,16 +219,17 @@ function renderLogin(msg = '') {
     err.style.color = 'var(--ok)'; err.textContent = 'Se o e-mail estiver cadastrado, você receberá um link de redefinição.';
   };
 }
-async function logout() { try { await auditNow('Logout'); } catch (e) {} me = null; await signOut(auth); location.hash = '#/'; }
+async function logout() { try { await auditNow('Logout'); } catch (e) {} me = null; cid = null; try { sessionStorage.removeItem('lgpdsan:cid'); } catch (e) {} await signOut(auth); location.hash = '#/'; }
 
 /* ---------- painel ---------- */
+const recLink = r => `#/registro/${cid}/${r.id}`;
 async function renderDash() {
   const rs = db.records.filter(r => !r.deleted);
   const by = s => rs.filter(r => cur(r).status === s).length;
   const od = rs.filter(overdue);
   const mine = rs.filter(r => cur(r).responsavel === me.nome && cur(r).status !== 'Arquivado');
   const recent = (await loadAudit(8)).slice(0, 6);
-  return `<div class="bar"><div><h1>Painel</h1><p class="muted">Visão geral da conformidade do escritório.</p></div>
+  return `<div class="bar"><div><h1>Painel</h1><p class="muted">${esc(contabNome(cid))} · visão geral da conformidade.</p></div>
     ${can.edit() ? '<a class="btn primary" href="#/registros" id="dnew">+ Novo registro</a>' : ''}</div>
     <div class="grid"><div class="stat"><b>${rs.length}</b>Registros ativos</div>
     <div class="stat"><b>${by('Em vigor')}</b>Em vigor</div><div class="stat"><b>${by('Em revisão')}</b>Em revisão</div>
@@ -188,7 +238,7 @@ async function renderDash() {
     <div class="card"><h2>Atribuídos a mim</h2>${mine.length ? miniTable(mine) : '<p class="muted">Nada atribuído a você.</p>'}</div>
     <div class="card"><h2>Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted">Sem atividade.</p>'}</div>`;
 }
-const miniTable = rs => `<div class="tablewrap"><table><tr><th>Registro</th><th>Status</th><th>Prazo</th></tr>${rs.map(r => `<tr><td><a href="#/registro/${r.id}">${esc(cur(r).titulo)}</a></td><td>${statusTag(cur(r).status)}</td><td>${fmtD(cur(r).prazo)}</td></tr>`).join('')}</table></div>`;
+const miniTable = rs => `<div class="tablewrap"><table><tr><th>Registro</th><th>Status</th><th>Prazo</th></tr>${rs.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${statusTag(cur(r).status)}</td><td>${fmtD(cur(r).prazo)}</td></tr>`).join('')}</table></div>`;
 
 /* ---------- lista ---------- */
 function renderList() {
@@ -201,9 +251,9 @@ function renderList() {
         return (!fc.value || c.categoria === fc.value) && (!fs_.value || c.status === fs_.value) && (!fp.value || c.prioridade === fp.value) &&
           (!t || [c.titulo, c.descricao, c.responsavel, c.evidencias, c.categoria].join(' ').toLowerCase().includes(t)); })
         .sort((a, b) => cur(a).titulo.localeCompare(cur(b).titulo, 'pt-BR'));
-      $('#cnt').textContent = shown.length + ' registro(s)';
+      $('#cnt').textContent = `${contabNome(cid)} · ${shown.length} registro(s)`;
       $('#rows').innerHTML = shown.map(r => { const c = cur(r);
-        return `<tr><td><a href="#/registro/${r.id}">${esc(c.titulo)}</a>${r.deleted ? ' <span class="tag bad">excluído</span>' : ''}<br><span class="muted small">${esc(c.categoria)}</span></td>
+        return `<tr><td><a href="${recLink(r)}">${esc(c.titulo)}</a>${r.deleted ? ' <span class="tag bad">excluído</span>' : ''}<br><span class="muted small">${esc(c.categoria)}</span></td>
         <td>${statusTag(c.status)}</td><td>${priorTag(c.prioridade)}</td><td>${esc(c.responsavel) || '—'}</td>
         <td>${overdue(r) ? '<span class="tag bad">vencido</span> ' : ''}${fmtD(c.prazo)}</td><td>v${r.versao}</td></tr>`; }).join('') || '<tr><td colspan="6" class="muted">Nenhum registro encontrado.</td></tr>';
     };
@@ -225,11 +275,11 @@ function renderList() {
 async function exportCSV(rs) {
   if (!can.export()) return;
   const q = v => '"' + String(v ?? '').replace(/"/g, '""').replace(/^([=+\-@\t\r])/, "'$1") + '"';
-  const head = ['Título', 'Categoria', 'Status', 'Prioridade', 'Responsável', 'Prazo', 'Versão', 'Descrição', 'Evidências'];
+  const head = ['Contabilidade', 'Título', 'Categoria', 'Status', 'Prioridade', 'Responsável', 'Prazo', 'Versão', 'Descrição', 'Evidências'];
   const lines = [head.map(q).join(';')].concat(rs.map(r => { const c = cur(r);
-    return [c.titulo, c.categoria, c.status, c.prioridade, c.responsavel, c.prazo, r.versao, c.descricao, c.evidencias].map(q).join(';'); }));
+    return [contabNome(cid), c.titulo, c.categoria, c.status, c.prioridade, c.responsavel, c.prazo, r.versao, c.descricao, c.evidencias].map(q).join(';'); }));
   download('lgpdsan-registros-' + today() + '.csv', '﻿' + lines.join('\r\n'), 'text/csv;charset=utf-8');
-  await auditNow('Exportação CSV', null, rs.length + ' registro(s)');
+  await auditNow('Exportação CSV', null, `${contabNome(cid)} · ${rs.length} registro(s)`);
 }
 function download(name, text, type) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name;
@@ -240,13 +290,12 @@ function download(name, text, type) {
 function recordForm(rec) {
   const c = rec ? cur(rec) : { titulo: '', categoria: catList()[0] || '', descricao: '', status: 'Rascunho', prioridade: 'Média', responsavel: me.nome, prazo: '', evidencias: '' };
   const statusOpts = me.role === 'admin' ? STATUS : STATUS.filter(s => s !== 'Arquivado');
-  const people = db.users.filter(u => u.ativo).map(u => u.nome);
-  modal(`<h3>${rec ? 'Editar registro' : 'Novo registro'}</h3><form id="rf">
+  modal(`<h3>${rec ? 'Editar registro' : 'Novo registro'} <span class="muted small">· ${esc(contabNome(cid))}</span></h3><form id="rf">
     <label for="t">Título *</label><input id="t" required maxlength="200" value="${esc(c.titulo)}">
     <div class="row"><div><label for="c">Categoria *</label><select id="c" required>${opts(catList(), c.categoria)}</select></div>
     <div><label for="s">Status</label><select id="s">${opts(statusOpts, c.status)}</select></div>
     <div><label for="p">Prioridade</label><select id="p">${opts(PRIOR, c.prioridade)}</select></div></div>
-    <div class="row"><div><label for="r">Responsável</label><select id="r">${opts(people, c.responsavel, '— ninguém —')}</select></div>
+    <div class="row"><div><label for="r">Responsável</label><select id="r">${opts(responsaveis(), c.responsavel, '— ninguém —')}</select></div>
     <div><label for="z">Prazo</label><input id="z" type="date" value="${esc(c.prazo)}"></div></div>
     <label for="d">Descrição / procedimento</label><textarea id="d" maxlength="20000">${esc(c.descricao)}</textarea>
     <label for="e">Evidências (um link ou referência por linha)</label><textarea id="e" maxlength="5000" style="min-height:70px">${esc(c.evidencias)}</textarea>
@@ -262,23 +311,25 @@ function recordForm(rec) {
         $('#sv', d).disabled = true;
         const batch = writeBatch(fs);
         let id;
-        if (rec) {
-          if (!can.editRec(rec)) { $('#sv', d).disabled = false; return toast('Sem permissão para editar este registro.'); }
-          const before = cur(rec), changed = FIELDS.filter(([k]) => before[k] !== snap[k]).map(([, l]) => l);
-          if (!changed.length) { d.close(); return toast('Nenhuma alteração.'); }
-          const n = rec.versao + 1; id = rec.id;
-          batch.update(doc(fs, 'registros', id), { snap, versao: n, atualizado: serverTimestamp() });
-          batch.set(doc(fs, 'registros', id, 'versoes', String(n)), { n, snap, autor: me.nome, autorId: me.id, quando: serverTimestamp(), just });
-          auditOp(batch, 'Edição', { id, snap }, `v${n} · ${changed.join(', ')} · ${just}`);
-          await batch.commit(); toast('Nova versão v' + n + ' criada.');
-        } else {
-          id = doc(collection(fs, 'registros')).id;
-          batch.set(doc(fs, 'registros', id), { snap, versao: 1, deleted: false, criado: serverTimestamp(), criadoPor: me.id });
-          batch.set(doc(fs, 'registros', id, 'versoes', '1'), { n: 1, snap, autor: me.nome, autorId: me.id, quando: serverTimestamp(), just });
-          auditOp(batch, 'Criação', { id, snap }, just);
-          await batch.commit(); toast('Registro criado.');
-        }
-        d.close(); if (location.hash === '#/registro/' + id) route(); else location.hash = '#/registro/' + id;
+        try {
+          if (rec) {
+            if (!can.editRec(rec)) { $('#sv', d).disabled = false; return toast('Sem permissão para editar este registro.'); }
+            const before = cur(rec), changed = FIELDS.filter(([k]) => before[k] !== snap[k]).map(([, l]) => l);
+            if (!changed.length) { d.close(); return toast('Nenhuma alteração.'); }
+            const n = rec.versao + 1; id = rec.id;
+            batch.update(rdoc(id), { snap, versao: n, atualizado: serverTimestamp() });
+            batch.set(vdoc(id, n), { n, snap, autor: me.nome, autorId: me.id, quando: serverTimestamp(), just });
+            auditOp(batch, 'Edição', { id, snap }, `v${n} · ${changed.join(', ')} · ${just}`);
+            await batch.commit(); toast('Nova versão v' + n + ' criada.');
+          } else {
+            id = doc(rcol()).id;
+            batch.set(rdoc(id), { snap, versao: 1, deleted: false, criado: serverTimestamp(), criadoPor: me.id });
+            batch.set(vdoc(id, 1), { n: 1, snap, autor: me.nome, autorId: me.id, quando: serverTimestamp(), just });
+            auditOp(batch, 'Criação', { id, snap }, just);
+            await batch.commit(); toast('Registro criado.');
+          }
+        } catch (x) { $('#sv', d).disabled = false; throw x; }
+        d.close(); const h = `#/registro/${cid}/${id}`; if (location.hash === h) route(); else location.hash = h;
       });
     });
 }
@@ -287,31 +338,31 @@ function recordForm(rec) {
 async function renderRecord(id) {
   const back = '<p><a href="#/registros">Voltar</a></p>';
   let rec;
-  try { const s = await getDoc(doc(fs, 'registros', id)); if (!s.exists()) return `<h1>Registro não encontrado</h1>${back}`; rec = { id: s.id, ...s.data() }; }
+  try { const s = await getDoc(rdoc(id)); if (!s.exists()) return `<h1>Registro não encontrado</h1>${back}`; rec = { id: s.id, ...s.data() }; }
   catch (e) { return `<h1>Registro não disponível</h1>${back}`; }
   if (rec.deleted && !can.admin()) return `<h1>Registro não disponível</h1>${back}`;
-  const vs = (await getDocs(collection(fs, 'registros', id, 'versoes'))).docs.map(d => d.data()).sort((a, b) => a.n - b.n);
-  const au = (await getDocs(query(collection(fs, 'auditoria'), where('recId', '==', id), where('escopo', '==', 'registro')))).docs
+  const vs = (await getDocs(vcol(id))).docs.map(d => d.data()).sort((a, b) => a.n - b.n);
+  const au = (await getDocs(query(collection(fs, 'contabilidades', cid, 'auditoria'), where('recId', '==', id)))).docs
     .map(d => d.data()).sort((a, b) => tms(b.ts) - tms(a.ts));
   const c = cur(rec);
   bind = () => {
     const reload = () => route();
     const e = $('#edit'); if (e) e.onclick = () => recordForm(rec);
     const dl = $('#del'); if (dl) dl.onclick = () => confirmBox('Excluir logicamente este registro? Ele sai das listas, mas pode ser restaurado.', 'Excluir', async () => {
-      const b = writeBatch(fs); b.update(doc(fs, 'registros', id), { deleted: true }); auditOp(b, 'Exclusão lógica', rec); await b.commit(); reload(); });
+      const b = writeBatch(fs); b.update(rdoc(id), { deleted: true }); auditOp(b, 'Exclusão lógica', rec); await b.commit(); reload(); });
     const rs = $('#rest'); if (rs) rs.onclick = guard(async () => {
-      const b = writeBatch(fs); b.update(doc(fs, 'registros', id), { deleted: false }); auditOp(b, 'Registro restaurado', rec); await b.commit(); reload(); });
+      const b = writeBatch(fs); b.update(rdoc(id), { deleted: false }); auditOp(b, 'Registro restaurado', rec); await b.commit(); reload(); });
     const hd = $('#hard'); if (hd) hd.onclick = () => confirmBox('Excluir DEFINITIVAMENTE, com todo o histórico de versões? Não pode ser desfeito. A auditoria é mantida.', 'Excluir definitivamente', async () => {
       const b = writeBatch(fs);
-      (await getDocs(collection(fs, 'registros', id, 'versoes'))).docs.forEach(d => b.delete(d.ref));
-      b.delete(doc(fs, 'registros', id)); auditOp(b, 'Exclusão permanente', rec); await b.commit(); location.hash = '#/registros'; });
+      (await getDocs(vcol(id))).docs.forEach(d => b.delete(d.ref));
+      b.delete(rdoc(id)); auditOp(b, 'Exclusão permanente', rec); await b.commit(); location.hash = '#/registros'; });
     document.querySelectorAll('[data-restore]').forEach(btn => btn.onclick = () => {
       const v = vs[+btn.dataset.restore - 1];
       confirmBox(`Restaurar o conteúdo da v${v.n}? Será criada uma nova versão (o histórico não é apagado).`, 'Restaurar', async () => {
         const n = rec.versao + 1, st = (me.role !== 'admin' && v.snap.status === 'Arquivado') ? 'Em revisão' : v.snap.status;
         const snap = { ...v.snap, status: st }, b = writeBatch(fs);
-        b.update(doc(fs, 'registros', id), { snap, versao: n, atualizado: serverTimestamp() });
-        b.set(doc(fs, 'registros', id, 'versoes', String(n)), { n, snap, autor: me.nome, autorId: me.id, quando: serverTimestamp(), just: `Restauração da v${v.n}` });
+        b.update(rdoc(id), { snap, versao: n, atualizado: serverTimestamp() });
+        b.set(vdoc(id, n), { n, snap, autor: me.nome, autorId: me.id, quando: serverTimestamp(), just: `Restauração da v${v.n}` });
         auditOp(b, 'Restauração de versão', rec, `v${v.n} → v${n}`); await b.commit(); reload(); }, false);
     });
     const cmp = () => {
@@ -323,7 +374,7 @@ async function renderRecord(id) {
   };
   const vopts = sel => vs.map(v => `<option value="${v.n}" ${v.n === sel ? 'selected' : ''}>v${v.n} · ${fmt(v.quando)}</option>`).join('');
   const last = vs.length;
-  return `<p class="small"><a href="#/registros">← Registros</a></p>
+  return `<p class="small"><a href="#/registros">← Registros</a> · ${esc(contabNome(cid))}</p>
     <div class="bar"><div><h1>${esc(c.titulo)} ${rec.deleted ? '<span class="tag bad">excluído</span>' : ''}</h1>
     <p>${statusTag(c.status)} ${priorTag(c.prioridade)} <span class="tag">${esc(c.categoria)}</span> <span class="tag brand">v${rec.versao}</span></p></div>
     <div class="actions" style="margin:0">
@@ -348,48 +399,66 @@ const auditRows = list => list.length ? `<div class="tablewrap"><table><tr><th>Q
   ${list.map(a => `<tr><td>${fmt(a.ts)}</td><td>${esc(a.user)}<br><span class="muted small">${esc(ROLES[a.role] || '')}</span></td><td>${esc(a.acao)}</td><td>${esc(a.recTitulo)}</td><td>${esc(a.detalhe)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Sem eventos.</p>';
 async function renderAudit() {
   const all = await loadAudit(500);
+  const sys = can.admin() ? await loadSysAudit(200) : null;
   bind = () => { const q = $('#aq'), draw = () => { const t = q.value.toLowerCase();
     $('#alist').innerHTML = auditRows(all.filter(a => !t || [a.user, a.acao, a.recTitulo, a.detalhe].join(' ').toLowerCase().includes(t))); }; q.oninput = draw; draw(); };
-  return `<div class="bar"><div><h1>Auditoria</h1><p class="muted">${can.edit() ? 'Log completo (últimos 500 eventos).' : 'Apenas eventos ligados a registros.'} Somente leitura: o servidor não permite editar nem apagar eventos.</p></div></div>
-    <div class="card"><label for="aq" style="margin-top:0">Filtrar</label><input id="aq" type="search" placeholder="Usuário, ação, registro…"><div id="alist" style="margin-top:.75rem"></div></div>`;
+  return `<div class="bar"><div><h1>Auditoria</h1><p class="muted">${esc(contabNome(cid))} · últimos 500 eventos. Somente leitura: o servidor não permite editar nem apagar eventos.</p></div></div>
+    <div class="card"><label for="aq" style="margin-top:0">Filtrar</label><input id="aq" type="search" placeholder="Usuário, ação, registro…"><div id="alist" style="margin-top:.75rem"></div></div>
+    ${sys ? `<div class="card"><h2>Eventos do sistema (administrador)</h2><p class="muted small">Logins, usuários, contabilidades, categorias. Últimos 200.</p>${auditRows(sys)}</div>` : ''}`;
 }
 
 /* ---------- usuários (admin) ---------- */
 const activeAdmins = () => db.users.filter(u => u.ativo && u.role === 'admin');
+function syncPessoas(b, uid, nome, role, ativo, ids, prevIds = []) {
+  const target = (role !== 'admin' && ativo) ? ids : [];
+  prevIds.filter(x => !target.includes(x)).forEach(c => b.delete(doc(fs, 'contabilidades', c, 'pessoas', uid)));
+  target.forEach(c => b.set(doc(fs, 'contabilidades', c, 'pessoas', uid), { nome }));
+}
 function renderUsers() {
   bind = () => {
     $('#nu').onclick = () => userForm();
     document.querySelectorAll('[data-u]').forEach(b => b.onclick = guard(() => userAction(b.dataset.a, db.users.find(u => u.id === b.dataset.u))));
   };
-  return `<div class="bar"><div><h1>Usuários</h1><p class="muted">O novo usuário recebe um e-mail para definir a própria senha; ninguém, nem o administrador, vê senhas.</p></div><button class="primary" id="nu">+ Novo usuário</button></div>
-    <div class="card tablewrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Situação</th><th></th></tr>
-    ${db.users.map(u => `<tr><td>${esc(u.nome)}${u.id === me.id ? ' <span class="tag brand">você</span>' : ''}</td><td>${esc(u.email)}</td><td>${ROLES[u.role] || esc(u.role)}</td>
+  const firms = u => u.role === 'admin' ? '<span class="muted">todas</span>' : ((u.contabilidades || []).map(contabNome).map(esc).join(', ') || '<span class="tag bad">nenhuma</span>');
+  return `<div class="bar"><div><h1>Usuários</h1><p class="muted">O novo usuário recebe um e-mail para definir a própria senha; ninguém, nem o administrador, vê senhas. Administrador enxerga todas as contabilidades; Consulta e Edição só as vinculadas.</p></div><button class="primary" id="nu">+ Novo usuário</button></div>
+    <div class="card tablewrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Contabilidades</th><th>Situação</th><th></th></tr>
+    ${db.users.slice().sort(byName).map(u => `<tr><td>${esc(u.nome)}${u.id === me.id ? ' <span class="tag brand">você</span>' : ''}</td><td>${esc(u.email)}</td><td>${ROLES[u.role] || esc(u.role)}</td><td>${firms(u)}</td>
     <td>${u.ativo ? '<span class="tag ok">ativo</span>' : '<span class="tag bad">bloqueado</span>'}</td>
     <td class="actions" style="margin:0"><button data-u="${u.id}" data-a="edit">Editar</button><button data-u="${u.id}" data-a="pw">Enviar redefinição de senha</button>
     <button data-u="${u.id}" data-a="toggle">${u.ativo ? 'Bloquear' : 'Desbloquear'}</button><button class="danger" data-u="${u.id}" data-a="rm">Remover acesso</button></td></tr>`).join('')}</table></div>`;
 }
 const genPw = () => { const ch = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%'; return [...crypto.getRandomValues(new Uint8Array(24))].map(b => ch[b % ch.length]).join(''); };
 function userForm(u) {
+  const have = new Set(u?.contabilidades || []);
   modal(`<h3>${u ? 'Editar usuário' : 'Novo usuário'}</h3><form id="uf"><label for="n">Nome *</label><input id="n" required maxlength="100" value="${esc(u?.nome)}">
     <label for="m">E-mail *</label><input id="m" type="email" required value="${esc(u?.email)}" ${u ? 'disabled' : ''}>
     <label for="r">Perfil</label><select id="r">${Object.entries(ROLES).map(([k, v]) => `<option value="${k}" ${u?.role === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    <div id="fw"><label>Contabilidades com acesso *</label>${db.contabs.length ? db.contabs.map(c => `<label style="font-weight:400;margin:.2rem 0"><input type="checkbox" style="width:auto" name="cb" value="${esc(c.id)}" ${have.has(c.id) ? 'checked' : ''}> ${esc(c.nome)}</label>`).join('') : '<p class="muted small">Cadastre contabilidades primeiro.</p>'}</div>
+    <p class="muted small" id="adm" hidden>Administrador acessa todas as contabilidades.</p>
     <div class="actions"><button class="primary" id="sv">Salvar</button><button type="button" id="x">Cancelar</button></div></form>`, d => {
+    const sync = () => { const a = $('#r', d).value === 'admin'; $('#fw', d).hidden = a; $('#adm', d).hidden = !a; };
+    $('#r', d).onchange = sync; sync();
     $('#x', d).onclick = () => d.close();
     $('#uf', d).onsubmit = guard(async e => {
-      e.preventDefault(); $('#sv', d).disabled = true;
+      e.preventDefault();
       const role = $('#r', d).value, nome = $('#n', d).value.trim();
+      const ids = role === 'admin' ? [] : [...d.querySelectorAll('[name=cb]:checked')].map(x => x.value);
+      if (role !== 'admin' && !ids.length) return toast('Selecione ao menos uma contabilidade.');
+      $('#sv', d).disabled = true;
       try {
         if (u) {
           if (u.role === 'admin' && role !== 'admin' && activeAdmins().length === 1) throw { message: 'Mantenha ao menos um administrador ativo.' };
-          const b = writeBatch(fs); b.update(doc(fs, 'users', u.id), { nome, role });
-          auditOp(b, 'Usuário editado', null, `${u.email} · ${ROLES[u.role]} → ${ROLES[role]}`); await b.commit();
+          const b = writeBatch(fs); b.update(doc(fs, 'users', u.id), { nome, role, contabilidades: ids });
+          syncPessoas(b, u.id, nome, role, u.ativo, ids, u.contabilidades || []);
+          auditOp(b, 'Usuário editado', null, `${u.email} · ${ROLES[u.role]} → ${ROLES[role]} · ${ids.map(contabNome).join(', ') || 'todas'}`); await b.commit();
         } else {
           const email = $('#m', d).value.toLowerCase().trim();
           const sec = initializeApp(firebaseConfig, 'sec' + Date.now()), sa = getAuth(sec);
           const cred = await createUserWithEmailAndPassword(sa, email, genPw());
           await signOut(sa);
-          const b = writeBatch(fs); b.set(doc(fs, 'users', cred.user.uid), { nome, email, role, ativo: true, criado: serverTimestamp() });
-          auditOp(b, 'Usuário criado', null, `${email} · ${ROLES[role]}`); await b.commit();
+          const b = writeBatch(fs); b.set(doc(fs, 'users', cred.user.uid), { nome, email, role, ativo: true, contabilidades: ids, criado: serverTimestamp() });
+          syncPessoas(b, cred.user.uid, nome, role, true, ids, []);
+          auditOp(b, 'Usuário criado', null, `${email} · ${ROLES[role]} · ${ids.map(contabNome).join(', ') || 'todas'}`); await b.commit();
           await sendPasswordResetEmail(auth, email);
           toast('Usuário criado. Um e-mail para definir a senha foi enviado.');
         }
@@ -405,14 +474,49 @@ async function userAction(a, u) {
     if (u.ativo && u.role === 'admin' && activeAdmins().length === 1) return toast('Mantenha ao menos um administrador ativo.');
     if (u.id === me.id) return toast('Você não pode bloquear a si mesmo.');
     const b = writeBatch(fs); b.update(doc(fs, 'users', u.id), { ativo: !u.ativo });
+    syncPessoas(b, u.id, u.nome, u.role, !u.ativo, u.contabilidades || [], u.contabilidades || []);
     auditOp(b, u.ativo ? 'Usuário bloqueado' : 'Usuário desbloqueado', null, u.email); await b.commit(); return route();
   }
   if (a === 'rm') {
     if (u.id === me.id) return toast('Você não pode remover a si mesmo.');
     if (u.ativo && u.role === 'admin' && activeAdmins().length === 1) return toast('Mantenha ao menos um administrador ativo.');
     confirmBox(`Remover o acesso de ${u.nome}? A conta de login continua existindo no Firebase (apague-a no console se necessário). Para uso temporário, prefira Bloquear.`, 'Remover acesso', async () => {
-      const b = writeBatch(fs); b.delete(doc(fs, 'users', u.id)); auditOp(b, 'Acesso de usuário removido', null, u.email); await b.commit(); route(); });
+      const b = writeBatch(fs); b.delete(doc(fs, 'users', u.id)); syncPessoas(b, u.id, u.nome, u.role, false, [], u.contabilidades || []);
+      auditOp(b, 'Acesso de usuário removido', null, u.email); await b.commit(); route(); });
   }
+}
+
+/* ---------- contabilidades (admin) ---------- */
+function renderContabs() {
+  const nextName = () => {
+    const nums = db.contabs.map(c => /^Contabilidade (\d+)$/.exec(c.nome)).filter(Boolean).map(m => +m[1]);
+    return 'Contabilidade ' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(2, '0');
+  };
+  bind = () => {
+    const create = guard(async nome => {
+      nome = nome.trim(); if (!nome) return toast('Informe o nome.');
+      if (db.contabs.some(c => c.nome.toLowerCase() === nome.toLowerCase())) return toast('Já existe uma contabilidade com este nome.');
+      const ref = doc(collection(fs, 'contabilidades')), b = writeBatch(fs);
+      b.set(ref, { nome, criado: serverTimestamp() }); auditOp(b, 'Contabilidade criada', null, nome); await b.commit();
+      toast(nome + ' criada.'); route();
+    });
+    $('#cf').onsubmit = e => { e.preventDefault(); create($('#cn').value); };
+    $('#cnext').onclick = () => create(nextName());
+    document.querySelectorAll('[data-ren]').forEach(btn => btn.onclick = () => {
+      const c = db.contabs.find(x => x.id === btn.dataset.ren);
+      modal(`<h3>Renomear contabilidade</h3><form id="rn"><label for="nn">Nome</label><input id="nn" required maxlength="100" value="${esc(c.nome)}"><div class="actions"><button class="primary">Salvar</button><button type="button" id="x">Cancelar</button></div></form>`, d => {
+        $('#x', d).onclick = () => d.close();
+        $('#rn', d).onsubmit = guard(async e => { e.preventDefault(); const nome = $('#nn', d).value.trim(); if (!nome) return;
+          const b = writeBatch(fs); b.update(doc(fs, 'contabilidades', c.id), { nome }); auditOp(b, 'Contabilidade renomeada', null, `${c.nome} → ${nome}`); await b.commit(); d.close(); route(); });
+      });
+    });
+  };
+  return `<div class="bar"><div><h1>Contabilidades</h1><p class="muted">Cada contabilidade tem registros, versões e auditoria próprios, isolados no servidor. Vincule usuários em <a href="#/usuarios">Usuários</a>.</p></div></div>
+    <div class="card"><form id="cf" class="row" style="align-items:end"><div><label for="cn" style="margin-top:0">Nova contabilidade</label><input id="cn" maxlength="100" placeholder="Nome do escritório"></div>
+    <div class="actions" style="margin:0"><button class="primary">Adicionar</button><button type="button" id="cnext">Criar “${esc(nextName())}”</button></div></form></div>
+    <div class="card tablewrap"><table><tr><th>Nome</th><th>Usuários vinculados</th><th></th></tr>${db.contabs.map(c => {
+      const us = db.users.filter(u => u.role !== 'admin' && u.ativo && (u.contabilidades || []).includes(c.id)).length;
+      return `<tr><td>${esc(c.nome)}</td><td>${us}</td><td style="text-align:right"><button data-ren="${esc(c.id)}">Renomear</button></td></tr>`; }).join('') || '<tr><td colspan="3" class="muted">Nenhuma contabilidade.</td></tr>'}</table></div>`;
 }
 
 /* ---------- categorias (admin) ---------- */
@@ -423,41 +527,60 @@ function renderCats() {
       const b = writeBatch(fs); b.set(doc(fs, 'config', 'app'), { lista: [...db.categorias, v] }); auditOp(b, 'Categoria criada', null, v); await b.commit(); route(); });
     document.querySelectorAll('[data-rc]').forEach(btn => btn.onclick = guard(async () => {
       const n = btn.dataset.rc;
-      if (db.records.some(r => cur(r).categoria === n)) return toast('Categoria em uso por registros; não pode ser removida.');
+      if (db.records.some(r => cur(r).categoria === n)) return toast('Categoria em uso por registros da contabilidade selecionada; não pode ser removida. (Registros de outras contabilidades não são verificados.)');
       const b = writeBatch(fs); b.set(doc(fs, 'config', 'app'), { lista: db.categorias.filter(x => x !== n) }); auditOp(b, 'Categoria removida', null, n); await b.commit(); route(); }));
   };
-  return `<div class="bar"><div><h1>Categorias</h1></div></div><div class="card"><form id="cf" class="row" style="align-items:end"><div><label for="cn" style="margin-top:0">Nova categoria</label><input id="cn" maxlength="80"></div><div><button class="primary">Adicionar</button></div></form></div>
+  return `<div class="bar"><div><h1>Categorias</h1><p class="muted">Lista única, compartilhada por todas as contabilidades.</p></div></div><div class="card"><form id="cf" class="row" style="align-items:end"><div><label for="cn" style="margin-top:0">Nova categoria</label><input id="cn" maxlength="80"></div><div><button class="primary">Adicionar</button></div></form></div>
     <div class="card tablewrap"><table>${catList().map(c => `<tr><td>${esc(c)}</td><td style="text-align:right"><button class="danger" data-rc="${esc(c)}">Remover</button></td></tr>`).join('')}</table></div>`;
 }
 
 /* ---------- backup (admin) ---------- */
+async function exportFirm(id) {
+  const prev = cid; cid = id;
+  try {
+    const regs = (await getDocs(rcol())).docs.map(d => ({ id: d.id, ...d.data() }));
+    const registros = [];
+    for (const r of regs) registros.push({ ...r, versoes: (await getDocs(vcol(r.id))).docs.map(d => d.data()) });
+    const auditoria = (await getDocs(collection(fs, 'contabilidades', id, 'auditoria'))).docs.map(d => d.data());
+    return { id, nome: contabNome(id), registros, auditoria };
+  } finally { cid = prev; }
+}
 function renderBackup() {
+  const toJson = o => JSON.stringify(o, (k, v) => (v && v.toMillis ? new Date(v.toMillis()).toISOString() : v));
   bind = () => {
     $('#bk').onclick = guard(async () => {
       $('#bk').disabled = true;
-      const out = { versao_app: VERSION, gerado: new Date().toISOString(), categorias: db.categorias, usuarios: db.users, registros: [] };
-      for (const r of db.records) {
-        const vs = (await getDocs(collection(fs, 'registros', r.id, 'versoes'))).docs.map(d => d.data());
-        out.registros.push({ ...r, versoes: vs });
-      }
-      out.auditoria = await loadAudit(5000);
-      download('lgpdsan-backup-' + today() + '.json', JSON.stringify(out, (k, v) => (v && v.toMillis ? new Date(v.toMillis()).toISOString() : v)), 'application/json');
-      await auditNow('Backup exportado'); $('#bk').disabled = false;
+      try {
+        const out = { versao_app: VERSION, gerado: new Date().toISOString(), categorias: db.categorias, contabilidade: await exportFirm(cid) };
+        download(`lgpdsan-backup-${contabNome(cid).replace(/\W+/g, '-')}-${today()}.json`, toJson(out), 'application/json');
+        await auditNow('Backup exportado (contabilidade)', null, contabNome(cid));
+      } finally { $('#bk').disabled = false; }
+    });
+    $('#bka').onclick = guard(async () => {
+      $('#bka').disabled = true;
+      try {
+        const out = { versao_app: VERSION, gerado: new Date().toISOString(), categorias: db.categorias, usuarios: db.users, contabilidades: [] };
+        for (const c of db.contabs) out.contabilidades.push(await exportFirm(c.id));
+        out.auditoria_sistema = await loadSysAudit(5000);
+        download('lgpdsan-backup-completo-' + today() + '.json', toJson(out), 'application/json');
+        await auditNow('Backup completo exportado', null, db.contabs.length + ' contabilidade(s)');
+      } finally { $('#bka').disabled = false; }
     });
   };
   return `<div class="bar"><div><h1>Backup</h1></div></div>
-    <div class="card"><h2>Exportar tudo (JSON)</h2><p class="muted">Registros com todas as versões, usuários, categorias e auditoria. Trate o arquivo como dado sensível. Importação automática e política de retenção ficam para versões futuras.</p>
-    <button class="primary" id="bk">Exportar backup</button></div>`;
+    <div class="card"><h2>Contabilidade selecionada: ${esc(contabNome(cid))}</h2><p class="muted">Registros com todas as versões e a auditoria desta contabilidade. Trate o arquivo como dado sensível.</p><button class="primary" id="bk">Exportar esta contabilidade</button></div>
+    <div class="card"><h2>Todas as contabilidades</h2><p class="muted">Inclui usuários, categorias e auditoria do sistema. Importação automática e política de retenção ficam para versões futuras.</p><button id="bka">Exportar tudo</button></div>`;
 }
 
 /* ---------- sobre ---------- */
 function renderAbout() {
   return `<div class="bar"><div><h1>Sobre</h1><p class="muted">LGPDSAN v${VERSION}</p></div></div>
-    <div class="card"><h2>Como a segurança funciona</h2><p>Login pelo Firebase Authentication. Permissões e auditoria são <b>aplicadas no servidor</b> pelas Regras do Firestore; esconder um botão na tela não é a proteção.</p>
-    <ul><li>Dados no Firestore, região São Paulo.</li><li>Auditoria somente de criação: nem o administrador altera eventos pelo app.</li><li>Versões de registros são imutáveis; só a exclusão permanente do registro as remove.</li></ul></div>
+    <div class="card"><h2>Como a segurança funciona</h2><p>Login pelo Firebase Authentication. Permissões, isolamento entre contabilidades e auditoria são <b>aplicados no servidor</b> pelas Regras do Firestore; esconder um botão na tela não é a proteção.</p>
+    <ul><li>Dados no Firestore, região São Paulo.</li><li>Cada contabilidade é isolada: usuários só leem e gravam nas contabilidades a que estão vinculados. Somente o Administrador acessa todas.</li><li>Auditoria somente de criação: nem o administrador altera eventos pelo app.</li><li>Versões de registros são imutáveis; só a exclusão permanente do registro as remove.</li></ul></div>
     <div class="card"><h2>Limitações conhecidas</h2><ul><li>Sem upload de arquivos (links/referências), sem e-mails de prazo e sem links temporários.</li>
     <li>Tentativas de login falhas não entram na auditoria (o servidor limita tentativas, mas o log fica no console do Firebase).</li>
-    <li>Sem política de retenção automática nem importação de backup.</li></ul></div>
+    <li>Sem política de retenção automática nem importação de backup.</li>
+    <li>Categorias são compartilhadas entre contabilidades. Não há administrador por contabilidade: usuários são gerenciados pelo Administrador geral.</li></ul></div>
     <div class="card"><h2>Versionamento do sistema</h2><p>SemVer (<code>MAIOR.MENOR.CORREÇÃO</code>). Veja o CHANGELOG no repositório.</p>
     <p>Desenvolvido por <b>SAN Conecta</b> — Conectando Empresas a Soluções · ${siteLink()}</p></div>`;
 }

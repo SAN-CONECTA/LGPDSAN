@@ -3,10 +3,11 @@
 Registro, versionamento e auditoria de boas práticas de conformidade com a LGPD.
 Publicação: https://san-conecta.github.io/LGPDSAN/
 
-**Versão atual: 2.1.0** (Firebase Auth + Firestore, regras no servidor)
+**Versão atual: 2.2.0** (Firebase Auth + Firestore, regras no servidor)
 
 ## O que o sistema faz
 - Perfis: Consulta, Edição, Administrador (matriz da especificação, seção 3.5)
+- Várias contabilidades (escritórios clientes) com isolamento de dados no servidor
 - Registros com categoria, status, prioridade, responsável, prazo e evidências (links)
 - Versionamento automático com justificativa obrigatória, comparação palavra a palavra e restauração (cria nova versão)
 - Exclusão lógica, restauração e exclusão permanente (somente Administrador)
