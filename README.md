@@ -3,7 +3,7 @@
 Registro, versionamento e auditoria de boas práticas de conformidade com a LGPD.
 Publicação: https://san-conecta.github.io/LGPDSAN/
 
-**Versão atual: 1.0.0** (protótipo estático — ver limitações)
+**Versão atual: 2.0.0** (Firebase Auth + Firestore, regras no servidor)
 
 ## O que a v1.0 faz
 - Perfis: Consulta, Edição, Administrador (matriz da especificação, seção 3.5)
@@ -13,12 +13,12 @@ Publicação: https://san-conecta.github.io/LGPDSAN/
 - Auditoria (Consulta vê apenas eventos de registros acessíveis)
 - Usuários, categorias, backup/importação JSON, exportação CSV, impressão de relatório
 
-## Limitações (leia antes de usar)
-Sem servidor, os dados ficam no `localStorage` do navegador e login/permissões são aplicados no cliente:
-**não são segurança real. Não cadastre dados pessoais reais.** A v2.0 move isso para backend com autenticação.
+## Segurança
+Login pelo Firebase Authentication; permissões e auditoria aplicadas pelas Regras do Firestore (`firestore.rules`). Setup em `docs/FIREBASE.md`.
+A v1.0 (localStorage) não deve ser usada com dados reais.
 
 ## Executar localmente
-Abra `index.html` ou `python3 -m http.server`. Contas demo estão na tela de login.
+`python3 -m http.server` e abra http://localhost:8000 (módulos ES não funcionam via file://).
 
 ## Versionamento do sistema
 SemVer (`MAIOR.MENOR.CORREÇÃO`). Mudanças em `CHANGELOG.md`; a constante `VERSION` fica em `assets/app.js`.

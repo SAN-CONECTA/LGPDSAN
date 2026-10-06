@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function uPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function active() { return request.auth != null && exists(uPath()) && get(uPath()).data.ativo == true; }
+    function role() { return get(uPath()).data.role; }
+    function isAdmin() { return active() && role() == 'admin'; }
+    function canEdit() { return active() && role() in ['admin', 'edicao']; }
+
+    function validSnap(s) {
+      return s.titulo is string && s.titulo.size() > 0 && s.titulo.size() <= 200
+        && s.descricao is string && s.descricao.size() <= 20000
+        && s.evidencias is string && s.evidencias.size() <= 5000
+        && s.status in ['Rascunho', 'Em vigor', 'Em revisão', 'Arquivado']
+        && s.prioridade in ['Baixa', 'Média', 'Alta']
+        && s.categoria is string && s.responsavel is string && s.prazo is string;
+    }
+
+    // Perfis. Somente o administrador cria/altera/remove. Edição lista (para o campo Responsável).
+    match /users/{uid} {
+      allow get: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow list: if canEdit();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /config/{doc} {
+      allow read: if active();
+      allow write: if isAdmin() && request.resource.data.lista is list;
+    }
+
+    match /registros/{id} {
+      allow read: if active() && (resource.data.deleted == false || isAdmin());
+      allow create: if canEdit()
+        && validSnap(request.resource.data.snap)
+        && request.resource.data.versao == 1
+        && request.resource.data.deleted == false
+        && (isAdmin() || request.resource.data.snap.status != 'Arquivado');
+      allow update: if (isAdmin() && validSnap(request.resource.data.snap))
+        || (active() && role() == 'edicao'
+            && resource.data.deleted == false && request.resource.data.deleted == false
+            && resource.data.snap.status != 'Arquivado' && request.resource.data.snap.status != 'Arquivado'
+            && validSnap(request.resource.data.snap)
+            && request.resource.data.versao == resource.data.versao + 1);
+      allow delete: if isAdmin();
+
+      // Versões são imutáveis; só o administrador apaga (exclusão permanente do registro).
+      match /versoes/{n} {
+        allow read: if active() && (get(/databases/$(database)/documents/registros/$(id)).data.deleted == false || isAdmin());
+        allow create: if canEdit() && request.resource.data.autorId == request.auth.uid
+          && validSnap(request.resource.data.snap);
+        allow update: if false;
+        allow delete: if isAdmin();
+      }
+    }
+
+    // Auditoria: só cria, nunca edita nem apaga. Consulta lê apenas eventos ligados a registros.
+    match /auditoria/{id} {
+      allow read: if canEdit() || (active() && role() == 'consulta' && resource.data.escopo == 'registro');
+      allow create: if active()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.ts == request.time
+        && request.resource.data.user == get(uPath()).data.nome
+        && request.resource.data.role == role()
+        && request.resource.data.escopo in ['registro', 'sistema']
+        && request.resource.data.acao is string;
+      allow update, delete: if false;
+    }
+  }
+}

@@ -8,7 +8,7 @@
 ## v1.1 — ajustes de uso
 - [ ] Revisar textos/campos com o escritório (feedback de uso real)
 - [ ] Modelos de registro por categoria (ROPA, resposta a titular, incidente)
-## v2.0 — backend real (pré-requisito para dados reais)
+## v2.0 — backend real (ENTREGUE em 2026-10-06; itens abaixo = o que ficou de fora)
 - [ ] Escolher stack (ex.: Supabase/Postgres com RLS, ou API própria) e região de hospedagem no Brasil
 - [ ] Autenticação real (e-mail+senha com MFA), sessões, recuperação de senha
 - [ ] Permissões aplicadas no servidor (RLS) conforme matriz da seção 3.5
