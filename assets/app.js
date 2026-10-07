@@ -3,10 +3,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
   createUserWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js?v=2.7.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.7.0';
+import { firebaseConfig } from './firebase-config.js?v=2.8.0';
+import { BIBLIO } from './biblioteca.js?v=2.8.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.8.0';
 
-const VERSION = '2.7.0';
+const VERSION = '2.8.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -152,7 +153,7 @@ const responsaveis = () => [...new Set([me.nome, ...db.pessoas.map(p => p.nome)]
 /* ---------- roteamento ---------- */
 const app = $('#app');
 const routes = [
-  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true],
+  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio],
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
@@ -168,6 +169,7 @@ async function route() {
   const h = location.hash || '#/';
   let view, main = h, needs = false, recRoute = null;
   if (h.startsWith('#/registro/')) { const p = h.split('/'); recRoute = { c: p[2], id: p[3] }; main = '#/registros'; needs = true; }
+  else if (h.startsWith('#/biblioteca/')) { main = '#/biblioteca'; const slug = h.slice(13); view = () => renderBiblioDoc(slug); }
   else {
     const r = routes.find(x => x[0] === h) || routes[0];
     main = r[0]; needs = !!r[4];
@@ -638,6 +640,29 @@ function renderBackup() {
 }
 
 /* ---------- sobre ---------- */
+function renderBiblio() {
+  return `<div class="bar"><div><h1>Biblioteca</h1><p class="muted">Documentos de referência usados nos checklists. Somente leitura.</p></div></div>
+    <div class="notice"><b>Atenção:</b> todos os documentos recebidos estão incompletos e alguns têm citações legais incorretas. As correções ficam em "Notas de revisão", no guia de cada categoria. Não use os prazos e artigos dos documentos sem validação jurídica.</div>
+    <div class="card tablewrap"><table><thead><tr><th>Documento</th><th>Termina em</th><th>Checklist</th></tr></thead><tbody>
+    ${BIBLIO.map(b => `<tr><td><a href="#/biblioteca/${b.slug}"><b>${esc(b.titulo)}</b></a></td><td class="small muted">${esc(b.fim)}</td><td><span class="tag ${GUIAS[b.cat] ? 'brand' : ''}">${esc(b.cat)}</span></td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+async function renderBiblioDoc(slug) {
+  const b = BIBLIO.find(x => x.slug === slug);
+  if (!b) return `<h1>Documento não encontrado</h1><p><a href="#/biblioteca">Voltar à Biblioteca</a></p>`;
+  let corpo;
+  try {
+    const r = await fetch(`biblioteca/${b.slug}.html?v=${VERSION}`, { cache: 'no-cache' });
+    if (!r.ok) throw new Error(String(r.status));
+    corpo = await r.text();
+  } catch (e) { corpo = `<p class="muted">Não foi possível carregar o documento (${esc(e.message)}).</p>`; }
+  const g = guiaDe(b.cat);
+  bind = () => { const n = $('#bnotas'); if (n && g) n.onclick = () => { const d = document.createElement('dialog'); d.innerHTML = `<div class="guide-ref"><h2>${esc(g.titulo)} · referência</h2>${g.referencia}</div><div class="actions"><button id="bx">Fechar</button></div>`; document.body.appendChild(d); d.showModal(); $('#bx', d).onclick = () => { d.close(); d.remove(); }; d.onclose = () => d.remove(); }; };
+  return `<div class="bar"><div><p class="small"><a href="#/biblioteca">← Biblioteca</a></p><h1>${esc(b.titulo)}</h1><p class="muted small">Documento recebido, somente leitura. Termina em: ${esc(b.fim)}.</p></div>
+    <div class="actions" style="margin:0"><a class="btn" href="biblioteca/${b.slug}.docx" download>Baixar original (.docx)</a>${g ? '<button id="bnotas">Notas de revisão</button>' : ''}</div></div>
+    <div class="card doc">${corpo}</div>`;
+}
+
 function renderAbout() {
   return `<div class="bar"><div><h1>Sobre</h1><p class="muted">LGPDSAN v${VERSION}</p></div></div>
     <div class="card"><h2>Como a segurança funciona</h2><p>Login pelo Firebase Authentication. Permissões, isolamento entre contabilidades e auditoria são <b>aplicados no servidor</b> pelas Regras do Firestore; esconder um botão na tela não é a proteção.</p>

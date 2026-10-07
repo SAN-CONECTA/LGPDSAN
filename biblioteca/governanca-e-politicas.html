@@ -1,0 +1,221 @@
+<h1>Governança e Políticas LGPD</h1>
+<p>Guia Completo para Escritório de Contabilidade</p>
+<p><strong>Documento de Referência e Implementação</strong></p>
+<p><strong>Data de Emissão:</strong> 6 de outubro de 2026</p>
+<p><strong>Versão:</strong> 1.0</p>
+<h2>1. INTRODUÇÃO E OBJETIVOS</h2>
+<p>A Lei Geral de Proteção de Dados Pessoais (LGPD — Lei nº 13.709/2018) estabelece diretrizes obrigatórias para o tratamento de dados pessoais no Brasil. Para escritórios de contabilidade, que lidam com informações sensíveis como CPF, CNPJ, dados financeiros, históricos fiscais e informações de sócios e funcionários, a conformidade com a LGPD não é apenas uma recomendação legal, mas uma exigência fundamental.</p>
+<p>Este documento apresenta um framework completo de <strong>Governança e Políticas</strong> adaptado especificamente para escritórios de contabilidade, cobrindo estrutura organizacional, proteção de dados, procedimentos operacionais, treinamento, documentação e resposta a incidentes.</p>
+<p><strong>Objetivos deste guia:</strong></p>
+<ul>
+<li><p>Estabelecer claramente papéis e responsabilidades na organização</p></li>
+<li><p>Definir políticas de coleta, armazenamento, compartilhamento e eliminação de dados</p></li>
+<li><p>Garantir conformidade contínua com a LGPD e legislação correlata (fiscal, trabalhista)</p></li>
+<li><p>Proteger dados pessoais contra vazamentos e abusos</p></li>
+<li><p>Criar procedimentos padrão para atender direitos dos titulares</p></li>
+<li><p>Documentar decisões e manter auditoria rastreável</p></li>
+<li><p>Preparar a organização para possíveis fiscalizações da ANPD (Autoridade Nacional de Proteção de Dados)</p></li>
+</ul>
+<h2>2. ESTRUTURA DE GOVERNANÇA</h2>
+<h3>2.1 Hierarquia e Papéis Definidos</h3>
+<p>A governança de proteção de dados em um escritório de contabilidade deve seguir uma estrutura clara, com delegação de responsabilidades e níveis de acesso apropriados para cada função.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>Papel</strong></td>
+<td><strong>Responsabilidades Principais</strong></td>
+<td><strong>Nível de Acesso</strong></td>
+<td><strong>Reporta a</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Controlador de Dados (Sócio/Diretor)</strong></td>
+<td>Define finalidades do tratamento; autoriza políticas; responde a órgãos reguladores (ANPD); aprova orçamento para conformidade; decide sobre compartilhamentos com terceiros; assina declarações de conformidade</td>
+<td>Executivo total</td>
+<td>Conselho/Assembleia (se houver)</td>
+</tr>
+<tr class="odd">
+<td><strong>DPO (Encarregado de Proteção de Dados)</strong></td>
+<td>Supervisiona conformidade LGPD; monitora cumprimento de políticas; recebe e investiga reclamações; coordena auditorias internas; notifica à ANPD em caso de incidentes; assessora em novas iniciativas; mantém registro de atividades de tratamento (RRPD)</td>
+<td>Administrativo total</td>
+<td>Controlador (direto)</td>
+</tr>
+<tr class="even">
+<td><strong>Gestor de Dados / Data Manager</strong></td>
+<td>Cataloga todos os dados da organização; define e monitora prazos de retenção; autoriza compartilhamentos internos; coordena eliminação segura; mantém inventário atualizado; reporta riscos detectados</td>
+<td>Gerencial (acesso a metadados e políticas)</td>
+<td>DPO</td>
+</tr>
+<tr class="odd">
+<td><strong>Responsável de TI / Segurança da Informação</strong></td>
+<td>Implementa medidas técnicas de segurança (criptografia, firewall, backup); gerencia autenticação e controle de acesso; registra logs de atividade; responde a incidentes técnicos; realiza testes de penetração; mantém documentação técnica</td>
+<td>Técnico/Administrativo</td>
+<td>DPO</td>
+</tr>
+<tr class="even">
+<td><strong>Analista / Contador (Operador)</strong></td>
+<td>Processa dados conforme instruções do controlador; não compartilha dados sem autorização; reporta acessos suspeitos ou incidentes; participa de treinamentos; segue procedimentos de segurança</td>
+<td>Operacional (acesso restrito a dados necessários para função)</td>
+<td>Coordenador operacional / DPO</td>
+</tr>
+<tr class="odd">
+<td><strong>Responsável de RH</strong></td>
+<td>Garante que contratos de trabalho incluam cláusulas LGPD; coordena revogação de acesso ao desligar funcionário; participa de treinamentos; reporta incidentes envolvendo funcionários</td>
+<td>Administrativo (acesso a dados de pessoal)</td>
+<td>DPO</td>
+</tr>
+<tr class="even">
+<td><strong>Responsável Jurídico</strong></td>
+<td>Analisa bases legais para cada tratamento; elabora e revisa contratos com clientes/fornecedores (cláusulas de proteção de dados); prepara respostas a solicitações de direitos; acompanha legislação correlata (fiscal, trabalhista)</td>
+<td>Administrativo</td>
+<td>Controlador / DPO</td>
+</tr>
+</tbody>
+</table>
+<h3>2.2 Comitê de Conformidade LGPD</h3>
+<p><strong>Propósito:</strong> Órgão colegiado responsável por revisar políticas, autorizar novos tratamentos de dados, investigar incidentes e garantir que a organização permaneça em conformidade contínua.</p>
+<p><strong>Composição:</strong></p>
+<ul>
+<li><p>DPO (presidente do comitê)</p></li>
+<li><p>Controlador ou representante executivo</p></li>
+<li><p>Responsável de TI / Segurança</p></li>
+<li><p>Responsável Jurídico</p></li>
+<li><p>Gestor de Dados</p></li>
+<li><p>Responsável de RH (quando temas trabalhistas forem relevantes)</p></li>
+</ul>
+<p><strong>Frequência de Reuniões:</strong> Trimestral, mínimo. Reuniões extraordinárias podem ser convocadas em caso de incidente ou nova iniciativa de negócio que envolva tratamento de dados.</p>
+<p><strong>Agenda Padrão:</strong></p>
+<ul>
+<li><p>Revisão de conformidade do trimestre anterior</p></li>
+<li><p>Análise de novos pedidos de acesso, retificação, exclusão (direitos dos titulares)</p></li>
+<li><p>Avaliação de incidentes de segurança reportados</p></li>
+<li><p>Aprovação de novas políticas ou alterações</p></li>
+<li><p>Avaliação de riscos em novos projetos</p></li>
+<li><p>Status de treinamentos e auditorias</p></li>
+<li><p>Atualização de legislação correlata</p></li>
+</ul>
+<p><strong>Registro e Atas:</strong></p>
+<ul>
+<li><p>Cada reunião deve gerar <strong>ata documentada</strong> com data, participantes, decisões, responsáveis e prazos</p></li>
+<li><p>Atas devem ser armazenadas em local seguro (acesso restrito a membros do comitê)</p></li>
+<li><p>Atas servem como prova de conformidade durante auditorias</p></li>
+</ul>
+<p><strong>Exemplo de Estrutura de Ata:</strong></p>
+<blockquote>
+<p><strong>ATA DE REUNIÃO — COMITÊ DE CONFORMIDADE LGPD</strong>Data: __/__/____Participantes: [Nomes]Ausentes: [Nomes]1. Assuntos Tratados: a) Análise de 5 pedidos de acesso a dados recebidos em setembro — Responsável: Gestor de Dados — Status: Todos atendidos em até 20 dias — Decisão: Continuar acompanhamento próximo mês b) Incidente de Segurança — Tentativa de acesso não autorizado a base de clientes — Responsável: TI — Descrição: IP suspeito tentou fazer login em 3 ocasiões (15/09, 16/09, 17/09) — Ação: Conta bloqueada; password resetada; logs analisados — Decisão: Implementar MFA para todos os usuários até 31/10/2026 — Responsável: TI (prazo 31/10/2026) c) Revisão de Cláusulas LGPD em Contratos com Novos Fornecedores — Responsável: Jurídico — Fornecedor: Cloud Storage ABC — Status: Cláusulas conformes. Contrato aprovado. 2. Próximas Ações: — DPO: Coordenar auditoria interna em novembro — TI: Implementar MFA até 31/10/2026 — RH: Garantir treinamento de novo funcionário sobre LGPD até 20/103. Próxima Reunião: __/__/____ às __ horasAssinado digitalmente por: [Nomes dos membros presentes]</p>
+</blockquote>
+<h2>3. POLÍTICA DE PROTEÇÃO DE DADOS</h2>
+<h3>3.1 Princípios Fundadores (Artigo 6º da LGPD)</h3>
+<p>Toda atividade de tratamento de dados na organização deve estar fundamentada em <strong>pelo menos um destes princípios</strong>, conforme exigido pela Lei 13.709/2018:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>Princípio</strong></td>
+<td><strong>Significado</strong></td>
+<td><strong>Aplicação em Escritório de Contabilidade</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Legalidade</strong></td>
+<td>Todo tratamento de dados deve ter amparo legal (lei, contrato, consentimento informado ou outra base legal válida)</td>
+<td>Dados de clientes são tratados por contrato de serviço. Dados fiscais, por obrigação legal. Marketing, por consentimento.</td>
+</tr>
+<tr class="odd">
+<td><strong>Finalidade</strong></td>
+<td>Dados coletados para uma finalidade específica não podem ser reutilizados para fim diferente sem nova base legal</td>
+<td>CPF coletado para declaração fiscal não pode ser usado para marketing sem consentimento adicional.</td>
+</tr>
+<tr class="even">
+<td><strong>Adequação</strong></td>
+<td>Dados coletados devem ser apropriados e pertinentes à finalidade declarada</td>
+<td>Não coletar data de nascimento de cliente se informação não é necessária para prestar serviço contábil.</td>
+</tr>
+<tr class="odd">
+<td><strong>Necessidade</strong></td>
+<td>Dados coletados devem ser limitados ao que é necessário; sem excesso</td>
+<td>Para receber relatório mensal, precisa de email. Não precisa de telefone residencial ou endereço pessoal se comunicação é digital.</td>
+</tr>
+<tr class="even">
+<td><strong>Livre Acesso</strong></td>
+<td>Titulares devem poder acessar, consultar e atualizar dados de forma facilitada</td>
+<td>Disponibilizar portal de autoatendimento ou responder em até 20 dias a pedidos de acesso.</td>
+</tr>
+<tr class="odd">
+<td><strong>Qualidade</strong></td>
+<td>Dados devem ser corretos, completos, precisos e mantidos atualizados</td>
+<td>Implementar procedimento de revisão periódica de endereços, telefones, emails. Corrigir dados inexatos ou desatualizados.</td>
+</tr>
+<tr class="even">
+<td><strong>Transparência</strong></td>
+<td>Titular deve ser informado de forma clara e compreensível sobre coleta, uso e compartilhamento de seus dados</td>
+<td>Fornecer Aviso de Privacidade claro, em linguagem simples, explicando como dados serão usados.</td>
+</tr>
+<tr class="odd">
+<td><strong>Segurança</strong></td>
+<td>Dados devem ser protegidos contra acesso não autorizado, vazamento, alteração ou destruição</td>
+<td>Implementar criptografia, firewall, controle de acesso, backup seguro.</td>
+</tr>
+<tr class="even">
+<td><strong>Responsabilização</strong></td>
+<td>Organização deve manter registros demonstrando que está em conformidade (accountability)</td>
+<td>Manter RRPD atualizado, registrar consentimentos, documentar decisões do Comitê.</td>
+</tr>
+</tbody>
+</table>
+<h3>3.2 Bases Legais para Tratamento de Dados</h3>
+<p>A LGPD (Art. 7º) define as bases legais que legitimam o tratamento de dados pessoais. Cada tipo de dado coletado deve estar vinculado a <strong>pelo menos uma base legal</strong>.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>Base Legal</strong></td>
+<td><strong>Definição</strong></td>
+<td><strong>Exemplos em Contabilidade</strong></td>
+<td><strong>Requisitos</strong></td>
+</tr>
+<tr class="even">
+<td><strong>I — Consentimento</strong></td>
+<td>Titular concorda, de forma informada e explícita, com o tratamento</td>
+<td>Marketing por email; cookies de rastreamento; pesquisa de satisfação</td>
+<td>Consentimento deve ser: obtido antes do tratamento; informado (transparente); específico (não genérico); livre (sem coação); revogável</td>
+</tr>
+<tr class="odd">
+<td><strong>II — Contrato</strong></td>
+<td>Tratamento é necessário para executar contrato ou relação pré-contratual</td>
+<td>Dados de cliente para prestar serviço contábil; dados para enviar notas fiscais; dados para processar pagamento</td>
+<td>Dado deve ser essencial para a relação contratual. Se não fornecer, cliente não recebe serviço.</td>
+</tr>
+<tr class="even">
+<td><strong>III — Obrigação Legal</strong></td>
+<td>Lei, norma ou regulação exige o tratamento</td>
+<td>Dados fiscais (5 anos); dados trabalhistas (conforme CLT); dados para compliance com fisco, receita, auditoria</td>
+<td>Deve haver cita legal ou normativa. Prazo de retenção é definido por lei.</td>
+</tr>
+<tr class="odd">
+<td><strong>IV — Tutela de Vida</strong></td>
+<td>Tratamento é necessário para proteger vida ou saúde (rara em contabilidade)</td>
+<td>Informações de emergência de funcionários (contato de parente próximo)</td>
+<td>Aplicável apenas quando vida está em risco.</td>
+</tr>
+<tr class="even">
+<td><strong>V — Exercício de Direito</strong></td>
+<td>Dados são tratados para defender direito em juízo ou processo administrativo</td>
+<td>Documentos para defesa em auditoria fiscal; evidência em disputa com cliente</td>
+<td>Aplicável apenas para fins de defesa legal.</td>
+</tr>
+</tbody>
+</table>

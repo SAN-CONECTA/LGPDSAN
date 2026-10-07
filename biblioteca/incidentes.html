@@ -1,0 +1,300 @@
+<h1>Incidentes — LGPD para Escritório de Contabilidade</h1>
+<p>Este documento estabelece o framework completo para identificação, classificação, resposta e remediação de incidentes de segurança da informação e proteção de dados pessoais em conformidade com a Lei Geral de Proteção de Dados Pessoais (LGPD — Lei nº 13.709/2018) e legislação contábil aplicável.</p>
+<h2>1. Definição e Classificação de Incidentes</h2>
+<h3>1.1 O que é um Incidente de Segurança?</h3>
+<p>Um <strong>incidente de segurança da informação</strong> é qualquer evento não planejado ou ação maliciosa que comprometa a confidencialidade, integridade ou disponibilidade de dados pessoais no ambiente do escritório de contabilidade.</p>
+<p>Na prática LGPD, incidente é qualquer situação que resulte em:</p>
+<ul>
+<li><p>Acesso não autorizado a dados pessoais</p></li>
+<li><p>Perda, corrupção ou destruição acidental de dados</p></li>
+<li><p>Vazamento de informações confidenciais</p></li>
+<li><p>Violação de privacidade ou sigilo profissional</p></li>
+<li><p>Indisponibilidade de dados ou serviços críticos</p></li>
+<li><p>Modificação não autorizada de registros</p></li>
+</ul>
+<h3>1.2 Classificação por Tipo</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>Tipo de Incidente</strong></td>
+<td><strong>Descrição</strong></td>
+<td><strong>Exemplo Prático</strong></td>
+<td><strong>Nível de Severidade</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Vazamento de Dados</strong></td>
+<td>Divulgação não autorizada de dados pessoais para terceiros</td>
+<td>Email contábil com CPF de cliente encaminhado para endereço errado</td>
+<td>Alto</td>
+</tr>
+<tr class="odd">
+<td><strong>Acesso Não Autorizado</strong></td>
+<td>Terceiro obtém acesso a sistemas ou arquivos sem permissão</td>
+<td>Hacker acessa base de clientes via credencial roubada</td>
+<td>Crítico</td>
+</tr>
+<tr class="even">
+<td><strong>Perda de Integridade</strong></td>
+<td>Dados são alterados, corrompidos ou deletados sem autorização</td>
+<td>Planilha de folha de pagamento alterada por malware</td>
+<td>Alto</td>
+</tr>
+<tr class="odd">
+<td><strong>Violação de Sigilo Profissional</strong></td>
+<td>Compartilhamento de informações confidenciais do cliente sem consentimento</td>
+<td>Contador compartilha dados fiscais em conversa informal</td>
+<td>Alto</td>
+</tr>
+<tr class="even">
+<td><strong>Indisponibilidade de Dados</strong></td>
+<td>Impossibilidade de acessar dados críticos (ransomware, outage)</td>
+<td>Servidor de backup fica offline durante 8 horas</td>
+<td>Médio a Alto</td>
+</tr>
+<tr class="odd">
+<td><strong>Exposição de Senha ou Credencial</strong></td>
+<td>Credenciais de acesso são comprometidas ou expostas</td>
+<td>Senha do administrador vazada em fórum público</td>
+<td>Crítico</td>
+</tr>
+<tr class="even">
+<td><strong>Acesso de Privilégio Elevado Anômalo</strong></td>
+<td>Usuário acessa dados além do necessário para sua função</td>
+<td>Analista junior consulta documentos de cliente que não é seu</td>
+<td>Médio</td>
+</tr>
+<tr class="odd">
+<td><strong>Dispositivo Perdido ou Roubado</strong></td>
+<td>Computador, notebook ou celular contendo dados pessoais desaparece</td>
+<td>Laptop de contador com base de clientes é roubado do carro</td>
+<td>Alto</td>
+</tr>
+</tbody>
+</table>
+<h3>1.3 Classificação por Nível de Severidade</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>Nível</strong></td>
+<td><strong>Critério</strong></td>
+<td><strong>Tempo Máximo de Resposta</strong></td>
+<td><strong>Escalação</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Crítico</strong></td>
+<td>Acesso a grande volume de dados sensíveis (CPF, dados bancários); comprometimento de sistema central; impossibilidade de prestar serviço</td>
+<td>Imediato (até 1 hora)</td>
+<td>DPO + Diretor + Jurídico + Órgãos Reguladores</td>
+</tr>
+<tr class="odd">
+<td><strong>Alto</strong></td>
+<td>Vazamento de dados de múltiplos clientes; alteração de registros fiscais; violação de sigilo profissional</td>
+<td>Até 4 horas</td>
+<td>DPO + Gestor de TI + Responsável da Área</td>
+</tr>
+<tr class="even">
+<td><strong>Médio</strong></td>
+<td>Exposição de dados de até 3 clientes; acesso não autorizado limitado; indisponibilidade parcial</td>
+<td>Até 8 horas</td>
+<td>DPO + Responsável de TI</td>
+</tr>
+<tr class="odd">
+<td><strong>Baixo</strong></td>
+<td>Suspeita de acesso anômalo; alerta isolado em log; falha menor de segurança detectada</td>
+<td>Até 24 horas</td>
+<td>Responsável de TI (documentação)</td>
+</tr>
+</tbody>
+</table>
+<h2>2. Protocolo de Detecção e Identificação</h2>
+<h3>2.1 Monitoramento Contínuo</h3>
+<p>O escritório deve implementar sistemas e procedimentos de monitoramento para detecção precoce de incidentes:</p>
+<ul>
+<li><p><strong>Monitoramento de Logs:</strong> Análise diária de registros de acesso (quem, quando, o quê, resultado)</p></li>
+<li><p><strong>Alertas de Sistema:</strong> Notificações automáticas de atividades anômalas (múltiplas tentativas de login falhadas, acesso fora de horário, transferências de dados em massa)</p></li>
+<li><p><strong>Análise de Tráfego de Rede:</strong> Monitoramento de conexões suspeitas, transferências para IPs desconhecidos, tentativas de exfiltração</p></li>
+<li><p><strong>Integridade de Dados:</strong> Verificações periódicas de hash/checksum para detectar modificações não autorizadas</p></li>
+<li><p><strong>Antivírus e Antimalware:</strong> Atualização contínua com scanning automático diário</p></li>
+<li><p><strong>Monitoramento de Backup:</strong> Confirmação diária que backups executaram com sucesso</p></li>
+<li><p><strong>Auditoria de Acesso Físico:</strong> Registro de entrada/saída de servidores, câmeras de vigilância, controle de chaves</p></li>
+</ul>
+<h3>2.2 Canais de Denúncia e Reporte</h3>
+<p>Colaboradores e terceiros devem ter meios claros para reportar incidentes suspeitos:</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>Canal</strong></td>
+<td><strong>Responsável</strong></td>
+<td><strong>Disponibilidade</strong></td>
+<td><strong>Confidencialidade</strong></td>
+</tr>
+<tr class="even">
+<td>Email do DPO</td>
+<td>Encarregado de Proteção de Dados</td>
+<td>24/7</td>
+<td>Garantida</td>
+</tr>
+<tr class="odd">
+<td>Telefone de Emergência de TI</td>
+<td>Gestor de Segurança da Informação</td>
+<td>Horário comercial + on-call</td>
+<td>Registrada</td>
+</tr>
+<tr class="even">
+<td>Formulário Anônimo Online</td>
+<td>DPO / Jurídico</td>
+<td>24/7</td>
+<td>Proteção de identidade do denunciante</td>
+</tr>
+<tr class="odd">
+<td>Pessoalmente ao DPO ou Diretor</td>
+<td>Conforme hierarquia</td>
+<td>Horário comercial</td>
+<td>Sigilo profissional</td>
+</tr>
+</tbody>
+</table>
+<h3>2.3 Indicadores de Comprometimento (IOCs)</h3>
+<p>Sinais que indicam possível incidente em andamento:</p>
+<ul>
+<li><p>Aumento anômalo de falhas de autenticação em conta específica</p></li>
+<li><p>Acesso simultâneo de mesma conta de múltiplos IPs ou localizações geograficamente impossíveis</p></li>
+<li><p>Criação de contas de usuário não autorizada</p></li>
+<li><p>Modificação de permissões de arquivo ou pasta sem aprovação</p></li>
+<li><p>Emails contendo anexos maliciosos ou links suspeitos recebidos em massa</p></li>
+<li><p>Desempenho degradado de sistema ou rede sem causa óbvia</p></li>
+<li><p>Arquivos criptografados com extensão desconhecida (.locked, .enc, etc.)</p></li>
+<li><p>Ausência de backups esperados ou arquivos de backup deletados</p></li>
+<li><p>Relatórios mencionando dados inexatos ou alterados</p></li>
+<li><p>Cliente relata recebimento de email que nunca foi enviado pelo escritório</p></li>
+</ul>
+<h3>2.4 Logs e Auditoria</h3>
+<p>Todos os acessos devem ser registrados com rastreabilidade completa:</p>
+<p>Informações obrigatórias em log: - Data e hora exata do acesso - Usuário/ID responsável - Tipo de ação (leitura, edição, deleção, download) - Arquivo ou recurso acessado - Resultado (sucesso/falha) - Endereço IP de origem - Navegador/dispositivo utilizado (se web) - Localização geográfica (se possível)</p>
+<p>Retenção de logs: Mínimo 12 meses; logs de acesso administrativo: mínimo 24 meses.</p>
+<h2>3. Procedimento de Resposta Imediata</h2>
+<h3>3.1 Primeiros 30 Minutos — Contenção</h3>
+<p>Objetivo: Parar a progressão do incidente e evitar dano adicional.</p>
+<ol type="1">
+<li><p><strong>Recebimento da Denúncia:</strong> Pessoa que detecta incidente imediatamente reporta via canal oficializado (email DPO, telefone TI, formulário).</p></li>
+<li><p><strong>Confirmação:</strong> DPO ou Gestor de TI confirma a existência do incidente (não é falso alarme).</p></li>
+<li><p><strong>Isolamento de Sistema:</strong> Se for comprometimento ativo:</p>
+<ul>
+<li><p>Desconectar máquina da rede (cabo de rede e WiFi)</p></li>
+<li><p>Não desligar computador (para preservar memória e logs)</p></li>
+<li><p>Se malware/ransomware suspeito: isolar imediatamente e não clicar em arquivos suspeitos</p></li>
+</ul></li>
+<li><p><strong>Congelamento de Conta:</strong> Se credencial comprometida:</p>
+<ul>
+<li><p>Resetar senha imediatamente</p></li>
+<li><p>Revogar token/sessões ativas</p></li>
+<li><p>Bloquear acesso até investigação</p></li>
+</ul></li>
+<li><p><strong>Documentação Inicial:</strong> Registrar:</p>
+<ul>
+<li><p>Hora exata do incidente (ou primeira detecção)</p></li>
+<li><p>Descrição do que foi observado</p></li>
+<li><p>Sistemas/dados potencialmente afetados</p></li>
+<li><p>Primeiras ações tomadas</p></li>
+<li><p>Nome de quem reportou e de quem respondeu</p></li>
+</ul></li>
+</ol>
+<h3>3.2 Primeiras 4 Horas — Avaliação Inicial</h3>
+<ol type="1">
+<li><p><strong>Ativar Equipe de Resposta:</strong> Reunir em <strong>conference call ou presencialmente</strong>:</p>
+<ul>
+<li><p>DPO (líder da resposta)</p></li>
+<li><p>Gestor de TI / Segurança</p></li>
+<li><p>Responsável pela área afetada (ex: contador responsável pelos clientes)</p></li>
+<li><p>Jurídico (se vazamento confirmado)</p></li>
+<li><p>Diretor/Sócio (comunicação)</p></li>
+</ul></li>
+<li><p><strong>Investigação Preliminar:</strong> Responder:</p>
+<ul>
+<li><p>Qual é a origem do incidente? (ataque externo, erro humano, falha técnica)</p></li>
+<li><p>Quando começou? (exata ou estimada)</p></li>
+<li><p>Quais dados foram afetados? (listar categorias e volume)</p></li>
+<li><p>Quantas pessoas foram afetadas? (titulares de dados)</p></li>
+<li><p>O incidente está em andamento ou já foi controlado?</p></li>
+</ul></li>
+<li><p><strong>Coletar Evidências:</strong> Técnico de TI realiza:</p>
+<ul>
+<li><p>Captura forense de memória (se ainda ligado)</p></li>
+<li><p>Imagem bitwise do disco rígido (sem modificar original)</p></li>
+<li><p>Cópia de logs relevantes (autenticação, firewall, antivírus)</p></li>
+<li><p>Screenshots de qualquer anomalia visual</p></li>
+<li><p>Documentar cadeia de custódia (quem tocou em quê, quando)</p></li>
+</ul></li>
+<li><p><strong>Comunicação Interna:</strong> Informar liderança sobre:</p>
+<ul>
+<li><p>Classificação de severidade preliminar</p></li>
+<li><p>Medidas imediatas tomadas</p></li>
+<li><p>Próximos passos previstos</p></li>
+<li><p>Necessidade de alertar órgãos externos</p></li>
+</ul></li>
+</ol>
+<h3>3.3 Primeira 24 Horas — Contenção Completa e Notificação</h3>
+<ol type="1">
+<li><p><strong>Investigação Técnica Completa:</strong> Identificar</p>
+<ul>
+<li><p>Root cause (causa raiz)</p></li>
+<li><p>Vetores de ataque utilizados</p></li>
+<li><p>Qualquer backdoor ou acesso residual</p></li>
+<li><p>Possibilidade de reinfecção</p></li>
+</ul></li>
+<li><p><strong>Comunicação com ANPD (se obrigatório):</strong> Dentro de 72 horas do conhecimento do incidente (Art. 33 LGPD), notificar a Autoridade Nacional de Proteção de Dados se houver risco aos direitos do titular. Notificação inclui:</p>
+<ul>
+<li><p>Descrição do incidente</p></li>
+<li><p>Dados pessoais afetados</p></li>
+<li><p>Causas prováveis</p></li>
+<li><p>Medidas já adotadas</p></li>
+<li><p>Medidas planejadas para mitigação</p></li>
+<li><p>Contato do DPO</p></li>
+</ul></li>
+<li><p><strong>Comunicação com Receita Federal / Órgãos de Classe (se aplicável):</strong> Se dados fiscais ou informações obrigatoriamente reportáveis foram afetados, notificar conforme legislação (prazos variam).</p></li>
+<li><p><strong>Notificação aos Titulares (clientes/funcionários):</strong> Conforme procedimento na seção 6 abaixo.</p></li>
+</ol>
+<h3>3.4 Equipes Chave e Contatos de Emergência</h3>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>Função</strong></td>
+<td><strong>Nome / Responsável</strong></td>
+<td><strong>Telefone 24/7</strong></td>
+<td><strong>Email</strong></td>
+<td><strong>Autoridade</strong></td>
+</tr>
+<tr class="even">
+<td>DPO (Encar</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>

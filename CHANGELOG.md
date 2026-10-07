@@ -1,6 +1,12 @@
 # Changelog
 Formato SemVer.
 
+## [2.8.0] - 2026-10-07
+### Adicionado
+- Item "Biblioteca": os 9 documentos de referência em modo leitura, com download do .docx original e atalho para as Notas de revisão do checklist correspondente
+### Observações
+- Os arquivos em /biblioteca são publicados no GitHub Pages: a tela exige login, mas os arquivos em si são acessíveis a quem souber o endereço
+
 ## [2.7.0] - 2026-10-07
 ### Adicionado
 - Checklists das categorias "Mapeamento de Dados", "Retenção e Descarte", "Segurança da Informação" e "Treinamento e Cultura"

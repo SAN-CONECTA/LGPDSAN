@@ -1,0 +1,297 @@
+<h1>Mapeamento de Dados — LGPD para Escritório de Contabilidade</h1>
+<p><strong>Documento de Conformidade e Inventário de Dados Pessoais</strong></p>
+<p><strong>Data de Elaboração:</strong> 7 de outubro de 2026</p>
+<p><strong>Versão:</strong> 1.0</p>
+<p>Índice</p>
+<ul>
+<li><p>1. Introdução e Contexto</p></li>
+<li><p>2. Inventário de Dados Pessoais</p></li>
+<li><p>3. Fluxo de Dados</p></li>
+<li><p>4. Mapa de Risco por Tipo de Dado</p></li>
+<li><p>5. Responsáveis e Operadores</p></li>
+<li><p>6. Bases Legais por Categoria</p></li>
+<li><p>7. Retenção e Ciclo de Vida dos Dados</p></li>
+<li><p>8. Checklist de Conformidade</p></li>
+<li><p>9. Conclusão e Próximos Passos</p></li>
+</ul>
+<h2>1. Introdução e Contexto</h2>
+<p>O <strong>Mapeamento de Dados</strong> é um levantamento detalhado de todos os dados pessoais tratados pelo escritório de contabilidade, suas fontes, fluxos, armazenamento, compartilhamento e destinação final. Este documento atende aos requisitos da <strong>Lei Geral de Proteção de Dados Pessoais (LGPD — Lei nº 13.709/2018)</strong> e serve como base para auditorias internas, avaliações de conformidade e implementação de medidas de segurança.</p>
+<p><strong>Objetivos deste mapeamento:</strong></p>
+<ul>
+<li><p>Identificar e catalogar todos os dados pessoais coletados, processados e armazenados</p></li>
+<li><p>Documentar a origem, finalidade e base legal de cada dado</p></li>
+<li><p>Mapear fluxos de coleta, processamento, armazenamento, compartilhamento e eliminação</p></li>
+<li><p>Identificar riscos de segurança e conformidade</p></li>
+<li><p>Definir responsabilidades e papéis na governança de dados</p></li>
+<li><p>Estabelecer prazos de retenção conforme legislação aplicável</p></li>
+<li><p>Gerar insumo para Avaliação de Impacto à Proteção de Dados (AIPD) quando necessário</p></li>
+</ul>
+<p><strong>Escopo:</strong> Este mapeamento abrange todas as áreas operacionais do escritório de contabilidade, incluindo contabilidade gerencial, departamento fiscal, departamento pessoal, administrativo, financeiro e relacionamento com clientes.</p>
+<h2>2. Inventário de Dados Pessoais</h2>
+<h3>2.1 Dados de Clientes Pessoas Jurídicas (PJ)</h3>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>Categoria de Dado</strong></td>
+<td><strong>Tipo de Informação</strong></td>
+<td><strong>Origem</strong></td>
+<td><strong>Volume Estimado</strong></td>
+<td><strong>Formato de Armazenamento</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Identificação Empresa</strong></td>
+<td>CNPJ, Razão Social, Nome Fantasia, Inscrição Estadual, Inscrição Municipal</td>
+<td>Cliente (formulário) + Receita Federal (consulta)</td>
+<td>200 a 500 registros/ano</td>
+<td>Banco de dados SQL + Documentos físicos (arquivados)</td>
+</tr>
+<tr class="odd">
+<td><strong>Dados de Representante Legal</strong></td>
+<td>CPF, Nome, Cargo, Email, Telefone, Endereço Residencial</td>
+<td>Cliente (contrato) + Contratação</td>
+<td>200 a 500 registros/ano</td>
+<td>Banco de dados SQL + Sistema de CRM</td>
+</tr>
+<tr class="even">
+<td><strong>Histórico Financeiro</strong></td>
+<td>Receita, Despesa, Lucro, Prejuízo, Fluxo de Caixa, Dados Bancários (agência, conta, titular)</td>
+<td>Cliente (extratos, recibos, NF)</td>
+<td>Terabytes/ano</td>
+<td>Banco de dados contábil (ERP) + Cloud (backup)</td>
+</tr>
+<tr class="odd">
+<td><strong>Dados Fiscais</strong></td>
+<td>IRPJ, CSLL, PIS, COFINS, ICMS, ISS, Informações de Créditos Fiscais</td>
+<td>Cliente (sistemas) + Publicações fiscais</td>
+<td>Gigabytes/ano</td>
+<td>ERP + Portal e-Cac (acesso remoto)</td>
+</tr>
+<tr class="even">
+<td><strong>Dados de Sócios e Quotistas</strong></td>
+<td>CPF, Nome, Participação %, Data de Admissão, Dados Bancários</td>
+<td>Cliente (contrato social) + Junta Comercial</td>
+<td>1.000 a 3.000 registros</td>
+<td>Banco de dados SQL + Arquivos digitalizados</td>
+</tr>
+</tbody>
+</table>
+<h3>2.2 Dados de Clientes Pessoas Físicas (PF) e Autônomos</h3>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>Categoria de Dado</strong></td>
+<td><strong>Tipo de Informação</strong></td>
+<td><strong>Origem</strong></td>
+<td><strong>Volume Estimado</strong></td>
+<td><strong>Formato de Armazenamento</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Identificação Pessoal</strong></td>
+<td>CPF, Nome Completo, Data de Nascimento, Gênero, Nacionalidade, RG/CNH</td>
+<td>Cliente (contrato) + Documentos digitalizados</td>
+<td>100 a 300 registros/ano</td>
+<td>Banco de dados SQL + Arquivo digital</td>
+</tr>
+<tr class="odd">
+<td><strong>Contato</strong></td>
+<td>Email pessoal, Telefone, Endereço Residencial, Endereço Comercial</td>
+<td>Cliente (formulário de cadastro)</td>
+<td>100 a 300 registros/ano</td>
+<td>Sistema CRM + Planilhas Excel</td>
+</tr>
+<tr class="even">
+<td><strong>Histórico de Renda</strong></td>
+<td>Receita mensal, Fonte de renda, Declaração de IR, Comprovante de rendimentos</td>
+<td>Cliente (extratos, contratante, IR)</td>
+<td>Gigabytes/ano</td>
+<td>Arquivo digital + ERP</td>
+</tr>
+<tr class="odd">
+<td><strong>Dados Bancários</strong></td>
+<td>Banco, Agência, Conta, Tipo de Conta, CPF do Titular</td>
+<td>Cliente (solicitação de reembolso ou pagamento)</td>
+<td>100 a 300 registros</td>
+<td>Banco de dados SQL (criptografado)</td>
+</tr>
+<tr class="even">
+<td><strong>Dependentes e Familiares</strong></td>
+<td>Nome de cônjuge, CPF de dependentes, Data de nascimento</td>
+<td>Cliente (IR, ações trabalhistas)</td>
+<td>200 a 600 registros</td>
+<td>Arquivo digital + Sistema de IR</td>
+</tr>
+</tbody>
+</table>
+<h3>2.3 Dados de Funcionários do Escritório</h3>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>Categoria de Dado</strong></td>
+<td><strong>Tipo de Informação</strong></td>
+<td><strong>Origem</strong></td>
+<td><strong>Volume Estimado</strong></td>
+<td><strong>Formato de Armazenamento</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Admissão e Identificação</strong></td>
+<td>CPF, Nome, Cargo, Data de Admissão, Departamento, Nível de Acesso</td>
+<td>Processo de contratação (RH)</td>
+<td>15 a 50 registros</td>
+<td>Sistema HRIS + Arquivo de RH</td>
+</tr>
+<tr class="odd">
+<td><strong>Dados Trabalhistas</strong></td>
+<td>Salário, Benefícios, Férias, Ausências, Avaliação de Desempenho, Histórico de Funções</td>
+<td>RH (sistema de folha)</td>
+<td>Arquivo digital + Sistema de folha</td>
+<td>Banco de dados de folha + Arquivo</td>
+</tr>
+<tr class="even">
+<td><strong>Contato de Emergência</strong></td>
+<td>Telefone de familiar, Email, Nome de contato, Parentesco</td>
+<td>Admissão (formulário de RH)</td>
+<td>15 a 50 registros</td>
+<td>Sistema HRIS</td>
+</tr>
+<tr class="odd">
+<td><strong>Dados de Saúde (Saúde Ocupacional)</strong></td>
+<td>Atestado médico, Resultado de exame admissional, Licença por doença</td>
+<td>Médico do trabalho / Colaborador</td>
+<td>15 a 50 registros</td>
+<td>Arquivo físico confidencial + Digital protegido</td>
+</tr>
+<tr class="even">
+<td><strong>Dados de Acesso e Segurança</strong></td>
+<td>Login, Senha hasheada, Histórico de acesso, IP, Data/hora de login</td>
+<td>Sistema de TI (automático)</td>
+<td>Terabytes/ano</td>
+<td>Log de servidor + Sistema de gestão de identidade</td>
+</tr>
+</tbody>
+</table>
+<h3>2.4 Dados de Terceiros (Fornecedores, Parceiros, Operadores)</h3>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>Categoria de Dado</strong></td>
+<td><strong>Tipo de Informação</strong></td>
+<td><strong>Origem</strong></td>
+<td><strong>Volume Estimado</strong></td>
+<td><strong>Formato de Armazenamento</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Fornecedores</strong></td>
+<td>CNPJ, Razão Social, Contato (nome, email, telefone), Dados Bancários</td>
+<td>Fornecedor (contrato) + Cadastro no ERP</td>
+<td>50 a 200 registros</td>
+<td>ERP + Arquivo de contrato</td>
+</tr>
+<tr class="odd">
+<td><strong>Auditores e Consultores</strong></td>
+<td>CPF/CNPJ, Nome, Especialidade, Email, Assinatura, Histórico de Atividades</td>
+<td>Contratação / Sistema de agendamento</td>
+<td>20 a 100 registros</td>
+<td>Arquivo de contrato + Base de dados</td>
+</tr>
+<tr class="even">
+<td><strong>Plataformas e Operadores</strong></td>
+<td>Contato técnico, Email de suporte, Responsável de conta, Dados de acesso (login seguro)</td>
+<td>Contrato com fornecedor + Integração de sistema</td>
+<td>Varia conforme plataforma</td>
+<td>Arquivo de contrato + Sistema de integração</td>
+</tr>
+</tbody>
+</table>
+<h3>2.5 Dados de Comunicação e Marketing</h3>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>Categoria de Dado</strong></td>
+<td><strong>Tipo de Informação</strong></td>
+<td><strong>Origem</strong></td>
+<td><strong>Volume Estimado</strong></td>
+<td><strong>Formato de Armazenamento</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Email de Contato</strong></td>
+<td>Email corporativo/pessoal, Preferência de frequência, Categoria de interesse (fiscal, pessoal, etc.)</td>
+<td>Cliente (contrato) + Formulário website + Solicitação</td>
+<td>500 a 2.000 registros</td>
+<td>Plataforma de email marketing + CRM</td>
+</tr>
+<tr class="odd">
+<td><strong>Histórico de Comunicação</strong></td>
+<td>Emails trocados, Data de envio, Conteúdo de mensagens, Attachments</td>
+<td>Servidor de email (automático)</td>
+<td>Terabytes/ano</td>
+<td>Servidor de email + Backup na cloud</td>
+</tr>
+<tr class="even">
+<td><strong>Consentimento de Marketing</strong></td>
+<td>Data de opt-in, Data de opt-out, Tipo de comunicação consentido, Histórico de interações</td>
+<td>Formulário digital + Sistema de CRM</td>
+<td>500 a 2.000 registros</td>
+<td>Base de dados CRM + Arquivo de consentimento</td>
+</tr>
+<tr class="odd">
+<td><strong>Cookies e Rastreamento Web</strong></td>
+<td>IP, User-Agent, Comportamento de navegação, Timestamps, Device ID</td>
+<td>Website/Sistema analytics (automático)</td>
+<td>Gigabytes/ano</td>
+<td>Servidor de analytics (Google Analytics) + Log de servidor</td>
+</tr>
+</tbody>
+</table>
+<h2>3. Fluxo de Dados</h2>
+<h3>3.1 Fluxo Geral: Coleta → Processamento → Armazenamento → Compartilhamento → Eliminação</h3>
+<p><strong>Etapa 1: Coleta</strong></p>
+<ul>
+<li><p><strong>Fonte:</strong> Cliente (contrato, formulário online, documentação), Titulares (funcionários, sócios), Registros públicos (Receita Federal, Junta Comercial), Sistemas de terceiros (bancos, plataformas fiscais)</p></li>
+<li><p><strong>Método:</strong> Presencial (assinatura de contrato), Digital (formulário web), Automático (integração de APIs, sincronização de sistemas)</p></li>
+<li><p><strong>Consentimento:</strong> Obtido por escrito no contrato de serviço ou aviso de privacidade para dados não obrigatórios</p></li>
+<li><p><strong>Ponto de Entrada:</strong> Email corporativo, portal de cliente, sistema CRM, telefone, contato pessoal</p></li>
+</ul>
+<p><strong>Etapa 2: Processamento</strong></p>
+<ul>
+<li><p><strong>Classificação:</strong> Dados categorizados por tipo (fiscal, trabalhista, financeiro, pessoal) e nível de sensibilidade (público, confidencial, secreto)</p></li>
+<li><p><strong>Validação:</strong> Verificação de completude, formato correto, atualização (ex: CPF válido, CNPJ ativo na Receita)</p></li>
+<li><p><strong>Enriquecimento:</strong> Dados complementados com informações de terceiros (ex: endereço atualizado, status de empresa)</p></li>
+<li><p><strong>Normalização:</strong> Conversão para formato padrão (ex: datas em DD/MM/AAAA, valores em Real)</p></li>
+<li><p><strong>Análise:</strong> Processamento para relatórios, cálculos fiscais, folha de pagamento</p></li>
+<li><p><strong>Responsável:</strong> Analista contábil, gestor fiscal, operador de</p></li>
+</ul>
