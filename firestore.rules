@@ -27,6 +27,10 @@ service cloud.firestore {
       allow get: if request.auth != null && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
       allow create, update, delete: if isAdmin();
+      // Cada usuário pode alterar apenas a própria preferência de tema (claro / escuro / auto).
+      allow update: if request.auth != null && request.auth.uid == uid && active()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tema'])
+        && request.resource.data.tema in ['auto', 'claro', 'escuro'];
     }
 
     match /config/{doc} {

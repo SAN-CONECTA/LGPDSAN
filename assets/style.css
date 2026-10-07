@@ -9,6 +9,11 @@
   --brand:#2dd4bf;--brand-ink:#04211e;--brand-soft:#12312e;
   --warn:#fbbf24;--warn-soft:#33270d;--bad:#f87171;--bad-soft:#381815;--ok:#4ade80;--ok-soft:#10301b;
   --add:#17391f;--del:#42201f;}}
+:root[data-theme=dark]{color-scheme:dark;--bg:#0f1418;--surface:#171e24;--ink:#e6ebef;--muted:#93a1ad;--line:#26303a;
+  --brand:#2dd4bf;--brand-ink:#04211e;--brand-soft:#12312e;
+  --warn:#fbbf24;--warn-soft:#33270d;--bad:#f87171;--bad-soft:#381815;--ok:#4ade80;--ok-soft:#10301b;
+  --add:#17391f;--del:#42201f;}
+:root[data-theme=light]{color-scheme:light}
 *{box-sizing:border-box}
 html{font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{margin:0;background:var(--bg);color:var(--ink)}
@@ -96,3 +101,7 @@ dialog{max-height:92vh;overflow:auto}
 .doc{overflow-x:auto}.doc h1{font-size:1.3rem;margin:1.2rem 0 .5rem}.doc h2{font-size:1.1rem;margin:1.1rem 0 .4rem}.doc h3{font-size:1rem;margin:1rem 0 .3rem}
 .doc table{margin:.6rem 0;font-size:.9rem}.doc th,.doc td{border:1px solid var(--line)}.doc th{background:var(--bg)}.doc ul,.doc ol{padding-left:1.3rem}
 [hidden]{display:none!important}
+
+/* impressão sempre em tema claro */
+@media print{html:root,html:root[data-theme],html:root:not([data-theme=light]){--bg:#fff;--surface:#fff;--ink:#000;--muted:#444;--line:#ccc;--brand:#0f766e;--brand-ink:#fff;--brand-soft:#e3f3f1;--warn:#b45309;--warn-soft:#fef3e2;--bad:#b42318;--bad-soft:#fdeceb;--ok:#15803d;--ok-soft:#e6f5ea;--add:#d9f2dd;--del:#fbdcdc;color-scheme:light}}
+.themesel{margin:.4rem 0 .2rem}.themesel label{margin:0 0 .15rem;font-weight:600}.themesel select{padding:.3rem .45rem;font-size:.85rem}

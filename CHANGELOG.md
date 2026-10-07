@@ -1,6 +1,17 @@
 # Changelog
 Formato SemVer.
 
+## [2.13.0] - 2026-10-07
+### Adicionado
+- Tema claro, escuro ou automático (do sistema), escolhido por cada usuário em "Tema", na barra lateral. A escolha é aplicada a cada login, guardada no perfil do usuário (campo `tema`) e neste navegador
+- Impressão de relatórios sempre em tema claro
+### Alterado
+- firestore.rules: cada usuário pode alterar somente o próprio campo `tema` do perfil. Opcional: sem republicar as regras, a escolha fica guardada só no navegador usado (por usuário)
+
+## [2.12.1] - 2026-10-07
+### Alterado
+- Logo do escritório: antes de reduzir para no máximo 480×180 px, a imagem tem as margens vazias (transparentes ou quase brancas) recortadas automaticamente, para a marca não ficar pequena em arquivos quadrados com muito espaço em branco
+
 ## [2.12.0] - 2026-10-07
 ### Adicionado
 - Logo do escritório: campo de upload em Contabilidades → Editar (PNG, JPG ou WEBP; reduzida automaticamente para até 480×180 px e guardada no documento da contabilidade, sem Storage), com pré-visualização e botão "Remover logo"

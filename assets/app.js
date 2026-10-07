@@ -3,11 +3,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
   createUserWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js?v=2.12.0';
-import { BIBLIO } from './biblioteca.js?v=2.12.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.12.0';
+import { firebaseConfig } from './firebase-config.js?v=2.13.0';
+import { BIBLIO } from './biblioteca.js?v=2.13.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.13.0';
 
-const VERSION = '2.12.0';
+const VERSION = '2.13.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -88,17 +88,42 @@ async function prepararLogo(file) {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('Não foi possível ler a imagem.')); i.src = url; });
-    let scale = Math.min(1, 480 / img.width, 180 / img.height);
+    // 1) recorta margens vazias (transparentes ou quase brancas), para a marca ocupar o espaço de 480×180
+    let sx = 0, sy = 0, sw = img.width, sh = img.height;
+    try {
+      const k = Math.min(1, 800 / Math.max(img.width, img.height)), tw = Math.max(1, Math.round(img.width * k)), th = Math.max(1, Math.round(img.height * k));
+      const tc = document.createElement('canvas'); tc.width = tw; tc.height = th;
+      const tx = tc.getContext('2d', { willReadFrequently: true }); tx.drawImage(img, 0, 0, tw, th);
+      const px = tx.getImageData(0, 0, tw, th).data; let x0 = tw, y0 = th, x1 = -1, y1 = -1;
+      for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) { const i = (y * tw + x) * 4;
+        if (px[i + 3] > 12 && (px[i] < 240 || px[i + 1] < 240 || px[i + 2] < 240)) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+      if (x1 >= x0 && y1 >= y0) {
+        const pad = Math.round(Math.max(x1 - x0, y1 - y0) * 0.04);
+        x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(tw - 1, x1 + pad); y1 = Math.min(th - 1, y1 + pad);
+        sx = x0 / k; sy = y0 / k; sw = (x1 - x0 + 1) / k; sh = (y1 - y0 + 1) / k;
+      }
+    } catch (e) { /* sem recorte: segue com a imagem inteira */ }
+    // 2) reduz para no máximo 480×180 px, mantendo a proporção
+    let scale = Math.min(1, 480 / sw, 180 / sh);
     for (let t = 0; t < 6; t++, scale *= 0.8) {
-      const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+      const w = Math.max(1, Math.round(sw * scale)), h = Math.max(1, Math.round(sh * scale));
       const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-      const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, w, h);
+      const cx = cv.getContext('2d'); cx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
       const out = file.type === 'image/png' ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.9);
       if (logoOk(out) && out.length <= 150000) return out;
     }
     throw new Error('Imagem complexa demais; use um arquivo menor ou mais simples.');
   } finally { URL.revokeObjectURL(url); }
 }
+/* ---------- tema claro / escuro (escolha por usuário) ---------- */
+const TEMAS = { auto: 'Automático (do sistema)', claro: 'Claro', escuro: 'Escuro' };
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* sem armazenamento: vale só nesta sessão */ } };
+function applyTheme(t) {
+  const el = document.documentElement;
+  if (t === 'claro') el.dataset.theme = 'light'; else if (t === 'escuro') el.dataset.theme = 'dark'; else delete el.dataset.theme;
+}
+const temaDe = u => [u && u.tema, u && lsGet('lgpdsan:tema:' + u.id)].find(t => t in TEMAS) || 'auto'; // 'lgpdsan:tema' (sem usuário) só evita o piscar na tela de login
 const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { console.error(e); toast(errMsg(e)); } };
 function modal(html, mount) {
   const d = document.createElement('dialog');
@@ -203,9 +228,11 @@ async function route() {
   app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><div class="prod">LGPDSAN <span class="muted">· Conformidade LGPD</span></div>
     <div id="csel" class="csel"></div>
     <nav class="nav">${nav}</nav>
-    <div class="who small"><b>${esc(me.nome)}</b><br><span class="muted">${ROLES[me.role]} · v${VERSION}</span><br><button class="link" id="out">Sair</button></div></aside>
+    <div class="who small"><b>${esc(me.nome)}</b><br><span class="muted">${ROLES[me.role]} · v${VERSION}</span><div class="themesel"><label for="tema">Tema</label><select id="tema">${Object.entries(TEMAS).map(([k, v]) => `<option value="${k}"${k === me.tema ? ' selected' : ''}>${v}</option>`).join('')}</select></div><button class="link" id="out">Sair</button></div></aside>
     <main id="main"><p class="muted">Carregando…</p></main></div>`;
   $('#out').onclick = guard(logout);
+  $('#tema').onchange = async e => { const t = e.target.value; me.tema = t; applyTheme(t); lsSet('lgpdsan:tema:' + me.id, t); lsSet('lgpdsan:tema', t);
+    try { await updateDoc(doc(fs, 'users', me.id), { tema: t }); } catch (err) { /* sem permissão nas regras: a escolha fica só neste navegador */ } };
   let html;
   try {
     bind = null;
@@ -744,6 +771,7 @@ onAuthStateChanged(auth, async u => {
     const s = await getDoc(doc(fs, 'users', u.uid));
     if (!s.exists() || !s.data().ativo) { me = null; await signOut(auth); return renderLogin('Conta sem acesso ao sistema. Procure o administrador.'); }
     me = { id: u.uid, ...s.data() };
+    me.tema = temaDe(me); applyTheme(me.tema); lsSet('lgpdsan:tema', me.tema);
     if (justSignedIn) { justSignedIn = false; try { await auditNow('Login'); } catch (e) { console.error(e); } }
     route();
   } catch (e) { console.error(e); me = null; await signOut(auth); renderLogin('Não foi possível validar o acesso: ' + errMsg(e)); }
