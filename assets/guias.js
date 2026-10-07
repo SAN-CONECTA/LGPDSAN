@@ -2,10 +2,14 @@
 // Fonte do conteúdo: "Contratos e Operadores — Guia de Conformidade LGPD para Escritório de Contabilidade" (2026).
 // Itens com extra:true foram acrescentados pela equipe técnica (não estão no guia original) e precisam de validação jurídica.
 
-import { GUIA_DIREITOS } from './guia-direitos.js?v=2.6.0';
-import { GUIA_GOVERNANCA } from './guia-governanca.js?v=2.6.0';
-import { GUIA_INCIDENTES } from './guia-incidentes.js?v=2.6.0';
-import { GUIA_EMAIL } from './guia-email.js?v=2.6.0';
+import { GUIA_DIREITOS } from './guia-direitos.js?v=2.7.0';
+import { GUIA_GOVERNANCA } from './guia-governanca.js?v=2.7.0';
+import { GUIA_MAPEAMENTO } from './guia-mapeamento.js?v=2.7.0';
+import { GUIA_RETENCAO } from './guia-retencao.js?v=2.7.0';
+import { GUIA_SEGURANCA } from './guia-seguranca.js?v=2.7.0';
+import { GUIA_TREINAMENTO } from './guia-treinamento.js?v=2.7.0';
+import { GUIA_INCIDENTES } from './guia-incidentes.js?v=2.7.0';
+import { GUIA_EMAIL } from './guia-email.js?v=2.7.0';
 
 export const RESP = ['Conforme', 'Parcial', 'Não conforme', 'N/A']; // 'Não avaliado' = campo vazio
 
@@ -89,6 +93,10 @@ GUIAS['Tratamento de Email'] = GUIA_EMAIL;
 GUIAS['Direitos dos Titulares'] = GUIA_DIREITOS;
 GUIAS['Governança e Políticas'] = GUIA_GOVERNANCA;
 GUIAS['Incidentes'] = GUIA_INCIDENTES;
+GUIAS['Mapeamento de Dados'] = GUIA_MAPEAMENTO;
+GUIAS['Retenção e Descarte'] = GUIA_RETENCAO;
+GUIAS['Segurança da Informação'] = GUIA_SEGURANCA;
+GUIAS['Treinamento e Cultura'] = GUIA_TREINAMENTO;
 
 // Helpers
 export const guiaDe = cat => GUIAS[cat] || null;

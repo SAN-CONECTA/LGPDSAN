@@ -1,6 +1,13 @@
 # Changelog
 Formato SemVer.
 
+## [2.7.0] - 2026-10-07
+### Adicionado
+- Checklists das categorias "Mapeamento de Dados", "Retenção e Descarte", "Segurança da Informação" e "Treinamento e Cultura"
+### Observações
+- Todos os documentos recebidos estão incompletos; o de Segurança tem só a introdução (itens quase todos extra). O de Incidentes reenviado é idêntico ao anterior
+- Citações legais erradas do material (ex.: LALUR, CLT arts. 192/226, CC art. 205, LGPD arts. 14/17/28/32) listadas nas Notas de revisão; prazos de retenção ficam como referência para validação jurídica
+
 ## [2.6.0] - 2026-10-06
 ### Adicionado
 - Checklist da categoria "Incidentes": definição e severidade, detecção, canais de reporte, plano de resposta, comunicação à ANPD/titulares, registro e seção de ocorrência para incidente real
