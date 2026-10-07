@@ -1,6 +1,12 @@
 # Changelog
 Formato SemVer.
 
+## [2.11.1] - 2026-10-07
+### Adicionado
+- Domínio próprio: arquivo `CNAME` (lgpd.sanconecta.com) e passos de DNS/Firebase/chave de API em docs/FIREBASE.md
+### Observações
+- Configure o DNS antes de publicar este zip: com o `CNAME` no repositório e sem o DNS, o endereço antigo deixa de funcionar
+
 ## [2.11.0] - 2026-10-07
 ### Adicionado
 - Contabilidades: botão "Editar" (nome, antes "Renomear") e botão "Excluir" com confirmação digitando o nome

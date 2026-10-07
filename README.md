@@ -1,9 +1,9 @@
 # LGPDSAN — Plataforma Web LGPD para Escritório de Contabilidade
 
 Registro, versionamento e auditoria de boas práticas de conformidade com a LGPD.
-Publicação: https://san-conecta.github.io/LGPDSAN/
+Publicação: https://lgpd.sanconecta.com/ (endereço antigo: https://san-conecta.github.io/LGPDSAN/, redireciona após configurar o domínio)
 
-**Versão atual: 2.11.0** (Firebase Auth + Firestore, regras no servidor)
+**Versão atual: 2.11.1** (Firebase Auth + Firestore, regras no servidor)
 
 ## O que o sistema faz
 - Perfis: Consulta, Edição, Administrador (matriz da especificação, seção 3.5)
