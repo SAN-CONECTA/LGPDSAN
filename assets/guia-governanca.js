@@ -10,7 +10,7 @@ export const GUIA_GOVERNANCA = {
   secoes: [
     { id: 'g1', titulo: '1. Estrutura e papéis', itens: [
       { id: 'controlador', tipo: 'texto', label: 'Controlador (pessoa jurídica) e sócio/diretor responsável', ajuda: 'Pela lei, o controlador é a pessoa jurídica; o sócio decide em nome dela.' },
-      { id: 'encarregado', tipo: 'texto', label: 'Encarregado (DPO): nome e contato', ajuda: 'Art. 41. Agentes de pequeno porte podem ser dispensados da nomeação (Res. CD/ANPD 2/2022), mas devem manter canal de atendimento ao titular. Validar enquadramento.' },
+      { id: 'encarregado', tipo: 'texto', label: 'Encarregado (DPO): nome e contato', ajuda: 'Art. 41. Agentes de pequeno porte podem ser dispensados da nomeação (Res. CD/ANPD 2/2022, art. 11), mas devem manter canal de atendimento ao titular. Tratamento de alto risco (ex.: dado sensível em larga escala) afasta o regime: folha, atestados e filiação sindical exigem análise. Res. CD/ANPD 18/2024 regula a atuação do encarregado. Validar enquadramento.' },
       G('c_controlador', 'Os papéis de controlador e operador estão definidos para cada tipo de dado?', 'Para dados dos clientes-empresa, o escritório costuma atuar como operador. Validar caso a caso.'),
       G('c_encarr', 'O encarregado está nomeado e sua identidade e contato são divulgados publicamente?', 'Art. 41, § 1º.'),
       G('c_gestor', 'Há gestor de dados responsável por catalogar dados, prazos de retenção e eliminação segura?'),

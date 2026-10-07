@@ -13,7 +13,7 @@ export const GUIA_INCIDENTES = {
       G('c_def', 'O escritório definiu o que é incidente (acesso não autorizado, perda, vazamento, violação de sigilo, indisponibilidade, alteração indevida)?'),
       G('c_tipos', 'Os tipos de incidente mais prováveis (vazamento por email errado, credencial vazada, ransomware, laptop roubado, acesso indevido de analista) estão catalogados?'),
       G('c_sev', 'Existe escala de severidade (Crítico, Alto, Médio, Baixo) com tempo máximo de resposta e escalação definidos?', 'Referência do guia: Crítico até 1h; Alto até 4h; Médio até 8h; Baixo até 24h. São prazos internos, não da lei.'),
-      G('c_criterio', 'O critério para decidir se o incidente deve ser comunicado à ANPD e aos titulares está definido por risco ou dano relevante, e não só pela severidade interna?', 'A comunicação depende de risco ou dano relevante aos titulares (art. 48 da LGPD). O guia atrela a notificação ao nível Crítico; isso não confere com a lei.', true)
+      G('c_criterio', 'O critério para decidir se o incidente deve ser comunicado à ANPD e aos titulares está definido por risco ou dano relevante, e não só pela severidade interna?', 'A comunicação depende de risco ou dano relevante aos titulares (art. 48 da LGPD). Pela Res. CD/ANPD 15/2024 (art. 5º), há risco relevante quando o incidente afeta significativamente direitos fundamentais e envolve dado sensível, dado de criança, adolescente ou idoso, dado financeiro, dado de autenticação, dado sob sigilo ou larga escala. O guia atrela a notificação ao nível Crítico; isso não confere com a lei.', true)
     ] },
     { id: 'i2', titulo: '2. Detecção e monitoramento', itens: [
       G('c_logsDia', 'Os logs de acesso (quem, quando, o quê, resultado) são analisados diariamente?'),
@@ -47,14 +47,14 @@ export const GUIA_INCIDENTES = {
       { id: 'contatos', tipo: 'area', label: 'Contatos de emergência (função, nome, telefone 24/7, email)', ajuda: 'A tabela de contatos veio vazia no documento original.', extra: true }
     ] },
     { id: 'i5', titulo: '5. Comunicação à ANPD, titulares e terceiros', itens: [
-      G('c_anpd', 'Há procedimento para comunicar a ANPD e os titulares quando o incidente puder acarretar risco ou dano relevante?', 'Art. 48 da LGPD. O guia diz "72 horas, Art. 33"; o art. 33 trata de transferência internacional. O prazo vigente é de 3 dias úteis (6 dias úteis para agentes de pequeno porte), Resolução CD/ANPD 15/2024. Validar enquadramento.', true),
-      G('c_conteudo', 'A comunicação inclui natureza do incidente, dados e titulares afetados, medidas técnicas, riscos, medidas de mitigação, data do conhecimento e contato do encarregado?', 'O guia lista seis itens; a resolução da ANPD pede mais (ex.: número de titulares, riscos, motivo de eventual atraso). Conferir o formulário da ANPD.', true),
+      G('c_anpd', 'Há procedimento para comunicar a ANPD e os titulares quando o incidente puder acarretar risco ou dano relevante?', 'Art. 48 da LGPD. O guia diz "72 horas, Art. 33"; o art. 33 trata de transferência internacional. Res. CD/ANPD 15/2024: 3 dias úteis a partir do conhecimento de que o incidente afetou dados pessoais (art. 6º), em dobro para agentes de pequeno porte, ressalvado prazo previsto em legislação específica. Titulares: 3 dias úteis (art. 9º). Conferido em fonte (cópia do Ministério da Justiça); validar enquadramento.', true),
+      G('c_conteudo', 'A comunicação inclui natureza do incidente, dados e titulares afetados, medidas técnicas, riscos, medidas de mitigação, data do conhecimento e contato do encarregado?', 'O guia lista seis itens; a Res. CD/ANPD 15/2024 (art. 6º, § 2º) pede cerca de doze informações (ex.: titulares afetados, riscos, motivo de eventual atraso, controlador e operador) e exige o formulário eletrônico da ANPD.', true),
       G('c_titulares', 'Os titulares afetados são informados em linguagem clara, com descrição dos dados, riscos e medidas recomendadas?', 'A seção 6 do guia, que trataria disso, não veio.', true),
       G('c_receita', 'Para incidentes com dados fiscais, o escritório verificou se há obrigação de avisar a Receita Federal, conselho de classe ou o cliente (controlador)?', 'O guia cita notificar "conforme legislação" sem indicar a norma. Quando o escritório é operador, deve avisar o cliente-controlador. Validar.', true),
       G('c_oper', 'Os contratos com operadores exigem aviso ao escritório em caso de incidente (ver "Contratos e Operadores")?', '', true)
     ] },
     { id: 'i6', titulo: '6. Registro e aprendizado', itens: [
-      G('c_registro', 'Todo incidente, mesmo sem comunicação à ANPD, é registrado com avaliação do risco?', 'A resolução da ANPD exige manter o registro por no mínimo 5 anos (confirmar o texto atual).', true),
+      G('c_registro', 'Todo incidente, mesmo sem comunicação à ANPD, é registrado com avaliação do risco?', 'Res. CD/ANPD 15/2024, art. 10: manter o registro do incidente, inclusive o não comunicado, por no mínimo 5 anos, salvo obrigação que exija prazo maior.', true),
       G('c_pos', 'Após cada incidente há análise pós-ocorrência e ajuste do plano?', '', true),
       G('c_teste', 'O plano é testado (simulação) ao menos uma vez por ano?', '', true)
     ] },

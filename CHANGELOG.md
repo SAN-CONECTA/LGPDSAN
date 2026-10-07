@@ -1,6 +1,13 @@
 # Changelog
 Formato SemVer.
 
+## [2.9.0] - 2026-10-07
+### Alterado
+- Revisão das citações legais dos 9 documentos contra fontes oficiais: notas de ajuda e "Notas de revisão" atualizadas em Incidentes (Res. CD/ANPD 15/2024: arts. 5º, 6º, 9º, 10), Retenção e Descarte (CTN art. 195, Decreto 9.580 art. 278, NR-7 item 7.6.1.1, CC art. 206, Lei 13.787), Direitos (prazo em dobro para pequeno porte), Governança (alto risco afasta o regime de pequeno porte) e Treinamento (Res. 18/2024 não exige certificação)
+- Aviso da Biblioteca: validação por advogado e contador continua pendente
+### Observações
+- Pontos não verificados (ex.: CLT arts. 192/226/478, Lei 8.212, Decreto 3.048 art. 225, LC 123 art. 26, efeito da LC 236/2026) estão listados no relatório de revisão
+
 ## [2.8.0] - 2026-10-07
 ### Adicionado
 - Item "Biblioteca": os 9 documentos de referência em modo leitura, com download do .docx original e atalho para as Notas de revisão do checklist correspondente

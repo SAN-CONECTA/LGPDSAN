@@ -25,7 +25,7 @@ export const GUIA_TREINAMENTO = {
       G('c_anual', 'Todos fazem reciclagem anual?', 'Referência do documento: 2 horas por ano.'),
       G('c_emerg', 'Há treinamento emergencial quando a legislação muda ou após um incidente?', 'Referência: 1 a 2 horas.'),
       G('c_espec', 'Gestores, TI e equipe operacional fazem especialização anual por perfil?', 'Referência: 4 a 8 horas.'),
-      G('c_cert', 'Há certificação em LGPD para encarregado e gestores (opcional, a cada 2 anos)?', 'Referência: 40 a 80 horas. A LGPD não exige certificação nem fixa carga horária ou periodicidade de treinamento; são critérios internos do guia.')
+      G('c_cert', 'Há certificação em LGPD para encarregado e gestores (opcional, a cada 2 anos)?', 'Referência: 40 a 80 horas. A LGPD não exige certificação nem fixa carga horária ou periodicidade de treinamento, e a Res. CD/ANPD 18/2024 diz que a função de encarregado não pressupõe certificação ou formação específica; são critérios internos do guia.')
     ] },
     { id: 't3', titulo: '3. Metodologia e evidências', itens: [
       G('c_metodo', 'O treinamento combina formatos (e-learning, workshops, microlearning, simulações, leitura de políticas)?'),

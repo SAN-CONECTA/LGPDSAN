@@ -12,7 +12,7 @@ export const GUIA_DIREITOS = {
     { id: 'd1', titulo: '1. Estrutura de atendimento', itens: [
       { id: 'canal', tipo: 'texto', label: 'Canal oficial para pedidos (e-mail, formulário, telefone)', extra: true },
       { id: 'respAt', tipo: 'texto', label: 'Responsável pelo atendimento (encarregado ou equivalente)', extra: true },
-      { id: 'prazoInt', tipo: 'texto', label: 'Prazo interno de resposta adotado', ajuda: 'O art. 19 da LGPD fixa: resposta imediata em formato simplificado, ou declaração completa em até 15 dias. O guia de Governança recebido cita 20 dias, que não confere com a lei.', extra: true },
+      { id: 'prazoInt', tipo: 'texto', label: 'Prazo interno de resposta adotado', ajuda: 'O art. 19 da LGPD fixa: resposta imediata em formato simplificado, ou declaração completa em até 15 dias. Agentes de tratamento de pequeno porte têm prazo em dobro (Res. CD/ANPD 2/2022). O guia de Governança recebido cita 20 dias, que não confere com a lei.', extra: true },
       D('c_canalPub', 'O canal é divulgado de forma clara aos titulares (contrato, site, aviso de privacidade)?', 'Transparência, art. 9º.'),
       { id: 'c_escopo', tipo: 'sn', label: 'O procedimento vale para clientes, colaboradores e terceiros (fornecedores, sócios, beneficiários)?' },
       D('c_ident', 'Existe verificação de identidade do solicitante antes de entregar dados?', 'Evita entregar dados a quem não é o titular.'),

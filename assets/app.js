@@ -3,11 +3,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
   createUserWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js?v=2.8.0';
-import { BIBLIO } from './biblioteca.js?v=2.8.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.8.0';
+import { firebaseConfig } from './firebase-config.js?v=2.9.0';
+import { BIBLIO } from './biblioteca.js?v=2.9.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.9.0';
 
-const VERSION = '2.8.0';
+const VERSION = '2.9.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -642,7 +642,7 @@ function renderBackup() {
 /* ---------- sobre ---------- */
 function renderBiblio() {
   return `<div class="bar"><div><h1>Biblioteca</h1><p class="muted">Documentos de referência usados nos checklists. Somente leitura.</p></div></div>
-    <div class="notice"><b>Atenção:</b> todos os documentos recebidos estão incompletos e alguns têm citações legais incorretas. As correções ficam em "Notas de revisão", no guia de cada categoria. Não use os prazos e artigos dos documentos sem validação jurídica.</div>
+    <div class="notice"><b>Atenção:</b> todos os documentos recebidos estão incompletos e 8 dos 9 têm citação ou termo legal incorreto. As correções ficam em "Notas de revisão", no guia de cada categoria. As citações foram conferidas em fonte oficial em 06/10/2026 (por resumo automático; alguns pontos ficaram sem verificação). <b>Validação por advogado e contador: pendente.</b> Não use os prazos e artigos dos documentos sem essa validação.</div>
     <div class="card tablewrap"><table><thead><tr><th>Documento</th><th>Termina em</th><th>Checklist</th></tr></thead><tbody>
     ${BIBLIO.map(b => `<tr><td><a href="#/biblioteca/${b.slug}"><b>${esc(b.titulo)}</b></a></td><td class="small muted">${esc(b.fim)}</td><td><span class="tag ${GUIAS[b.cat] ? 'brand' : ''}">${esc(b.cat)}</span></td></tr>`).join('')}
     </tbody></table></div>`;

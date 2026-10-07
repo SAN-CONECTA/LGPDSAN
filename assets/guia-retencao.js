@@ -21,22 +21,22 @@ export const GUIA_RETENCAO = {
       G('c_revPol', 'A tabela é revisada ao menos uma vez por ano e quando a legislação muda?', '', true)
     ] },
     { id: 'r2', titulo: '2. Prazos fiscais, contábeis e contratuais', itens: [
-      R('c_nf', 'notas fiscais e documentos de entrada', 'Referência do documento: 5 anos após o encerramento do exercício. Base usual: art. 195, parágrafo único do CTN (guarda até a prescrição dos créditos tributários).'),
-      R('c_livros', 'livros e registros contábeis (Diário, Razão)', 'Referência: 5 anos. O documento cita a Lei 6.404/1976 (sociedades por ações) e a Res. CFC 1.418/2012; não confirmei se sustentam o prazo. Validar.'),
+      R('c_nf', 'notas fiscais e documentos de entrada', 'Referência do documento: 5 anos após o encerramento do exercício. Base: art. 195, parágrafo único do CTN (guarda até a prescrição dos créditos tributários; conferido). Decreto 9.580/2018: a guarda está no art. 278 (fonte secundária), não no art. 264 que o documento cita. A LC 236/2026 (04/09/2026) alterou hipóteses de interrupção da prescrição no CTN: validar o efeito sobre o prazo prático.'),
+      R('c_livros', 'livros e registros contábeis (Diário, Razão)', 'Referência: 5 anos. O documento cita a Lei 6.404/1976 (sociedades por ações; não fixa prazo para escritório, no que li) e a Res. CFC 1.418/2012, que aprova a ITG 1000 (modelo contábil para ME e EPP) e não trata de guarda. Validar com contador.'),
       R('c_lalur', 'livro de apuração do lucro real (LALUR) e declarações (IRPJ, ECF)', 'O documento chama o LALUR de "Livro de Apuração do ICMS": o LALUR é do lucro real (IRPJ/CSLL).'),
       R('c_retImp', 'comprovantes de retenção de tributos (IR, PIS, COFINS, CSLL) e recibos de serviço', 'Referência: 5 anos.'),
-      R('c_fisco', 'correspondência com o fisco (ofícios, intimações) e relatórios de fiscalização', 'Referência: 5 anos após resolução. O documento escreve "SPD"; o sistema é o SPED.'),
-      R('c_contratos', 'contratos de prestação de serviços contábeis', 'Referência: vigência + 5 anos. O documento cita "CC art. 205", que é o prazo geral de prescrição de 10 anos; os prazos específicos estão no art. 206. Validar.'),
-      R('c_propostas', 'propostas, orçamentos e correspondência comercial', 'Referência: 3 anos. Validar o prazo de prescrição aplicável.'),
+      R('c_fisco', 'correspondência com o fisco (ofícios, intimações) e relatórios de fiscalização', 'Referência: 5 anos após resolução. O documento escreve "SPD"; o sistema é o SPED (Decreto 6.022/2007).'),
+      R('c_contratos', 'contratos de prestação de serviços contábeis', 'Referência: vigência + 5 anos. O documento cita "CC art. 205", que é o prazo geral de prescrição de 10 anos; os prazos específicos estão no art. 206 (§ 5º, I e II: 5 anos para dívida líquida e honorários). Conferido; validar o prazo aplicável.'),
+      R('c_propostas', 'propostas, orçamentos e correspondência comercial', 'Referência: 3 anos. O documento cita o CC art. 205 (10 anos); o art. 206, § 3º, V prevê 3 anos para reparação civil. Validar o prazo aplicável.'),
       R('c_operCont', 'termos e contratos com operadores e fornecedores', 'Referência: vigência + 5 anos. O documento cita LGPD arts. 28 e 32, que não se aplicam aqui (art. 28 foi vetado; art. 32 trata de órgãos públicos).')
     ] },
     { id: 'r3', titulo: '3. Prazos trabalhistas e previdenciários', itens: [
-      R('c_folha', 'folha de pagamento, recibos e contratos de trabalho', 'Referência: durante o vínculo + 5 anos após a rescisão. As citações do documento (CLT arts. 226, 227 e 192) não tratam de guarda. Validar com contador trabalhista (prescrição e obrigações previdenciárias).'),
-      R('c_ponto', 'cartão de ponto e registros de jornada', 'Referência: 5 anos. Validar fundamento (o art. 74 da CLT trata do registro, não fixa o prazo).'),
+      R('c_folha', 'folha de pagamento, recibos e contratos de trabalho', 'Referência: durante o vínculo + 5 anos após a rescisão. As citações do documento (CLT arts. 226, 227 e 192) não tratam de guarda: o art. 227 trata de jornada especial de telefonia; 226 e 192 não foram lidos. Não encontrei prazo literal de guarda; a prática é usar a prescrição (CF art. 7º, XXIX: 5 anos, até 2 após o fim do contrato). Validar com contador trabalhista; obrigações previdenciárias não foram verificadas.'),
+      R('c_ponto', 'cartão de ponto e registros de jornada', 'Referência: 5 anos. Validar fundamento (o art. 74 da CLT trata do registro, obrigatório acima de 20 trabalhadores, e não fixa o prazo; ver Portaria 671/2021).'),
       R('c_admissao', 'documentos de admissão, rescisão e homologações', 'Referência: 5 anos após a rescisão.'),
-      R('c_fgts', 'comprovantes do FGTS', 'Referência: vínculo + 5 anos. Validar com a legislação do FGTS.'),
-      R('c_saude', 'documentação de saúde ocupacional e CAT', 'Referência do documento: 20 anos após o acidente. A regra de saúde ocupacional costuma contar 20 anos a partir do desligamento do empregado (NR-7). O documento cita "NR-5 (ABNT NBR ISO/IEC 27001)", combinação sem sentido. Validar com médico do trabalho.'),
-      R('c_esocial', 'registros do eSocial', 'Referência do documento sem fundamento confirmado (cita Lei 12.997/2014). Validar.')
+      R('c_fgts', 'comprovantes do FGTS', 'Referência: vínculo + 5 anos. STF, ARE 709.212, reduziu a prescrição do FGTS para 5 anos, com modulação (li só o voto do relator). Validar.'),
+      R('c_saude', 'documentação de saúde ocupacional e CAT', 'Referência do documento: 20 anos após o acidente. A NR-7, item 7.6.1.1, manda manter o prontuário do empregado por no mínimo 20 anos após o desligamento (conferido); o prazo de guarda do ASO não foi localizado. O documento cita "NR-5 (ABNT NBR ISO/IEC 27001)": a NR-5 trata da CIPA e a ISO 27001 é de segurança da informação. A Lei 8.213, art. 22, trata do prazo de comunicação da CAT, não de guarda. Validar com médico do trabalho.'),
+      R('c_esocial', 'registros do eSocial', 'Referência do documento. A Lei 12.997/2014 citada trata de periculosidade de motociclistas; a base do eSocial é o Decreto 8.373/2014, e a Res. CG 1/2015 remete a guarda à legislação aplicável. Validar.')
     ] },
     { id: 'r4', titulo: '4. Dados pessoais de clientes, funcionários e terceiros', itens: [
       R('c_ident', 'identificação do cliente (CPF, RG, nascimento)', 'Referência: contrato + 5 anos. O documento cita "LGPD art. 17 (direito de exclusão)"; a eliminação está nos arts. 15, 16 e 18, VI.'),
