@@ -1,6 +1,14 @@
 # Changelog
 Formato SemVer.
 
+## [2.12.0] - 2026-10-07
+### Adicionado
+- Logo do escritório: campo de upload em Contabilidades → Editar (PNG, JPG ou WEBP; reduzida automaticamente para até 480×180 px e guardada no documento da contabilidade, sem Storage), com pré-visualização e botão "Remover logo"
+- A logo aparece no cabeçalho de Registros e no relatório impresso (cabeçalho com logo, nome do escritório e data de emissão) e como miniatura na lista de Contabilidades
+- Auditoria do sistema: "Logo da contabilidade alterada" e "Logo da contabilidade removida"
+### Alterado
+- firestore.rules: limite de 300.000 caracteres para o campo `logo` da contabilidade (opcional: sem republicar as regras, tudo funciona; o limite de tamanho passa a valer no servidor quando elas forem publicadas)
+
 ## [2.11.1] - 2026-10-07
 ### Adicionado
 - Domínio próprio: arquivo `CNAME` (lgpd.sanconecta.com) e passos de DNS/Firebase/chave de API em docs/FIREBASE.md

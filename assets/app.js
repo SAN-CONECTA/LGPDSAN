@@ -3,11 +3,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
   createUserWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js?v=2.11.1';
-import { BIBLIO } from './biblioteca.js?v=2.11.1';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.11.1';
+import { firebaseConfig } from './firebase-config.js?v=2.12.0';
+import { BIBLIO } from './biblioteca.js?v=2.12.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.12.0';
 
-const VERSION = '2.11.1';
+const VERSION = '2.12.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -77,6 +77,27 @@ function errMsg(e) {
   if (c === 'auth/email-already-in-use') return 'Este e-mail já existe no Authentication. Desbloqueie o usuário existente ou remova a conta no console do Firebase.';
   if (c === 'auth/weak-password') return 'Senha fraca.';
   return 'Erro: ' + (e && e.message || e);
+}
+/* ---------- logo do escritório (guardada como imagem pequena no documento da contabilidade) ---------- */
+const LOGO_RE = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
+const logoOk = l => typeof l === 'string' && l.length <= 300000 && LOGO_RE.test(l);
+const firmLogo = (id = cid) => { const c = db.contabs.find(x => x.id === id); return c && logoOk(c.logo) ? c.logo : ''; };
+async function prepararLogo(file) {
+  if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error('Use uma imagem PNG, JPG ou WEBP.');
+  if (file.size > 5 * 1024 * 1024) throw new Error('Imagem muito grande (máximo 5 MB).');
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('Não foi possível ler a imagem.')); i.src = url; });
+    let scale = Math.min(1, 480 / img.width, 180 / img.height);
+    for (let t = 0; t < 6; t++, scale *= 0.8) {
+      const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, w, h);
+      const out = file.type === 'image/png' ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.9);
+      if (logoOk(out) && out.length <= 150000) return out;
+    }
+    throw new Error('Imagem complexa demais; use um arquivo menor ou mais simples.');
+  } finally { URL.revokeObjectURL(url); }
 }
 const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { console.error(e); toast(errMsg(e)); } };
 function modal(html, mount) {
@@ -278,7 +299,8 @@ function renderList() {
     $('#prn').onclick = () => window.print();
     $('#gbtn').onclick = () => { const g = guiaDe(fc.value); if (g) modal(`<h2>Guia de referência · ${esc(g.titulo)}</h2><div class="guide-ref">${g.referencia}</div><div class="actions"><button id="x">Fechar</button></div>`, d => { $('#x', d).onclick = () => d.close(); }); };
   };
-  return `<div class="bar"><div><h1>Registros</h1><p class="muted" id="cnt"></p></div><div class="actions" style="margin:0">
+  return `<div class="printhead">${firmLogo() ? `<img class="firmlogo" src="${firmLogo()}" alt="Logo ${esc(contabNome(cid))}">` : ''}<div><b>${esc(contabNome(cid))}</b><br><span class="small">Relatório de registros · emitido em ${new Date().toLocaleDateString('pt-BR')}</span></div></div>
+    <div class="bar"><div><h1>Registros</h1><p class="muted" id="cnt"></p></div>${firmLogo() ? `<img class="firmlogo no-print" src="${firmLogo()}" alt="Logo ${esc(contabNome(cid))}">` : ''}<div class="actions" style="margin:0">
     ${can.edit() ? '<button class="primary" id="new">+ Novo registro</button>' : ''}
     ${can.export() ? '<button id="exp">Exportar CSV</button>' : ''}<button id="gbtn" hidden>Guia de referência</button><button id="prn">Imprimir relatório</button></div></div>
     <div class="filters"><div><label for="q">Pesquisa</label><input id="q" type="search" placeholder="Palavra-chave…"></div>
@@ -574,11 +596,25 @@ function renderContabs() {
     $('#cnext').onclick = () => create(nextName());
     document.querySelectorAll('[data-ren]').forEach(btn => btn.onclick = () => {
       const c = db.contabs.find(x => x.id === btn.dataset.ren);
-      modal(`<h3>Editar contabilidade</h3><form id="rn"><label for="nn">Nome</label><input id="nn" required maxlength="100" value="${esc(c.nome)}"><div class="actions"><button class="primary">Salvar</button><button type="button" id="x">Cancelar</button></div></form>`, d => {
+      let novaLogo = null; // null = manter; '' = remover; 'data:…' = nova
+      modal(`<h3>Editar contabilidade</h3><form id="rn"><label for="nn">Nome</label><input id="nn" required maxlength="100" value="${esc(c.nome)}">
+        <label for="lf">Logo do escritório</label>
+        <div class="firmlogo-prev" id="lp">${firmLogo(c.id) ? `<img src="${firmLogo(c.id)}" alt="Logo atual">` : '<span class="muted small">Sem logo.</span>'}</div>
+        <input id="lf" type="file" accept="image/png,image/jpeg,image/webp">
+        <div class="muted small">PNG, JPG ou WEBP. A imagem é reduzida automaticamente. Aparece no cabeçalho dos registros e nos relatórios impressos.</div>
+        <div class="actions"><button class="primary">Salvar</button><button type="button" id="lrm"${firmLogo(c.id) ? '' : ' hidden'}>Remover logo</button><button type="button" id="x">Cancelar</button></div></form>`, d => {
         $('#x', d).onclick = () => d.close();
+        const prev = () => { $('#lp', d).innerHTML = novaLogo ? `<img src="${novaLogo}" alt="Nova logo">` : '<span class="muted small">Sem logo.</span>'; };
+        $('#lf', d).onchange = guard(async () => { const f = $('#lf', d).files[0]; if (!f) return; try { novaLogo = await prepararLogo(f); prev(); $('#lrm', d).hidden = false; } catch (e) { $('#lf', d).value = ''; toast(e.message); } });
+        $('#lrm', d).onclick = () => { novaLogo = ''; $('#lf', d).value = ''; prev(); $('#lrm', d).hidden = true; };
         $('#rn', d).onsubmit = guard(async e => { e.preventDefault(); const nome = $('#nn', d).value.trim(); if (!nome) return;
           if (nome !== c.nome && db.contabsAll.some(x => x.id !== c.id && x.nome.toLowerCase() === nome.toLowerCase())) return toast('Já existe uma contabilidade com este nome.');
-          const b = writeBatch(fs); b.update(doc(fs, 'contabilidades', c.id), { nome }); auditOp(b, 'Contabilidade renomeada', null, `${c.nome} → ${nome}`); await b.commit(); d.close(); route(); });
+          const upd = { nome }; if (novaLogo !== null) upd.logo = novaLogo;
+          if (nome === c.nome && novaLogo === null) return d.close();
+          const b = writeBatch(fs); b.update(doc(fs, 'contabilidades', c.id), upd);
+          if (nome !== c.nome) auditOp(b, 'Contabilidade renomeada', null, `${c.nome} → ${nome}`);
+          if (novaLogo !== null) auditOp(b, novaLogo ? 'Logo da contabilidade alterada' : 'Logo da contabilidade removida', null, nome);
+          await b.commit(); d.close(); await loadCore(); route(); });
       });
     });
     document.querySelectorAll('[data-del]').forEach(btn => btn.onclick = () => {
@@ -609,7 +645,7 @@ function renderContabs() {
     <div class="actions" style="margin:0"><button class="primary">Adicionar</button><button type="button" id="cnext">Criar “${esc(nextName())}”</button></div></form></div>
     <div class="card tablewrap"><table><tr><th>Nome</th><th>Usuários vinculados</th><th></th></tr>${db.contabs.map(c => {
       const us = db.users.filter(u => u.role !== 'admin' && u.ativo && (u.contabilidades || []).includes(c.id)).length;
-      return `<tr><td>${esc(c.nome)}</td><td>${us}</td><td style="text-align:right"><button data-ren="${esc(c.id)}">Editar</button> <button class="danger" data-del="${esc(c.id)}">Excluir</button></td></tr>`; }).join('') || '<tr><td colspan="3" class="muted">Nenhuma contabilidade.</td></tr>'}</table></div>
+      return `<tr><td>${firmLogo(c.id) ? `<img class="firmlogo-th" src="${firmLogo(c.id)}" alt=""> ` : ''}${esc(c.nome)}</td><td>${us}</td><td style="text-align:right"><button data-ren="${esc(c.id)}">Editar</button> <button class="danger" data-del="${esc(c.id)}">Excluir</button></td></tr>`; }).join('') || '<tr><td colspan="3" class="muted">Nenhuma contabilidade.</td></tr>'}</table></div>
     ${(db.contabsAll || []).some(c => c.excluida) ? `<div class="card tablewrap"><h2>Excluídas</h2><table>${db.contabsAll.filter(c => c.excluida).map(c => `<tr><td>${esc(c.nome)}</td><td style="text-align:right"><button data-res="${esc(c.id)}">Restaurar</button></td></tr>`).join('')}</table></div>` : ''}`;
 }
 

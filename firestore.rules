@@ -52,7 +52,8 @@ service cloud.firestore {
       allow get: if hasContab(cid);
       allow list: if isAdmin();
       allow create, update: if isAdmin() && request.resource.data.nome is string
-        && request.resource.data.nome.size() > 0 && request.resource.data.nome.size() <= 100;
+        && request.resource.data.nome.size() > 0 && request.resource.data.nome.size() <= 100
+        && (!('logo' in request.resource.data) || (request.resource.data.logo is string && request.resource.data.logo.size() <= 300000));
       allow delete: if false;
 
       // Nomes das pessoas da contabilidade (campo Responsável). Mantido pelo administrador.
