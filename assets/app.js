@@ -3,11 +3,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
   createUserWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js?v=2.10.0';
-import { BIBLIO } from './biblioteca.js?v=2.10.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.10.0';
+import { firebaseConfig } from './firebase-config.js?v=2.11.0';
+import { BIBLIO } from './biblioteca.js?v=2.11.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.11.0';
 
-const VERSION = '2.10.0';
+const VERSION = '2.11.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -117,6 +117,8 @@ async function loadCore() {
   else db.contabs = (await Promise.all((me.contabilidades || []).map(async id => {
     const s = await getDoc(doc(fs, 'contabilidades', id)); return s.exists() ? { id: s.id, ...s.data() } : null; }))).filter(Boolean);
   db.contabs.sort(byName);
+  db.contabsAll = db.contabs; // inclui as excluídas (só a tela Contabilidades as mostra, para restaurar)
+  db.contabs = db.contabs.filter(c => !c.excluida);
   if (!db.contabs.some(c => c.id === cid)) {
     let saved = null; try { saved = sessionStorage.getItem('lgpdsan:cid'); } catch (e) {}
     cid = db.contabs.some(c => c.id === saved) ? saved : (db.contabs[0] ? db.contabs[0].id : null);
@@ -557,13 +559,13 @@ async function userAction(a, u) {
 /* ---------- contabilidades (admin) ---------- */
 function renderContabs() {
   const nextName = () => {
-    const nums = db.contabs.map(c => /^Contabilidade (\d+)$/.exec(c.nome)).filter(Boolean).map(m => +m[1]);
+    const nums = (db.contabsAll || db.contabs).map(c => /^Contabilidade (\d+)$/.exec(c.nome)).filter(Boolean).map(m => +m[1]);
     return 'Contabilidade ' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(2, '0');
   };
   bind = () => {
     const create = guard(async nome => {
       nome = nome.trim(); if (!nome) return toast('Informe o nome.');
-      if (db.contabs.some(c => c.nome.toLowerCase() === nome.toLowerCase())) return toast('Já existe uma contabilidade com este nome.');
+      if ((db.contabsAll || db.contabs).some(c => c.nome.toLowerCase() === nome.toLowerCase())) return toast('Já existe uma contabilidade com este nome.');
       const ref = doc(collection(fs, 'contabilidades')), b = writeBatch(fs);
       b.set(ref, { nome, criado: serverTimestamp() }); auditOp(b, 'Contabilidade criada', null, nome); await b.commit();
       toast(nome + ' criada.'); route();
@@ -572,19 +574,43 @@ function renderContabs() {
     $('#cnext').onclick = () => create(nextName());
     document.querySelectorAll('[data-ren]').forEach(btn => btn.onclick = () => {
       const c = db.contabs.find(x => x.id === btn.dataset.ren);
-      modal(`<h3>Renomear contabilidade</h3><form id="rn"><label for="nn">Nome</label><input id="nn" required maxlength="100" value="${esc(c.nome)}"><div class="actions"><button class="primary">Salvar</button><button type="button" id="x">Cancelar</button></div></form>`, d => {
+      modal(`<h3>Editar contabilidade</h3><form id="rn"><label for="nn">Nome</label><input id="nn" required maxlength="100" value="${esc(c.nome)}"><div class="actions"><button class="primary">Salvar</button><button type="button" id="x">Cancelar</button></div></form>`, d => {
         $('#x', d).onclick = () => d.close();
         $('#rn', d).onsubmit = guard(async e => { e.preventDefault(); const nome = $('#nn', d).value.trim(); if (!nome) return;
+          if (nome !== c.nome && db.contabsAll.some(x => x.id !== c.id && x.nome.toLowerCase() === nome.toLowerCase())) return toast('Já existe uma contabilidade com este nome.');
           const b = writeBatch(fs); b.update(doc(fs, 'contabilidades', c.id), { nome }); auditOp(b, 'Contabilidade renomeada', null, `${c.nome} → ${nome}`); await b.commit(); d.close(); route(); });
       });
     });
+    document.querySelectorAll('[data-del]').forEach(btn => btn.onclick = () => {
+      const c = db.contabs.find(x => x.id === btn.dataset.del);
+      const vinc = db.users.filter(u => u.role !== 'admin' && (u.contabilidades || []).includes(c.id));
+      modal(`<h3>Excluir contabilidade</h3>
+        <p>Você vai excluir <b>${esc(c.nome)}</b>. Ela some das listas e <b>${vinc.length} usuário(s)</b> perdem o acesso a ela.</p>
+        <p class="muted small">Os registros, versões e a trilha de auditoria <b>não são apagados</b>: ficam guardados no servidor e a contabilidade pode ser restaurada abaixo, em "Excluídas". A trilha de auditoria é imutável por regra do sistema.</p>
+        <form id="dl"><label for="dn">Digite o nome da contabilidade para confirmar</label><input id="dn" autocomplete="off" required><div class="actions"><button class="danger" id="dok" disabled>Excluir</button><button type="button" id="x">Cancelar</button></div></form>`, d => {
+        $('#x', d).onclick = () => d.close();
+        $('#dn', d).oninput = () => { $('#dok', d).disabled = $('#dn', d).value.trim() !== c.nome; };
+        $('#dl', d).onsubmit = guard(async e => { e.preventDefault(); if ($('#dn', d).value.trim() !== c.nome) return;
+          const b = writeBatch(fs);
+          b.update(doc(fs, 'contabilidades', c.id), { excluida: true, excluidaEm: serverTimestamp() });
+          vinc.forEach(u => { b.update(doc(fs, 'users', u.id), { contabilidades: (u.contabilidades || []).filter(x => x !== c.id) }); b.delete(doc(fs, 'contabilidades', c.id, 'pessoas', u.id)); });
+          auditOp(b, 'Contabilidade excluída', null, c.nome + (vinc.length ? ` (acesso removido de: ${vinc.map(u => u.nome).join(', ')})` : ''));
+          await b.commit(); d.close(); toast(c.nome + ' excluída.'); await loadCore(); route(); });
+      });
+    });
+    document.querySelectorAll('[data-res]').forEach(btn => btn.onclick = guard(async () => {
+      const c = db.contabsAll.find(x => x.id === btn.dataset.res); const b = writeBatch(fs);
+      b.update(doc(fs, 'contabilidades', c.id), { excluida: false });
+      auditOp(b, 'Contabilidade restaurada', null, c.nome); await b.commit(); toast(c.nome + ' restaurada. Vincule os usuários novamente em Usuários.'); await loadCore(); route();
+    }));
   };
   return `<div class="bar"><div><h1>Contabilidades</h1><p class="muted">Cada contabilidade tem registros, versões e auditoria próprios, isolados no servidor. Vincule usuários em <a href="#/usuarios">Usuários</a>.</p></div></div>
     <div class="card"><form id="cf" class="row" style="align-items:end"><div><label for="cn" style="margin-top:0">Nova contabilidade</label><input id="cn" maxlength="100" placeholder="Nome do escritório"></div>
     <div class="actions" style="margin:0"><button class="primary">Adicionar</button><button type="button" id="cnext">Criar “${esc(nextName())}”</button></div></form></div>
     <div class="card tablewrap"><table><tr><th>Nome</th><th>Usuários vinculados</th><th></th></tr>${db.contabs.map(c => {
       const us = db.users.filter(u => u.role !== 'admin' && u.ativo && (u.contabilidades || []).includes(c.id)).length;
-      return `<tr><td>${esc(c.nome)}</td><td>${us}</td><td style="text-align:right"><button data-ren="${esc(c.id)}">Renomear</button></td></tr>`; }).join('') || '<tr><td colspan="3" class="muted">Nenhuma contabilidade.</td></tr>'}</table></div>`;
+      return `<tr><td>${esc(c.nome)}</td><td>${us}</td><td style="text-align:right"><button data-ren="${esc(c.id)}">Editar</button> <button class="danger" data-del="${esc(c.id)}">Excluir</button></td></tr>`; }).join('') || '<tr><td colspan="3" class="muted">Nenhuma contabilidade.</td></tr>'}</table></div>
+    ${(db.contabsAll || []).some(c => c.excluida) ? `<div class="card tablewrap"><h2>Excluídas</h2><table>${db.contabsAll.filter(c => c.excluida).map(c => `<tr><td>${esc(c.nome)}</td><td style="text-align:right"><button data-res="${esc(c.id)}">Restaurar</button></td></tr>`).join('')}</table></div>` : ''}`;
 }
 
 /* ---------- categorias (admin) ---------- */
@@ -628,10 +654,10 @@ function renderBackup() {
       $('#bka').disabled = true;
       try {
         const out = { versao_app: VERSION, gerado: new Date().toISOString(), categorias: db.categorias, usuarios: db.users, contabilidades: [] };
-        for (const c of db.contabs) out.contabilidades.push(await exportFirm(c.id));
+        for (const c of (db.contabsAll || db.contabs)) out.contabilidades.push(await exportFirm(c.id));
         out.auditoria_sistema = await loadSysAudit(5000);
         download('lgpdsan-backup-completo-' + today() + '.json', toJson(out), 'application/json');
-        await auditNow('Backup completo exportado', null, db.contabs.length + ' contabilidade(s)');
+        await auditNow('Backup completo exportado', null, (db.contabsAll || db.contabs).length + ' contabilidade(s)');
       } finally { $('#bka').disabled = false; }
     });
   };

@@ -1,6 +1,15 @@
 # Changelog
 Formato SemVer.
 
+## [2.11.0] - 2026-10-07
+### Adicionado
+- Contabilidades: botão "Editar" (nome, antes "Renomear") e botão "Excluir" com confirmação digitando o nome
+- Excluir = desativar: a contabilidade some das listas e os usuários vinculados perdem o acesso, mas registros, versões e auditoria ficam guardados (a trilha de auditoria é imutável por regra). Seção "Excluídas" com botão "Restaurar"
+- Eventos de auditoria do sistema: "Contabilidade excluída" e "Contabilidade restaurada"
+- Backup completo passa a incluir contabilidades excluídas
+### Observações
+- As regras do Firestore não mudaram (exclusão definitiva continua bloqueada por `allow delete: if false`)
+
 ## [2.10.0] - 2026-10-07
 ### Adicionado
 - Governança e Políticas: enquadramento como agente de pequeno porte (Res. CD/ANPD 2/2022) e verificação de alto risco; encarregado (ato formal de designação, conflito de interesses, autonomia; Res. 18/2024); resposta a ofícios da ANPD (responsável e registro); legítimo interesse em 4 etapas
