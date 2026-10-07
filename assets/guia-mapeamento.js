@@ -45,12 +45,18 @@ export const GUIA_MAPEAMENTO = {
     { id: 'm5', titulo: '5. Risco e documentação', itens: [
       G('c_risco', 'Existe mapa de risco por tipo de dado (probabilidade e impacto de vazamento, perda ou alteração)?', 'Seção 4 do documento não veio.'),
       G('c_ripd', 'Para tratamento de alto risco ou quando a ANPD solicitar, o escritório sabe elaborar o relatório de impacto à proteção de dados pessoais (art. 38)?', 'O guia usa a sigla "AIPD"; o termo da LGPD é relatório de impacto (RIPD).', true),
+      G('c_ripdAval', 'Foi avaliado, com registro, se algum tratamento exige relatório de impacto (larga escala, dados sensíveis, crianças, decisões automatizadas)?', 'Art. 38 da LGPD. Não há regulamentação da ANPD que fixe os critérios; o registro da avaliação protege o escritório.', true),
+      G('c_ripdFeito', 'Existe relatório de impacto elaborado e arquivado para cada tratamento de alto risco identificado?', 'Art. 38: descrição dos tratamentos, medidas, salvaguardas e mecanismos de mitigação de risco. Saber elaborar não substitui tê-lo pronto.', true),
+      { id: 'dataRipd', tipo: 'texto', label: 'Data do último relatório de impacto (se houver)', extra: true },
+      G('c_ripdRev', 'O relatório de impacto é revisado quando o tratamento, o sistema ou o fornecedor muda?', '', true),
       G('c_ropa', 'O inventário serve como registro das operações de tratamento (art. 37) e fica disponível para auditoria?', '', true),
       G('c_rev', 'O mapeamento é revisado ao menos semestralmente?', '', true)
     ] }
   ],
   alertas: d => {
     const a = [];
+    if (d.c_ripdFeito === 'Não conforme') a.push('Tratamento de alto risco sem relatório de impacto elaborado.');
+    if (d.c_ripdAval === 'Não conforme') a.push('Necessidade de relatório de impacto nunca avaliada.');
     if (d.c_invPJ === 'Não conforme' || d.c_invPF === 'Não conforme' || d.c_invFunc === 'Não conforme') a.push('Inventário incompleto para clientes ou funcionários.');
     if (d.c_base === 'Não conforme') a.push('Categorias de dados sem base legal registrada.');
     if (d.c_sens === 'Não conforme') a.push('Dados sensíveis sem identificação ou base legal própria.');

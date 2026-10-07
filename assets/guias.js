@@ -2,14 +2,14 @@
 // Fonte do conteúdo: "Contratos e Operadores — Guia de Conformidade LGPD para Escritório de Contabilidade" (2026).
 // Itens com extra:true foram acrescentados pela equipe técnica (não estão no guia original) e precisam de validação jurídica.
 
-import { GUIA_DIREITOS } from './guia-direitos.js?v=2.9.1';
-import { GUIA_GOVERNANCA } from './guia-governanca.js?v=2.9.1';
-import { GUIA_MAPEAMENTO } from './guia-mapeamento.js?v=2.9.1';
-import { GUIA_RETENCAO } from './guia-retencao.js?v=2.9.1';
-import { GUIA_SEGURANCA } from './guia-seguranca.js?v=2.9.1';
-import { GUIA_TREINAMENTO } from './guia-treinamento.js?v=2.9.1';
-import { GUIA_INCIDENTES } from './guia-incidentes.js?v=2.9.1';
-import { GUIA_EMAIL } from './guia-email.js?v=2.9.1';
+import { GUIA_DIREITOS } from './guia-direitos.js?v=2.10.0';
+import { GUIA_GOVERNANCA } from './guia-governanca.js?v=2.10.0';
+import { GUIA_MAPEAMENTO } from './guia-mapeamento.js?v=2.10.0';
+import { GUIA_RETENCAO } from './guia-retencao.js?v=2.10.0';
+import { GUIA_SEGURANCA } from './guia-seguranca.js?v=2.10.0';
+import { GUIA_TREINAMENTO } from './guia-treinamento.js?v=2.10.0';
+import { GUIA_INCIDENTES } from './guia-incidentes.js?v=2.10.0';
+import { GUIA_EMAIL } from './guia-email.js?v=2.10.0';
 
 export const RESP = ['Conforme', 'Parcial', 'Não conforme', 'N/A']; // 'Não avaliado' = campo vazio
 
@@ -97,6 +97,15 @@ GUIAS['Mapeamento de Dados'] = GUIA_MAPEAMENTO;
 GUIAS['Retenção e Descarte'] = GUIA_RETENCAO;
 GUIAS['Segurança da Informação'] = GUIA_SEGURANCA;
 GUIAS['Treinamento e Cultura'] = GUIA_TREINAMENTO;
+
+// Critérios internos / boa prática: sem exigência expressa de lei ou resolução da ANPD (validar com advogado).
+const BP = {
+  'Tratamento de Email': ['c_rev', 'c_tls', 'c_timeout', 'c_pentest'],
+  'Governança e Políticas': ['c_trim'],
+  'Incidentes': ['c_canalDpo'],
+  'Treinamento e Cultura': ['c_cert', 'c_anual', 'c_espec', 'c_emb', 'c_recon', 'c_camp', 'c_phish', 'c_metric']
+};
+for (const [k, ids] of Object.entries(BP)) for (const sec of GUIAS[k].secoes) for (const i of sec.itens) if (ids.includes(i.id)) i.bp = true;
 
 // Helpers
 export const guiaDe = cat => GUIAS[cat] || null;

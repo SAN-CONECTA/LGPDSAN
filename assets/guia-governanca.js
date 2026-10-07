@@ -13,6 +13,12 @@ export const GUIA_GOVERNANCA = {
       { id: 'encarregado', tipo: 'texto', label: 'Encarregado (DPO): nome e contato', ajuda: 'Art. 41. Agentes de pequeno porte podem ser dispensados da nomeação (Res. CD/ANPD 2/2022, art. 11), mas devem manter canal de atendimento ao titular. Tratamento de alto risco (ex.: dado sensível em larga escala) afasta o regime: folha, atestados e filiação sindical exigem análise. Res. CD/ANPD 18/2024 regula a atuação do encarregado. Validar enquadramento.' },
       G('c_controlador', 'Os papéis de controlador e operador estão definidos para cada tipo de dado?', 'Para dados dos clientes-empresa, o escritório costuma atuar como operador. Validar caso a caso.'),
       G('c_encarr', 'O encarregado está nomeado e sua identidade e contato são divulgados publicamente?', 'Art. 41, § 1º.'),
+      { id: 'porteRes', tipo: 'select', label: 'Enquadramento do escritório (Res. CD/ANPD 2/2022)', opcoes: ['Agente de pequeno porte (regime simplificado)', 'Fora do regime de pequeno porte', 'Não avaliado'], ajuda: 'Registre o resultado da avaliação dos dois itens abaixo. Validar com advogado.', extra: true },
+      G('c_porte', 'O escritório avaliou e registrou formalmente se se enquadra como agente de tratamento de pequeno porte?', 'Res. CD/ANPD 2/2022: o regime simplificado (dispensa de encarregado, prazos em dobro) depende do porte e da ausência de hipóteses de exclusão. Guarde a avaliação, com data e responsável.', true),
+      G('c_altoRisco', 'Foi verificado, com registro, que nenhum tratamento é de alto risco a ponto de afastar o regime de pequeno porte (ex.: dados sensíveis ou de crianças em larga escala, vigilância, decisões automatizadas)?', 'Folha, atestados e filiação sindical exigem análise caso a caso. Conferir as hipóteses de exclusão no texto oficial da Res. 2/2022.', true),
+      G('c_encDesig', 'Há ato formal de designação do encarregado (documento escrito, datado e assinado)?', 'Res. CD/ANPD 18/2024. Mesmo quando a nomeação é dispensada, registre quem atende titulares e ANPD. Conferir os artigos no texto oficial.', true),
+      G('c_encConf', 'O encarregado não acumula função que gere conflito de interesses (ex.: decidir sobre o tratamento que ele mesmo fiscaliza)?', 'A ANPD recomenda evitar o acúmulo de funções que comprometam a independência do encarregado. Sócio que decide e fiscaliza ao mesmo tempo é o caso típico. Validar o fundamento na Res. 18/2024.', true),
+      G('c_encIndep', 'O encarregado tem acesso direto à direção e autonomia para exercer a função, com recursos e tempo para isso?', 'Res. CD/ANPD 18/2024. Validar o fundamento.', true),
       G('c_gestor', 'Há gestor de dados responsável por catalogar dados, prazos de retenção e eliminação segura?'),
       G('c_ti', 'Há responsável de TI/Segurança pelas medidas técnicas (criptografia, firewall, backup, controle de acesso, logs)?'),
       G('c_rh', 'O RH inclui cláusulas LGPD nos contratos de trabalho e revoga acessos no desligamento?'),
@@ -45,6 +51,10 @@ export const GUIA_GOVERNANCA = {
       G('c_consent', 'Quando a base é consentimento, ele é prévio, informado, específico, livre e revogável, e há registro?'),
       G('c_obrigLegal', 'Para obrigação legal, a norma e o prazo de guarda estão citados?'),
       G('c_li', 'Para legítimo interesse, há avaliação documentada de necessidade e equilíbrio com os direitos do titular?', 'O guia recebido não lista o legítimo interesse (art. 7º, IX).', true),
+      G('c_liFinal', 'Legítimo interesse, 1ª etapa: a finalidade é legítima e concreta (situação real, não hipotética) e está descrita?', 'Art. 10, I e II da LGPD; Guia de Legítimo Interesse da ANPD. Validar a redação.', true),
+      G('c_liNec', 'Legítimo interesse, 2ª etapa: só os dados indispensáveis são usados e não há meio menos invasivo?', 'Necessidade (art. 10, § 1º).', true),
+      G('c_liBal', 'Legítimo interesse, 3ª etapa: foram ponderados o impacto sobre os direitos do titular e suas expectativas razoáveis?', 'Balanceamento. Dados sensíveis não podem ter legítimo interesse como base.', true),
+      G('c_liSalv', 'Legítimo interesse, 4ª etapa: há salvaguardas (transparência, direito de oposição, minimização) e a avaliação é registrada com data e responsável?', 'A ANPD pode pedir o relatório de impacto quando a base for legítimo interesse (art. 10, § 3º).', true),
       G('c_sens', 'Dados sensíveis (art. 5º, II e art. 11), como saúde ocupacional de colaboradores, foram identificados e têm base legal própria?', 'Item acrescentado: o guia cita "saúde ocupacional" em outro documento. CPF, CNPJ e dados financeiros não são sensíveis pela lei.', true),
       G('c_ropa', 'Existe registro das operações de tratamento atualizado (art. 37)?', 'O guia usa a sigla "RRPD"; o termo da lei é "registro das operações de tratamento".')
     ] },
@@ -53,6 +63,8 @@ export const GUIA_GOVERNANCA = {
       G('c_ret', 'Há política de retenção e eliminação segura, com prazos por tipo de dado?', 'Idem: seção não recebida.', true),
       G('c_incid', 'Há plano de resposta a incidentes com comunicação à ANPD e aos titulares em até 3 dias úteis?', 'Res. CD/ANPD 15/2024 (6 dias úteis para agentes de pequeno porte). Seção não recebida.', true),
       G('c_direitos', 'Existe procedimento padrão para atender direitos dos titulares (ver categoria "Direitos dos Titulares")?', 'Seção não recebida.', true),
+      G('c_oficioResp', 'Há responsável definido por receber e responder ofícios e requisições da ANPD, com contato atualizado junto à autoridade?', 'Res. CD/ANPD 1/2021 (fiscalização). Ofício sem resposta no prazo agrava a situação do agente. Validar.', true),
+      G('c_oficioReg', 'Ofícios e requisições da ANPD são registrados (data de recebimento, prazo, resposta enviada) e respondidos no prazo?', 'Guarde o protocolo da resposta. Conferir os prazos no ofício recebido.', true),
       G('c_anpd', 'A documentação está organizada para eventual fiscalização da ANPD?', 'Seção não recebida.', true)
     ] }
   ],
@@ -64,6 +76,12 @@ export const GUIA_GOVERNANCA = {
     if (d.c_baseMap === 'Não conforme') a.push('Tratamentos sem base legal documentada.');
     if (d.c_ropa === 'Não conforme') a.push('Sem registro das operações de tratamento.');
     if (d.p_transp === 'Não conforme') a.push('Sem Aviso de Privacidade.');
+    if (d.c_porte === 'Não conforme') a.push('Enquadramento como agente de pequeno porte não avaliado: prazos e dispensas podem não valer.');
+    if (d.c_altoRisco === 'Não conforme') a.push('Tratamento de alto risco não verificado: pode afastar o regime de pequeno porte.');
+    if (d.c_encDesig === 'Não conforme') a.push('Encarregado sem ato formal de designação.');
+    if (d.c_encConf === 'Não conforme') a.push('Encarregado com conflito de interesses.');
+    if (d.c_oficioReg === 'Não conforme') a.push('Ofícios da ANPD sem registro ou resposta no prazo.');
+    if (d.c_li === 'Não conforme' || d.c_liBal === 'Não conforme') a.push('Legítimo interesse usado sem avaliação documentada.');
     if (d.c_incid === 'Não conforme') a.push('Sem plano de resposta a incidentes.');
     return a;
   },

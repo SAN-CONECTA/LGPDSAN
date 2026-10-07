@@ -1,6 +1,15 @@
 # Changelog
 Formato SemVer.
 
+## [2.10.0] - 2026-10-07
+### Adicionado
+- Governança e Políticas: enquadramento como agente de pequeno porte (Res. CD/ANPD 2/2022) e verificação de alto risco; encarregado (ato formal de designação, conflito de interesses, autonomia; Res. 18/2024); resposta a ofícios da ANPD (responsável e registro); legítimo interesse em 4 etapas
+- Mapeamento de Dados: avaliação da necessidade de RIPD, RIPD arquivado, data e revisão (art. 38)
+- Etiqueta "boa prática" nos itens que são critério interno e não exigência legal (14 itens)
+- Novos alertas nas categorias afetadas
+### Observações
+- Itens novos marcados como extra: artigos das resoluções precisam ser conferidos no texto oficial e validados por advogado
+
 ## [2.9.1] - 2026-10-07
 ### Alterado
 - Removido o aviso fixo da página Biblioteca

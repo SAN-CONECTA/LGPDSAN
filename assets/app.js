@@ -3,11 +3,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
   createUserWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js?v=2.9.1';
-import { BIBLIO } from './biblioteca.js?v=2.9.1';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.9.1';
+import { firebaseConfig } from './firebase-config.js?v=2.10.0';
+import { BIBLIO } from './biblioteca.js?v=2.10.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.10.0';
 
-const VERSION = '2.9.1';
+const VERSION = '2.10.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -308,7 +308,8 @@ function checklistForm(g, dados) {
   const item = i => {
     const v = dd[i.id], help = i.ajuda ? `<div class="muted small">${esc(i.ajuda)}</div>` : '';
     const extra = i.extra ? ' <span class="tag brand" title="Item acrescentado pela equipe técnica; validar juridicamente">extra</span>' : '';
-    const lab = `<label>${esc(i.label)}${extra}</label>`;
+    const bp = i.bp ? ' <span class="tag" title="Boa prática / critério interno: não é exigência expressa da LGPD ou de resolução da ANPD">boa prática</span>' : '';
+    const lab = `<label>${esc(i.label)}${extra}${bp}</label>`;
     if (i.tipo === 'texto') return `<div class="gi">${lab}<input data-k="${i.id}" maxlength="300" value="${esc(v)}">${help}</div>`;
     if (i.tipo === 'area') return `<div class="gi">${lab}<textarea data-k="${i.id}" maxlength="2000" style="min-height:70px">${esc(v)}</textarea>${help}</div>`;
     if (i.tipo === 'select') return `<div class="gi">${lab}<select data-k="${i.id}">${opts(i.opcoes, v, '— selecione —')}</select>${help}</div>`;
@@ -339,7 +340,7 @@ function checklistView(g, dados) {
     <p class="small"><b>${pr.pct}% conforme</b> (itens aplicáveis) · ${pr.ok} conformes · ${pr.parcial} parciais · ${pr.nao} não conformes · ${pr.na} N/A · ${pr.pend} sem avaliação</p>
     ${alerts.length ? `<div class="notice bad"><b>Pontos de atenção</b><ul>${alerts.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
     ${g.secoes.map(sec => `<h3 style="margin-top:1rem">${esc(sec.titulo)}</h3><div class="tablewrap"><table>${sec.itens.map(i =>
-      `<tr><td style="width:55%">${esc(i.label)}${i.extra ? ' <span class="tag brand">extra</span>' : ''}</td><td>${val(i)}</td></tr>`).join('')}</table></div>`).join('')}</div>`;
+      `<tr><td style="width:55%">${esc(i.label)}${i.extra ? ' <span class="tag brand">extra</span>' : ''}${i.bp ? ' <span class="tag">boa prática</span>' : ''}</td><td>${val(i)}</td></tr>`).join('')}</table></div>`).join('')}</div>`;
 }
 
 /* ---------- formulário de registro ---------- */
