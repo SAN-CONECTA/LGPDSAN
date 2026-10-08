@@ -3,11 +3,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
   createUserWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js?v=2.13.0';
-import { BIBLIO } from './biblioteca.js?v=2.13.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.13.0';
+import { firebaseConfig } from './firebase-config.js?v=2.13.1';
+import { BIBLIO } from './biblioteca.js?v=2.13.1';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.13.1';
 
-const VERSION = '2.13.0';
+const VERSION = '2.13.1';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -369,7 +369,7 @@ function checklistForm(g, dados) {
     return `<div class="gi">${lab}<div class="row"><select data-k="${i.id}">${opts(RESP, v, 'Não avaliado')}</select><input data-k="${i.id}#o" maxlength="300" placeholder="Observação / evidência (opcional)" value="${esc(dd[i.id + '#o'])}"></div>${help}</div>`;
   };
   return `<div class="card guide"><h3>Checklist · ${esc(g.titulo)}</h3><p class="muted small">${esc(g.resumo)}</p>
-    ${g.secoes.map(sec => `<details open><summary>${esc(sec.titulo)}</summary>${sec.itens.map(item).join('')}</details>`).join('')}</div>`;
+    ${g.secoes.map(sec => `<details><summary>${esc(sec.titulo)}</summary>${sec.itens.map(item).join('')}</details>`).join('')}</div>`;
 }
 function collectDados(root) {
   const o = {};

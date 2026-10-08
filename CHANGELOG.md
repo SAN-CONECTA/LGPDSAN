@@ -1,6 +1,10 @@
 # Changelog
 Formato SemVer.
 
+## [2.13.1] - 2026-10-08
+### Alterado
+- Checklist do registro: as seções abrem minimizadas (clique no título para expandir), deixando a tela mais limpa
+
 ## [2.13.0] - 2026-10-07
 ### Adicionado
 - Tema claro, escuro ou automático (do sistema), escolhido por cada usuário em "Tema", na barra lateral. A escolha é aplicada a cada login, guardada no perfil do usuário (campo `tema`) e neste navegador
