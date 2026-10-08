@@ -1,6 +1,15 @@
 # Changelog
 Formato SemVer.
 
+## [2.14.0] - 2026-10-08
+### Adicionado
+- Menu **Evidências**: envio de PDF, TXT, DOCX, JPG, PNG e WEBP (até 10 MB) por categoria, com descrição, autor e data; filtro por categoria; abrir pelo navegador; exclusão só pelo administrador
+- Fotos acima de 2 MB são reduzidas automaticamente; o conteúdo do arquivo é conferido contra a extensão
+- Auditoria registra "Evidência enviada" e "Evidência excluída"; o backup JSON inclui os dados das evidências (os arquivos ficam no Storage)
+- `storage.rules` (novo) e seção `evidencias` em `firestore.rules`
+### Requisito
+- Firebase Storage exige o plano Blaze. Veja docs/FIREBASE.md ("Evidências")
+
 ## [2.13.1] - 2026-10-08
 ### Alterado
 - Checklist do registro: as seções abrem minimizadas (clique no título para expandir), deixando a tela mais limpa

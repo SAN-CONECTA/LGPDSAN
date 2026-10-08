@@ -1,0 +1,23 @@
+rules_version = '2';
+// Regras do Firebase Storage (Build > Storage > Regras). Consultam o Firestore para saber o perfil e as contabilidades do usuário.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function perfil() { return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
+    function ativo() { return request.auth != null
+      && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) && perfil().ativo == true; }
+    function vinculado(cid) { return cid in perfil().get('contabilidades', []); }
+    function podeLer(cid) { return ativo() && (perfil().role == 'admin' || vinculado(cid)); }
+    function podeEnviar(cid) { return ativo() && (perfil().role == 'admin' || (perfil().role == 'edicao' && vinculado(cid))); }
+
+    // Evidências: evidencias/{contabilidade}/{id da evidência}/{arquivo}
+    match /evidencias/{cid}/{evId}/{nome} {
+      allow read: if podeLer(cid);
+      allow create: if podeEnviar(cid)
+        && request.resource.size > 0 && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType in ['application/pdf', 'text/plain', 'image/jpeg', 'image/png', 'image/webp',
+             'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      allow update: if false;
+      allow delete: if ativo() && perfil().role == 'admin';
+    }
+  }
+}

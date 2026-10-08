@@ -38,10 +38,20 @@ Isolamento: o caminho `contabilidades/{cid}/...` + `cid in users/{uid}.contabili
 ## Observações
 - A chave `apiKey` do app web é pública por desenho; a proteção é feita pelas regras e pela restrição de domínio.
 - Remover acesso de um usuário apaga só `users/{uid}`; a conta de login continua no Authentication.
-- Plano Spark: sem Cloud Functions e sem Storage; anexos continuam como links.
+- Sem Cloud Functions. O menu Evidências usa o Firebase Storage (seção abaixo), que exige o plano Blaze.
 
 ## Domínio próprio (lgpd.sanconecta.com)
 1. DNS de `sanconecta.com`: registro **CNAME**, nome `lgpd`, valor `san-conecta.github.io`.
 2. GitHub → repositório LGPDSAN → Settings → Pages → Custom domain `lgpd.sanconecta.com` (o arquivo `CNAME` do repositório já traz o domínio) → após o certificado, marcar **Enforce HTTPS**.
 3. Firebase Console → Authentication → Settings → **Authorized domains** → adicionar `lgpd.sanconecta.com`.
 4. Google Cloud → Credenciais → chave de API → referenciadores HTTP: adicionar `https://lgpd.sanconecta.com/*`.
+
+## Evidências (Firebase Storage) — v2.14.0
+O menu **Evidências** guarda os arquivos no Storage e os dados (categoria, descrição, autor, data) no Firestore.
+1. Firebase Console → **Upgrade** para o plano **Blaze** (exige cartão; há cota gratuita mensal). Em seguida, em Orçamentos e alertas (Google Cloud → Faturamento), crie um alerta de valor baixo (ex.: R$ 20) para ser avisado se algo sair do esperado.
+2. Build → **Storage** → Começar. Escolha o local `southamerica-east1` (São Paulo) e o modo de produção. O bucket deve ser o de `storageBucket` em `assets/firebase-config.js`.
+3. Storage → aba **Regras** → colar o conteúdo de `storage.rules` → **Publicar**. Se pedir permissão para o Storage consultar o Firestore, aceite: as regras usam o perfil do usuário.
+4. Firestore → **Regras** → colar o `firestore.rules` atualizado (nova seção `evidencias`) → Publicar.
+5. Teste: Administrador envia um PDF, abre e exclui; Edição envia; Consulta só abre; usuário de outra contabilidade não vê.
+
+Tipos aceitos: PDF, TXT, DOCX, JPG, PNG, WEBP, até 10 MB (fotos acima de 2 MB são reduzidas). O backup exportado traz só os dados das evidências; os arquivos continuam no Storage.

@@ -92,6 +92,23 @@ service cloud.firestore {
         }
       }
 
+      // Evidências (metadados; o arquivo fica no Firebase Storage, ver storage.rules).
+      // Edição/admin enviam; ninguém altera; só o administrador exclui.
+      match /evidencias/{id} {
+        allow read: if hasContab(cid);
+        allow create: if canEditIn(cid)
+          && request.resource.data.autorId == request.auth.uid
+          && request.resource.data.contabId == cid
+          && request.resource.data.ts == request.time
+          && request.resource.data.categoria is string && request.resource.data.categoria.size() <= 100
+          && request.resource.data.descricao is string && request.resource.data.descricao.size() > 0 && request.resource.data.descricao.size() <= 300
+          && request.resource.data.nome is string && request.resource.data.nome.size() <= 200
+          && request.resource.data.tamanho is int && request.resource.data.tamanho > 0 && request.resource.data.tamanho <= 10485760
+          && request.resource.data.path is string && request.resource.data.path.matches('evidencias/' + cid + '/' + id + '/.*');
+        allow update: if false;
+        allow delete: if isAdmin();
+      }
+
       // Auditoria da contabilidade: quem tem acesso lê; edição/admin criam; ninguém edita ou apaga.
       match /auditoria/{id} {
         allow read: if hasContab(cid);

@@ -3,11 +3,12 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
   createUserWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js?v=2.13.1';
-import { BIBLIO } from './biblioteca.js?v=2.13.1';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.13.1';
+import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
+import { firebaseConfig } from './firebase-config.js?v=2.14.0';
+import { BIBLIO } from './biblioteca.js?v=2.14.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.14.0';
 
-const VERSION = '2.13.1';
+const VERSION = '2.14.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -20,9 +21,10 @@ const FIELDS = [['titulo', 'Título'], ['categoria', 'Categoria'], ['descricao',
 // campos comparáveis de um registro: os fixos + os itens do checklist da categoria
 const fieldList = cat => { const g = guiaDe(cat); return g ? FIELDS.concat(itensDe(g).flatMap(i => i.tipo === 'sn' ? [['d:' + i.id, i.label], ['d:' + i.id + '#o', 'Observação: ' + i.label]] : [['d:' + i.id, i.label]])) : FIELDS; };
 const fval = (snap, k) => k.startsWith('d:') ? fmtVal((snap.dados || {})[k.slice(2)]) : (snap[k] ?? '');
-const FIRM_ACTS = new Set(['Exportação CSV', 'Backup exportado (contabilidade)']);
+const FIRM_ACTS = new Set(['Exportação CSV', 'Backup exportado (contabilidade)', 'Evidência enviada', 'Evidência excluída']);
 
 const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const tms = t => (t && t.toMillis ? t.toMillis() : t);
 const fmt = t => t ? new Date(tms(t)).toLocaleString('pt-BR') : '—';
@@ -34,6 +36,7 @@ const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 auth.languageCode = 'pt-BR';
 const fs = getFirestore(fbApp);
+const storage = getStorage(fbApp);
 
 let me = null;
 let cid = null; // contabilidade ativa
@@ -201,7 +204,7 @@ const responsaveis = () => [...new Set([me.nome, ...db.pessoas.map(p => p.nome)]
 /* ---------- roteamento ---------- */
 const app = $('#app');
 const routes = [
-  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio],
+  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio],
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
@@ -513,6 +516,90 @@ async function renderRecord(id) {
     <div class="card"><h2>Auditoria deste registro</h2>${auditRows(au)}</div>`;
 }
 
+/* ---------- evidências: arquivos no Firebase Storage; dados de cada uma no Firestore ---------- */
+const EV_MAX = 10 * 1024 * 1024;
+const EV_TIPOS = { pdf: 'application/pdf', txt: 'text/plain', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+const evExt = n => (String(n).includes('.') ? String(n).split('.').pop() : '').toLowerCase();
+const fmtTam = b => b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+const evCol = () => collection(fs, 'contabilidades', cid, 'evidencias');
+const evDoc = id => doc(fs, 'contabilidades', cid, 'evidencias', id);
+// confere os primeiros bytes: o arquivo precisa ser mesmo do tipo que a extensão diz
+async function evAssinaturaOk(file, ext) {
+  if (ext === 'txt') return true;
+  const b = new Uint8Array(await file.slice(0, 12).arrayBuffer()), at = (...v) => v.every((x, i) => b[i] === x);
+  if (ext === 'pdf') return at(0x25, 0x50, 0x44, 0x46);
+  if (ext === 'docx') return at(0x50, 0x4B, 0x03, 0x04);
+  if (ext === 'png') return at(0x89, 0x50, 0x4E, 0x47);
+  if (ext === 'jpg' || ext === 'jpeg') return at(0xFF, 0xD8, 0xFF);
+  if (ext === 'webp') return at(0x52, 0x49, 0x46, 0x46) && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50;
+  return false;
+}
+// foto de celular costuma passar de 5 MB: reduz para no máximo 2400 px (JPEG)
+async function evReduzFoto(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('Não foi possível ler a imagem.')); i.src = url; });
+    const k = Math.min(1, 2400 / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(img.width * k)); cv.height = Math.max(1, Math.round(img.height * k));
+    const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(img, 0, 0, cv.width, cv.height);
+    return await new Promise(ok => cv.toBlob(ok, 'image/jpeg', 0.85));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function enviarEvidencia(file, categoria, descricao, onProg) {
+  const ext = evExt(file.name);
+  if (!EV_TIPOS[ext]) throw new Error('Tipo não permitido. Use PDF, TXT, DOCX, JPG, PNG ou WEBP.');
+  if (!(await evAssinaturaOk(file, ext))) throw new Error('O conteúdo do arquivo não corresponde ao tipo ".' + ext + '".');
+  let blob = file, mime = EV_TIPOS[ext], nome = file.name;
+  if (mime.startsWith('image/') && file.size > 2 * 1024 * 1024) { blob = await evReduzFoto(file); mime = 'image/jpeg'; nome = nome.replace(/\.[^.]+$/, '') + '.jpg'; }
+  if (blob.size > EV_MAX) throw new Error('Arquivo muito grande (máximo 10 MB).');
+  if (blob.size === 0) throw new Error('O arquivo está vazio.');
+  const id = doc(evCol()).id, seguro = nome.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.\-]+/g, '_').slice(-100) || 'arquivo';
+  const path = `evidencias/${cid}/${id}/${seguro}`, r = sRef(storage, path);
+  await new Promise((ok, no) => { const t = uploadBytesResumable(r, blob, { contentType: mime });
+    t.on('state_changed', sn => onProg && onProg(Math.round(100 * sn.bytesTransferred / Math.max(1, sn.totalBytes))), no, ok); });
+  try {
+    await setDoc(evDoc(id), { categoria, descricao, nome: nome.slice(0, 200), tipo: ext, tamanho: blob.size, path, contabId: cid,
+      autorId: me.id, autor: me.nome, ts: serverTimestamp() });
+  } catch (e) { try { await deleteObject(r); } catch (e2) { /* sem arquivo órfão se der */ } throw e; }
+  await auditNow('Evidência enviada', null, categoria + ' · ' + nome + ' (' + fmtTam(blob.size) + ')');
+}
+async function renderEvid() {
+  const lista = (await getDocs(evCol())).docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => tms(b.ts) - tms(a.ts));
+  const cats = catList(), contagem = c => lista.filter(e => e.categoria === c).length;
+  const linhas = f => { const l = lista.filter(e => !f || e.categoria === f);
+    return l.length ? `<div class="tablewrap"><table><tr><th>Categoria</th><th>Arquivo</th><th>Descrição</th><th>Enviado por</th><th>Quando</th><th>Tamanho</th><th></th></tr>
+    ${l.map(e => `<tr><td><span class="tag brand">${esc(e.categoria)}</span></td><td><button data-open="${esc(e.id)}">${esc(e.nome)}</button></td><td>${esc(e.descricao)}</td>
+    <td>${esc(e.autor)}</td><td>${fmt(e.ts)}</td><td>${esc(fmtTam(e.tamanho || 0))}</td><td>${can.admin() ? `<button class="danger" data-del="${esc(e.id)}">Excluir</button>` : ''}</td></tr>`).join('')}</table></div>`
+    : '<p class="muted">Nenhuma evidência' + (f ? ' nesta categoria' : '') + ' enviada ainda.</p>'; };
+  bind = () => {
+    const draw = () => { const f = $('#evf').value; $('#evl').innerHTML = linhas(f);
+      $$('[data-open]', $('#evl')).forEach(b => b.onclick = guard(async () => { const e = lista.find(x => x.id === b.dataset.open); if (!e) return;
+        const w = window.open('', '_blank'); if (w) w.opener = null;
+        try { const u = await getDownloadURL(sRef(storage, e.path)); if (w) w.location.href = u; else location.href = u; } catch (er) { if (w) w.close(); throw er; } }));
+      $$('[data-del]', $('#evl')).forEach(b => b.onclick = () => { const e = lista.find(x => x.id === b.dataset.del); if (!e) return;
+        confirmBox(`Excluir a evidência "${e.nome}"? O arquivo será apagado do servidor e não poderá ser recuperado.`, 'Excluir', async () => {
+          try { await deleteObject(sRef(storage, e.path)); } catch (er) { if (!(er && er.code === 'storage/object-not-found')) throw er; }
+          await deleteDoc(evDoc(e.id)); await auditNow('Evidência excluída', null, e.categoria + ' · ' + e.nome); toast('Evidência excluída.'); route(); }); }); };
+    $('#evf').onchange = draw; draw();
+    const f = $('#evup'); if (f) f.onsubmit = guard(async ev => { ev.preventDefault();
+      const file = $('#evfile').files[0], btn = $('#evsend'), st = $('#evst'); if (!file) return toast('Escolha um arquivo.');
+      btn.disabled = true;
+      try { await enviarEvidencia(file, $('#evcat').value, $('#evdesc').value.trim(), p => { st.textContent = 'Enviando… ' + p + '%'; });
+        toast('Evidência enviada.'); route(); }
+      catch (e) { st.textContent = ''; throw e; } finally { btn.disabled = false; } });
+  };
+  return `<div class="bar"><div><h1>Evidências</h1><p class="muted">${esc(contabNome(cid))} · ${lista.length} arquivo(s). Comprovantes de que as tratativas de cada categoria estão sendo feitas.</p></div></div>
+    ${can.edit() ? `<div class="card"><h2>Enviar evidência</h2><form id="evup">
+      <div class="row"><div><label for="evcat">Categoria *</label><select id="evcat" required>${opts(cats, '', '— selecione —')}</select></div>
+      <div><label for="evfile">Arquivo *</label><input id="evfile" type="file" required accept=".pdf,.txt,.docx,.jpg,.jpeg,.png,.webp"></div></div>
+      <label for="evdesc">Descrição *</label><input id="evdesc" required maxlength="300" placeholder="O que este arquivo comprova? Ex.: Termo de treinamento de 03/2026">
+      <p class="muted small">PDF, TXT, DOCX, JPG, PNG ou WEBP, até 10 MB. Fotos grandes são reduzidas automaticamente. Não envie dados pessoais além do necessário para comprovar a tratativa.</p>
+      <div class="actions"><button class="primary" id="evsend">Enviar</button><span class="muted small" id="evst"></span></div></form></div>` : ''}
+    <div class="card"><label for="evf" style="margin-top:0">Categoria</label><select id="evf"><option value="">Todas (${lista.length})</option>${cats.map(c => `<option value="${esc(c)}">${esc(c)} (${contagem(c)})</option>`).join('')}</select>
+    <div id="evl" style="margin-top:.75rem"></div></div>`;
+}
+
 /* ---------- auditoria ---------- */
 const auditRows = list => list.length ? `<div class="tablewrap"><table><tr><th>Quando</th><th>Usuário</th><th>Ação</th><th>Registro</th><th>Detalhe</th></tr>
   ${list.map(a => `<tr><td>${fmt(a.ts)}</td><td>${esc(a.user)}<br><span class="muted small">${esc(ROLES[a.role] || '')}</span></td><td>${esc(a.acao)}</td><td>${esc(a.recTitulo)}</td><td>${esc(a.detalhe)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Sem eventos.</p>';
@@ -699,7 +786,8 @@ async function exportFirm(id) {
     const registros = [];
     for (const r of regs) registros.push({ ...r, versoes: (await getDocs(vcol(r.id))).docs.map(d => d.data()) });
     const auditoria = (await getDocs(collection(fs, 'contabilidades', id, 'auditoria'))).docs.map(d => d.data());
-    return { id, nome: contabNome(id), registros, auditoria };
+    const evidencias = (await getDocs(collection(fs, 'contabilidades', id, 'evidencias'))).docs.map(d => ({ id: d.id, ...d.data() })); // só os metadados: os arquivos ficam no Storage
+    return { id, nome: contabNome(id), registros, auditoria, evidencias };
   } finally { cid = prev; }
 }
 function renderBackup() {
