@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.19.0';
-import { BIBLIO } from './biblioteca.js?v=2.19.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.19.0';
+import { firebaseConfig } from './firebase-config.js?v=2.21.0';
+import { BIBLIO } from './biblioteca.js?v=2.21.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.21.0';
 
-const VERSION = '2.19.0';
+const VERSION = '2.21.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -383,6 +383,50 @@ function download(name, text, type) {
 /* ---------- checklist (guias por categoria) ---------- */
 const fieldUnion = (c1, c2) => { const m = new Map(); [...fieldList(c1), ...fieldList(c2)].forEach(([k, l]) => m.set(k, l)); return [...m.entries()]; };
 const respTag = v => `<span class="tag ${{ 'Conforme': 'ok', 'Parcial': 'warn', 'Não conforme': 'bad' }[v] || ''}">${esc(v || 'Não avaliado')}</span>`;
+/* ---------- consulta de CNPJ (BrasilAPI, dados públicos da Receita Federal) ---------- */
+function cnpjValido(c) {
+  if (!/^\d{14}$/.test(c) || /^(\d)\1+$/.test(c)) return false;
+  const dv = n => { let t = 0, p = n - 7; for (let i = 0; i < n; i++) { t += +c[i] * p--; if (p < 2) p = 9; } const r = t % 11; return r < 2 ? 0 : 11 - r; };
+  return dv(12) === +c[12] && dv(13) === +c[13];
+}
+const tituloCase = t => String(t || '').toLowerCase().replace(/(^|[\s\-\/(])([a-zà-ú])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(De|Da|Do|Das|Dos|E)\b/g, w => w.toLowerCase()).replace(/^(.)/, c => c.toUpperCase());
+async function consultaCnpj(c) {
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), 8000);
+  try {
+    const r = await fetch('https://brasilapi.com.br/api/cnpj/v1/' + c, { signal: ac.signal });
+    if (r.status === 404 || r.status === 400) return { naoEncontrado: true };
+    if (!r.ok) throw new Error(String(r.status));
+    const d = await r.json();
+    const tipo = tituloCase(d.descricao_tipo_de_logradouro), lg = tituloCase(d.logradouro);
+    const rua = tipo && !lg.toLowerCase().startsWith(tipo.toLowerCase()) ? tipo + ' ' + lg : lg;
+    const cep = String(d.cep || '').replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$2');
+    const end = [rua && (rua + (d.numero ? ', ' + d.numero : '')), d.complemento && tituloCase(d.complemento), tituloCase(d.bairro), (tituloCase(d.municipio) + (d.uf ? '/' + d.uf : '')).replace(/^\/$/, ''), cep && 'CEP ' + cep].filter(Boolean).join(' - ');
+    return { razao: String(d.razao_social || '').trim(), end,
+      situacao: d.descricao_situacao_cadastral || '', individual: /individual|mei/i.test(String(d.natureza_juridica || '')) || d.opcao_pelo_mei === true };
+  } catch (e) { return { falha: true }; } finally { clearTimeout(t); }
+}
+function ligaBuscaCnpj(inp, st, campos) {
+  if (!inp || !st) return;
+  let ultimo = '', seq = 0;
+  ['razao', 'end'].forEach(k => { const el = campos[k]; if (el) el.addEventListener('input', () => { delete el.dataset.auto; }); });
+  const poe = (k, v) => { const el = campos[k]; if (el && v && (!el.value.trim() || el.dataset.auto === '1')) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dataset.auto = '1'; } };
+  inp.addEventListener('input', async () => {
+    const dig = inp.value.replace(/\D/g, ''), my = ++seq;
+    if (dig.length === 11) { st.textContent = 'CPF: não existe consulta pública. Preencha nome e endereço manualmente.'; const p = campos.pessoa; if (p && !p.value) p.value = 'Física'; return; }
+    if (dig.length !== 14) { st.textContent = ''; ultimo = ''; return; }
+    if (!cnpjValido(dig)) { st.textContent = 'CNPJ inválido. Confira os dígitos.'; return; }
+    if (dig === ultimo) return;
+    st.textContent = 'Consultando a base pública…';
+    const r = await consultaCnpj(dig); if (my !== seq) return;
+    if (r.naoEncontrado) { st.textContent = 'CNPJ não encontrado na base pública. Preencha manualmente.'; return; }
+    if (r.falha) { st.textContent = 'Não foi possível consultar agora. Preencha manualmente.'; return; }
+    ultimo = dig;
+    const p = campos.pessoa; if (p && !p.value) p.value = 'Jurídica';
+    poe('razao', r.razao); poe('end', r.end);
+    const av = []; if (r.situacao && !/ativa/i.test(r.situacao)) av.push('Situação cadastral: ' + r.situacao + '.'); if (r.individual) av.push('Empresário individual/MEI: o endereço pode ser residencial (dado pessoal). Confira se é necessário guardá-lo.');
+    st.textContent = 'Preenchido a partir da Receita Federal (BrasilAPI). Confira antes de salvar. ' + av.join(' ');
+  });
+}
 function checklistForm(g, dados) {
   const dd = dados || {}, crit = critIds(g);
   const item = i => {
@@ -390,7 +434,7 @@ function checklistForm(g, dados) {
     const extra = i.extra ? ' <span class="tag brand" title="Item acrescentado pela equipe técnica; validar juridicamente">extra</span>' : '';
     const bp = i.bp ? ' <span class="tag" title="Boa prática / critério interno: não é exigência expressa da LGPD ou de resolução da ANPD">boa prática</span>' : '';
     const lab = `<label>${esc(i.label)}${extra}${bp}</label>`;
-    if (i.tipo === 'texto') return `<div class="gi">${lab}<input data-k="${i.id}" maxlength="300" value="${esc(v)}">${help}</div>`;
+    if (i.tipo === 'texto') return `<div class="gi">${lab}<input data-k="${i.id}" maxlength="300" value="${esc(v)}"${i.busca ? ` data-busca="${i.busca}" inputmode="numeric" autocomplete="off"` : ''}>${i.busca ? '<div class="muted small" data-bs aria-live="polite"></div>' : ''}${help}</div>`;
     if (i.tipo === 'area') return `<div class="gi">${lab}<textarea data-k="${i.id}" maxlength="2000" style="min-height:70px">${esc(v)}</textarea>${help}</div>`;
     if (i.tipo === 'select') return `<div class="gi">${lab}<select data-k="${i.id}">${opts(i.opcoes, v, '— selecione —')}</select>${help}</div>`;
     if (i.tipo === 'multi') { const sel = new Set(Array.isArray(v) ? v : []);
@@ -458,6 +502,7 @@ function recordForm(rec) {
       const drawGuide = () => {
         const g = guiaDe($('#c', d).value);
         $('#gx', d).innerHTML = g ? checklistForm(g, dadosAtual) : '';
+        if (g) { const gx = $('#gx', d), cp = k => gx.querySelector('[data-k="' + k + '"]'); ligaBuscaCnpj(gx.querySelector('[data-busca="cnpj"]'), gx.querySelector('[data-bs]'), { razao: cp('razao'), end: cp('end'), pessoa: cp('pessoa') }); }
         $('#t', d).placeholder = g ? g.tituloHint : '';
         $$('.stage', d).forEach(st => { const sel = $('[data-k="' + st.dataset.for + '"]', d), es = $('select', st);
           const upd = () => { const ok = ['Conforme', 'Parcial'].includes(sel.value); st.hidden = !ok; if (!ok) es.value = ''; };
@@ -792,21 +837,32 @@ function renderContabs() {
       const c = db.contabs.find(x => x.id === btn.dataset.ren);
       let novaLogo = null; // null = manter; '' = remover; 'data:…' = nova
       modal(`<h3>Editar contabilidade</h3><form id="rn"><label for="nn">Nome</label><input id="nn" required maxlength="100" value="${esc(c.nome)}">
+        <h4 style="margin:1rem 0 .2rem">Dados do escritório (usados no Termo de Ciência)</h4>
+        <label for="cz">Razão social</label><input id="cz" maxlength="200" value="${esc(c.razaoSocial)}">
+        <label for="cj">CNPJ</label><input id="cj" maxlength="18" inputmode="numeric" autocomplete="off" value="${esc(c.cnpj)}"><div class="muted small" id="cjs" aria-live="polite">Com um CNPJ válido, razão social e endereço são preenchidos pela base pública da Receita Federal.</div>
+        <label for="ce">Endereço</label><input id="ce" maxlength="300" value="${esc(c.endereco)}">
+        <label for="cp">Canal de privacidade (e-mail ou outro canal de atendimento)</label><input id="cp" maxlength="200" value="${esc(c.canalPrivacidade)}">
         <label for="lf">Logo do escritório</label>
         <div class="firmlogo-prev" id="lp">${firmLogo(c.id) ? `<img src="${firmLogo(c.id)}" alt="Logo atual">` : '<span class="muted small">Sem logo.</span>'}</div>
         <input id="lf" type="file" accept="image/png,image/jpeg,image/webp">
         <div class="muted small">PNG, JPG ou WEBP. A imagem é reduzida automaticamente. Aparece no cabeçalho dos registros e nos relatórios impressos.</div>
         <div class="actions"><button class="primary">Salvar</button><button type="button" id="lrm"${firmLogo(c.id) ? '' : ' hidden'}>Remover logo</button><button type="button" id="x">Cancelar</button></div></form>`, d => {
         $('#x', d).onclick = () => d.close();
+        ligaBuscaCnpj($('#cj', d), $('#cjs', d), { razao: $('#cz', d), end: $('#ce', d) });
         const prev = () => { $('#lp', d).innerHTML = novaLogo ? `<img src="${novaLogo}" alt="Nova logo">` : '<span class="muted small">Sem logo.</span>'; };
         $('#lf', d).onchange = guard(async () => { const f = $('#lf', d).files[0]; if (!f) return; try { novaLogo = await prepararLogo(f); prev(); $('#lrm', d).hidden = false; } catch (e) { $('#lf', d).value = ''; toast(e.message); } });
         $('#lrm', d).onclick = () => { novaLogo = ''; $('#lf', d).value = ''; prev(); $('#lrm', d).hidden = true; };
         $('#rn', d).onsubmit = guard(async e => { e.preventDefault(); const nome = $('#nn', d).value.trim(); if (!nome) return;
           if (nome !== c.nome && db.contabsAll.some(x => x.id !== c.id && x.nome.toLowerCase() === nome.toLowerCase())) return toast('Já existe uma contabilidade com este nome.');
-          const upd = { nome }; if (novaLogo !== null) upd.logo = novaLogo;
-          if (nome === c.nome && novaLogo === null) return d.close();
+          const dig = $('#cj', d).value.replace(/\D/g, '');
+          if (dig && (dig.length !== 14 || !cnpjValido(dig))) return toast('CNPJ inválido. Confira os dígitos ou deixe em branco.');
+          const cad = { razaoSocial: $('#cz', d).value.trim(), cnpj: dig ? dig.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : '', endereco: $('#ce', d).value.trim(), canalPrivacidade: $('#cp', d).value.trim() };
+          const mudouCad = Object.keys(cad).some(k => (c[k] || '') !== cad[k]);
+          const upd = { nome, ...cad }; if (novaLogo !== null) upd.logo = novaLogo;
+          if (nome === c.nome && novaLogo === null && !mudouCad) return d.close();
           const b = writeBatch(fs); b.update(doc(fs, 'contabilidades', c.id), upd);
           if (nome !== c.nome) auditOp(b, 'Contabilidade renomeada', null, `${c.nome} → ${nome}`);
+          if (mudouCad) auditOp(b, 'Dados cadastrais da contabilidade alterados', null, nome);
           if (novaLogo !== null) auditOp(b, novaLogo ? 'Logo da contabilidade alterada' : 'Logo da contabilidade removida', null, nome);
           await b.commit(); d.close(); await loadCore(); route(); });
       });
@@ -937,7 +993,8 @@ async function renderManual() {
     <div class="card doc">${corpo}</div>`;
 }
 
-const TERMO_CAMPOS = [['emp', 'Empregador: razão social'], ['cnpje', 'Empregador: CNPJ'], ['esc', 'Escritório: razão social'], ['cnpjc', 'Escritório: CNPJ'],
+const TERMO_CAMPOS = [['cnpje', 'Empregador: CNPJ (preenche razão social e endereço)'], ['emp', 'Empregador: razão social'], ['eaddr', 'Empregador: endereço'],
+  ['cnpjc', 'Escritório: CNPJ'], ['esc', 'Escritório: razão social'], ['caddr', 'Escritório: endereço'],
   ['nome', 'Empregado(a): nome completo'], ['cpf', 'Empregado(a): CPF'], ['cemp', 'Canal de privacidade do empregador'], ['cesc', 'Canal de privacidade do escritório']];
 async function renderTermo() {
   let corpo;
@@ -947,7 +1004,8 @@ async function renderTermo() {
     corpo = await r.text();
   } catch (e) { corpo = `<p class="muted">Não foi possível carregar o termo (${esc(e.message)}).</p>`; }
   // Nada aqui é gravado: os valores vivem só nesta página e somem ao sair dela.
-  const vals = { esc: contabNome(cid) };
+  const cb = db.contabs.find(x => x.id === cid) || {};
+  const vals = { esc: cb.razaoSocial || contabNome(cid), cnpjc: cb.cnpj || '', caddr: cb.endereco || '', cesc: cb.canalPrivacidade || '' };
   const paint = modo => $$('#termo .ph').forEach(sp => { const v = (vals[sp.dataset.f] || '').trim();
     sp.textContent = v || (modo === 'print' ? '______________________________' : '[' + sp.dataset.l + ']'); sp.classList.toggle('vazio', !v); });
   const imprimir = () => { paint('print'); try { window.print(); } finally { paint('screen'); } };
@@ -955,6 +1013,9 @@ async function renderTermo() {
     paint('screen');
     window.onbeforeprint = () => paint('print'); window.onafterprint = () => paint('screen');
     $$('[data-tf]').forEach(inp => inp.oninput = () => { vals[inp.dataset.tf] = inp.value; paint('screen'); });
+    const tf = k => $('#tf_' + k);
+    ligaBuscaCnpj(tf('cnpje'), $('#tfs_cnpje'), { razao: tf('emp'), end: tf('eaddr') });
+    ligaBuscaCnpj(tf('cnpjc'), $('#tfs_cnpjc'), { razao: tf('esc'), end: tf('caddr') });
     $('#tedit').onclick = () => { const t = $('#termo'), on = t.contentEditable !== 'true'; t.contentEditable = on ? 'true' : 'false'; t.classList.toggle('editando', on);
       $('#tedit').textContent = on ? 'Concluir edição do texto' : 'Editar texto do termo'; if (on) t.focus(); };
     $('#tclr').onclick = () => { $$('[data-tf]').forEach(inp => { inp.value = ''; vals[inp.dataset.tf] = ''; }); paint('screen'); };
@@ -966,7 +1027,8 @@ async function renderTermo() {
     <div class="actions" style="margin:0"><button id="tedit">Editar texto do termo</button><button id="tclr">Limpar campos</button><button class="primary" id="tprn">Imprimir</button></div></div>
     <div class="card no-print"><h2>Preencha antes de imprimir</h2>
     <p class="small"><b>Nada do que você digita aqui é salvo no sistema.</b> Os dados do empregado ficam só nesta tela e somem quando você sai ou recarrega a página. Imprima e colha a assinatura em papel. Se guardar o termo assinado, guarde na pasta do cliente, não aqui.</p>
-    <div class="row">${TERMO_CAMPOS.map(([k, l]) => `<div><label for="tf_${k}">${esc(l)}</label><input id="tf_${k}" data-tf="${k}" autocomplete="off" maxlength="200" value="${esc(k === 'esc' ? vals.esc : '')}"></div>`).join('')}</div>
+    <div class="row">${TERMO_CAMPOS.map(([k, l]) => `<div><label for="tf_${k}">${esc(l)}</label><input id="tf_${k}" data-tf="${k}" autocomplete="off" maxlength="300" value="${esc(vals[k] || '')}">${k === 'cnpje' || k === 'cnpjc' ? `<div class="muted small" id="tfs_${k}" aria-live="polite"></div>` : ''}</div>`).join('')}</div>
+    <p class="muted small">Os dados do escritório vêm do cadastro em Contabilidades (administrador). Dados do empregador e do empregado não são guardados.</p>
     <p class="muted small" style="margin-bottom:0">Para ajustar frases do termo, use "Editar texto do termo". Documento-modelo: adeque às operações realmente feitas, ao contrato entre empregador e escritório e à legislação, de preferência com revisão de advogado.</p></div>
     <div class="card doc termo" id="termo" spellcheck="false">${firmLogo() ? `<img class="firmlogo t-logo" src="${firmLogo()}" alt="Logo ${esc(contabNome(cid))}">` : ''}${corpo}</div>`;
 }
@@ -974,7 +1036,7 @@ async function renderTermo() {
 function renderAbout() {
   return `<div class="bar"><div><h1>Sobre</h1><p class="muted">LGPDSAN v${VERSION}</p></div></div>
     <div class="card"><h2>Como a segurança funciona</h2><p>Login pelo Firebase Authentication. Permissões, isolamento entre contabilidades e auditoria são <b>aplicados no servidor</b> pelas Regras do Firestore; esconder um botão na tela não é a proteção.</p>
-    <ul><li>Dados no Firestore, região São Paulo.</li><li>Cada contabilidade é isolada: usuários só leem e gravam nas contabilidades a que estão vinculados. Somente o Administrador acessa todas.</li><li>Auditoria somente de criação: nem o administrador altera eventos pelo app.</li><li>Versões de registros são imutáveis; só a exclusão permanente do registro as remove.</li></ul></div>
+    <ul><li>Dados no Firestore, região São Paulo.</li><li>Cada contabilidade é isolada: usuários só leem e gravam nas contabilidades a que estão vinculados. Somente o Administrador acessa todas.</li><li>Auditoria somente de criação: nem o administrador altera eventos pelo app.</li><li>Versões de registros são imutáveis; só a exclusão permanente do registro as remove.</li><li>Única consulta externa: ao digitar um CNPJ válido no checklist de Contratos e Operadores, o CNPJ (somente ele) é enviado à BrasilAPI, que devolve dados públicos da Receita Federal.</li></ul></div>
     <div class="card"><h2>Como calculamos a pontuação do checklist</h2>
     <ul><li><b>Declarado</b>: soma ponderada das respostas. Conforme vale 1, Parcial vale 0,5, Não conforme e sem avaliação valem 0. N/A sai do cálculo.</li>
     <li><b>Peso</b>: itens críticos valem 2; os demais, 1. Crítico é o item que, marcado como Não conforme, gera um ponto de atenção no guia.</li>

@@ -2,14 +2,14 @@
 // Fonte do conteúdo: "Contratos e Operadores — Guia de Conformidade LGPD para Escritório de Contabilidade" (2026).
 // Itens com extra:true foram acrescentados pela equipe técnica (não estão no guia original) e precisam de validação jurídica.
 
-import { GUIA_DIREITOS } from './guia-direitos.js?v=2.19.0';
-import { GUIA_GOVERNANCA } from './guia-governanca.js?v=2.19.0';
-import { GUIA_MAPEAMENTO } from './guia-mapeamento.js?v=2.19.0';
-import { GUIA_RETENCAO } from './guia-retencao.js?v=2.19.0';
-import { GUIA_SEGURANCA } from './guia-seguranca.js?v=2.19.0';
-import { GUIA_TREINAMENTO } from './guia-treinamento.js?v=2.19.0';
-import { GUIA_INCIDENTES } from './guia-incidentes.js?v=2.19.0';
-import { GUIA_EMAIL } from './guia-email.js?v=2.19.0';
+import { GUIA_DIREITOS } from './guia-direitos.js?v=2.21.0';
+import { GUIA_GOVERNANCA } from './guia-governanca.js?v=2.21.0';
+import { GUIA_MAPEAMENTO } from './guia-mapeamento.js?v=2.21.0';
+import { GUIA_RETENCAO } from './guia-retencao.js?v=2.21.0';
+import { GUIA_SEGURANCA } from './guia-seguranca.js?v=2.21.0';
+import { GUIA_TREINAMENTO } from './guia-treinamento.js?v=2.21.0';
+import { GUIA_INCIDENTES } from './guia-incidentes.js?v=2.21.0';
+import { GUIA_EMAIL } from './guia-email.js?v=2.21.0';
 
 export const RESP = ['Conforme', 'Parcial', 'Não conforme', 'N/A']; // 'Não avaliado' = campo vazio
 
@@ -22,7 +22,7 @@ export const GUIAS = {
       { id: 's1', titulo: '1. Identificação do operador', itens: [
         { id: 'razao', tipo: 'texto', label: 'Nome / razão social completa', ajuda: 'Base para rastreabilidade e ação legal.' },
         { id: 'pessoa', tipo: 'select', label: 'Tipo de pessoa', opcoes: ['Jurídica', 'Física'] },
-        { id: 'doc', tipo: 'texto', label: 'CNPJ ou CPF' },
+        { id: 'doc', tipo: 'texto', label: 'CNPJ ou CPF', busca: 'cnpj', ajuda: 'Com um CNPJ válido, o sistema consulta a base pública da Receita Federal e preenche razão social e endereço. Confira antes de salvar.' },
         { id: 'end', tipo: 'texto', label: 'Endereço completo (sede/filial onde os dados são processados)', ajuda: 'Define a jurisdição aplicável em auditorias e incidentes.' },
         { id: 'contato', tipo: 'texto', label: 'Telefone e e-mail do contato (gerente de conta)' },
         { id: 'repr', tipo: 'texto', label: 'Responsável legal / representante que assina o contrato' },

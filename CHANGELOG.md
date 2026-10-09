@@ -1,6 +1,19 @@
 # Changelog
 Formato SemVer.
 
+## [2.21.0] - 2026-10-09
+### Adicionado
+- **Dados do escritório no cadastro de Contabilidades** (Administrador): razão social, CNPJ (validado, com preenchimento de razão social e endereço pela BrasilAPI), endereço e canal de privacidade. Alteração registrada na auditoria
+- **Termo de Ciência** puxa sozinho os dados do escritório do cadastro; ganhou linhas de endereço (empregador e escritório) e o CNPJ do empregador preenche razão social e endereço
+### Alterado
+- firestore.rules: limites de tamanho para os novos campos da contabilidade (`razaoSocial`, `cnpj`, `endereco`, `canalPrivacidade`). Opcional publicar para a v2.21.0 funcionar (as regras anteriores já aceitavam campos extras), mas recomendado
+
+## [2.20.0] - 2026-10-09
+### Adicionado
+- **Preenchimento por CNPJ** no checklist de Contratos e Operadores: com um CNPJ válido (dígitos verificadores conferidos), consulta a BrasilAPI (dados públicos da Receita Federal) e preenche razão social, endereço e tipo de pessoa. Só preenche campos vazios ou preenchidos antes automaticamente; avisa situação cadastral diferente de Ativa e empresário individual/MEI; falha de rede não bloqueia o preenchimento manual
+### Observação de privacidade
+- Primeira chamada externa do sistema: apenas o CNPJ digitado é enviado à BrasilAPI. Registrado em "Sobre" e no Manual
+
 ## [2.19.0] - 2026-10-09
 ### Adicionado
 - **Termo de Ciência** (menu lateral, todos os perfis): modelo de termo sobre tratamento e compartilhamento de dados pessoais de empregados (folha de pagamento, obrigações trabalhistas e eSocial). Campos que preenchem o texto na hora, texto editável e impressão limpa (campos em branco saem como linhas, com aviso antes)
