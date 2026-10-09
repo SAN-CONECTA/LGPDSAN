@@ -1,6 +1,13 @@
 # Changelog
 Formato SemVer.
 
+## [2.19.0] - 2026-10-09
+### Adicionado
+- **Termo de Ciência** (menu lateral, todos os perfis): modelo de termo sobre tratamento e compartilhamento de dados pessoais de empregados (folha de pagamento, obrigações trabalhistas e eSocial). Campos que preenchem o texto na hora, texto editável e impressão limpa (campos em branco saem como linhas, com aviso antes)
+- Capítulo "Termo de Ciência" no Manual
+### Decisão
+- O termo preenchido **não é salvo** no sistema (nem no banco, nem no navegador): nome e CPF de empregados de clientes só existem na tela e na impressão. O termo assinado fica em papel/na pasta do cliente
+
 ## [2.18.0] - 2026-10-09
 ### Adicionado
 - **Manual do usuário** dentro do sistema (menu "Manual", para todos os perfis): perfis de acesso, primeiros passos, Painel, Registros, checklist Declarado x Comprovado, Evidências, revisão e aprovação, administração, backup e auditoria, rotina sugerida, limites conhecidos e perguntas frequentes. Índice no topo e botão para imprimir. O texto fica em `manual.html`

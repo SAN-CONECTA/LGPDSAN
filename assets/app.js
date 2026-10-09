@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.18.0';
-import { BIBLIO } from './biblioteca.js?v=2.18.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.18.0';
+import { firebaseConfig } from './firebase-config.js?v=2.19.0';
+import { BIBLIO } from './biblioteca.js?v=2.19.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.19.0';
 
-const VERSION = '2.18.0';
+const VERSION = '2.19.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -223,7 +223,7 @@ const responsaveis = () => [...new Set([me.nome, ...db.pessoas.map(p => p.nome)]
 /* ---------- roteamento ---------- */
 const app = $('#app');
 const routes = [
-  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/manual', 'Manual', renderManual],
+  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/termo', 'Termo de Ciência', renderTermo, null, true], ['#/manual', 'Manual', renderManual],
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
@@ -935,6 +935,40 @@ async function renderManual() {
   return `<div class="bar"><div><h1>Manual do usuário</h1><p class="muted">LGPDSAN v${VERSION}. Como usar cada parte do sistema.</p></div><div class="actions" style="margin:0"><button id="mprn">Imprimir manual</button></div></div>
     <div class="card"><h2>Neste manual</h2><ol class="toc">${toc}</ol></div>
     <div class="card doc">${corpo}</div>`;
+}
+
+const TERMO_CAMPOS = [['emp', 'Empregador: razão social'], ['cnpje', 'Empregador: CNPJ'], ['esc', 'Escritório: razão social'], ['cnpjc', 'Escritório: CNPJ'],
+  ['nome', 'Empregado(a): nome completo'], ['cpf', 'Empregado(a): CPF'], ['cemp', 'Canal de privacidade do empregador'], ['cesc', 'Canal de privacidade do escritório']];
+async function renderTermo() {
+  let corpo;
+  try {
+    const r = await fetch(`termo.html?v=${VERSION}`, { cache: 'no-cache' });
+    if (!r.ok) throw new Error(String(r.status));
+    corpo = await r.text();
+  } catch (e) { corpo = `<p class="muted">Não foi possível carregar o termo (${esc(e.message)}).</p>`; }
+  // Nada aqui é gravado: os valores vivem só nesta página e somem ao sair dela.
+  const vals = { esc: contabNome(cid) };
+  const paint = modo => $$('#termo .ph').forEach(sp => { const v = (vals[sp.dataset.f] || '').trim();
+    sp.textContent = v || (modo === 'print' ? '______________________________' : '[' + sp.dataset.l + ']'); sp.classList.toggle('vazio', !v); });
+  const imprimir = () => { paint('print'); try { window.print(); } finally { paint('screen'); } };
+  bind = () => {
+    paint('screen');
+    window.onbeforeprint = () => paint('print'); window.onafterprint = () => paint('screen');
+    $$('[data-tf]').forEach(inp => inp.oninput = () => { vals[inp.dataset.tf] = inp.value; paint('screen'); });
+    $('#tedit').onclick = () => { const t = $('#termo'), on = t.contentEditable !== 'true'; t.contentEditable = on ? 'true' : 'false'; t.classList.toggle('editando', on);
+      $('#tedit').textContent = on ? 'Concluir edição do texto' : 'Editar texto do termo'; if (on) t.focus(); };
+    $('#tclr').onclick = () => { $$('[data-tf]').forEach(inp => { inp.value = ''; vals[inp.dataset.tf] = ''; }); paint('screen'); };
+    $('#tprn').onclick = () => { const faltam = TERMO_CAMPOS.filter(([k]) => !(vals[k] || '').trim()).length;
+      if (!faltam) return imprimir();
+      confirmBox(`${faltam} campo(s) em branco. Eles sairão como linhas para preencher à mão. Imprimir assim?`, 'Imprimir', imprimir, false); };
+  };
+  return `<div class="bar no-print"><div><h1>Termo de Ciência</h1><p class="muted">Informa o empregado sobre o tratamento e o compartilhamento dos dados da folha de pagamento e do eSocial com o escritório de contabilidade.</p></div>
+    <div class="actions" style="margin:0"><button id="tedit">Editar texto do termo</button><button id="tclr">Limpar campos</button><button class="primary" id="tprn">Imprimir</button></div></div>
+    <div class="card no-print"><h2>Preencha antes de imprimir</h2>
+    <p class="small"><b>Nada do que você digita aqui é salvo no sistema.</b> Os dados do empregado ficam só nesta tela e somem quando você sai ou recarrega a página. Imprima e colha a assinatura em papel. Se guardar o termo assinado, guarde na pasta do cliente, não aqui.</p>
+    <div class="row">${TERMO_CAMPOS.map(([k, l]) => `<div><label for="tf_${k}">${esc(l)}</label><input id="tf_${k}" data-tf="${k}" autocomplete="off" maxlength="200" value="${esc(k === 'esc' ? vals.esc : '')}"></div>`).join('')}</div>
+    <p class="muted small" style="margin-bottom:0">Para ajustar frases do termo, use "Editar texto do termo". Documento-modelo: adeque às operações realmente feitas, ao contrato entre empregador e escritório e à legislação, de preferência com revisão de advogado.</p></div>
+    <div class="card doc termo" id="termo" spellcheck="false">${firmLogo() ? `<img class="firmlogo t-logo" src="${firmLogo()}" alt="Logo ${esc(contabNome(cid))}">` : ''}${corpo}</div>`;
 }
 
 function renderAbout() {
