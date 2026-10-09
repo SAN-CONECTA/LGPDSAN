@@ -1,6 +1,10 @@
 # Changelog
 Formato SemVer.
 
+## [2.21.1] - 2026-10-09
+### Corrigido
+- Consulta de CNPJ: a mensagem de falha agora diz o motivo (HTTP 429/5xx, bloqueio de rede/extensão/CORS, sem resposta em 8 s) e há uma segunda fonte (CNPJ.ws) quando a BrasilAPI falha. A mensagem de sucesso informa qual fonte respondeu. "Sobre" atualizado
+
 ## [2.21.0] - 2026-10-09
 ### Adicionado
 - **Dados do escritório no cadastro de Contabilidades** (Administrador): razão social, CNPJ (validado, com preenchimento de razão social e endereço pela BrasilAPI), endereço e canal de privacidade. Alteração registrada na auditoria

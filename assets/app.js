@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.21.0';
-import { BIBLIO } from './biblioteca.js?v=2.21.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.21.0';
+import { firebaseConfig } from './firebase-config.js?v=2.21.1';
+import { BIBLIO } from './biblioteca.js?v=2.21.1';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.21.1';
 
-const VERSION = '2.21.0';
+const VERSION = '2.21.1';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -390,20 +390,38 @@ function cnpjValido(c) {
   return dv(12) === +c[12] && dv(13) === +c[13];
 }
 const tituloCase = t => String(t || '').toLowerCase().replace(/(^|[\s\-\/(])([a-zà-ú])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(De|Da|Do|Das|Dos|E)\b/g, w => w.toLowerCase()).replace(/^(.)/, c => c.toUpperCase());
+const fmtEnd = (tipo, lg, num, comp, bairro, mun, uf, cepRaw) => {
+  tipo = tituloCase(tipo); lg = tituloCase(lg);
+  const rua = tipo && !lg.toLowerCase().startsWith(tipo.toLowerCase()) ? tipo + ' ' + lg : lg;
+  const cep = String(cepRaw || '').replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$2');
+  return [rua && (rua + (num ? ', ' + num : '')), comp && tituloCase(comp), tituloCase(bairro), (tituloCase(mun) + (uf ? '/' + uf : '')).replace(/^\/$/, ''), cep && 'CEP ' + cep].filter(Boolean).join(' - ');
+};
+const CNPJ_FONTES = [
+  { nome: 'BrasilAPI', url: c => 'https://brasilapi.com.br/api/cnpj/v1/' + c,
+    le: d => ({ razao: String(d.razao_social || '').trim(), end: fmtEnd(d.descricao_tipo_de_logradouro, d.logradouro, d.numero, d.complemento, d.bairro, d.municipio, d.uf, d.cep),
+      situacao: d.descricao_situacao_cadastral || '', individual: /individual|mei/i.test(String(d.natureza_juridica || '')) || d.opcao_pelo_mei === true }) },
+  { nome: 'CNPJ.ws', url: c => 'https://publica.cnpj.ws/cnpj/' + c,
+    le: d => { const e = d.estabelecimento || {}; return { razao: String(d.razao_social || '').trim(),
+      end: fmtEnd(e.tipo_logradouro, e.logradouro, e.numero, e.complemento, e.bairro, e.cidade && e.cidade.nome, e.estado && e.estado.sigla, e.cep),
+      situacao: String(e.situacao_cadastral || ''), individual: /individual|mei/i.test(String((d.natureza_juridica && d.natureza_juridica.descricao) || '')) }; } }
+];
 async function consultaCnpj(c) {
-  const ac = new AbortController(), t = setTimeout(() => ac.abort(), 8000);
-  try {
-    const r = await fetch('https://brasilapi.com.br/api/cnpj/v1/' + c, { signal: ac.signal });
-    if (r.status === 404 || r.status === 400) return { naoEncontrado: true };
-    if (!r.ok) throw new Error(String(r.status));
-    const d = await r.json();
-    const tipo = tituloCase(d.descricao_tipo_de_logradouro), lg = tituloCase(d.logradouro);
-    const rua = tipo && !lg.toLowerCase().startsWith(tipo.toLowerCase()) ? tipo + ' ' + lg : lg;
-    const cep = String(d.cep || '').replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$2');
-    const end = [rua && (rua + (d.numero ? ', ' + d.numero : '')), d.complemento && tituloCase(d.complemento), tituloCase(d.bairro), (tituloCase(d.municipio) + (d.uf ? '/' + d.uf : '')).replace(/^\/$/, ''), cep && 'CEP ' + cep].filter(Boolean).join(' - ');
-    return { razao: String(d.razao_social || '').trim(), end,
-      situacao: d.descricao_situacao_cadastral || '', individual: /individual|mei/i.test(String(d.natureza_juridica || '')) || d.opcao_pelo_mei === true };
-  } catch (e) { return { falha: true }; } finally { clearTimeout(t); }
+  const motivos = [];
+  for (const f of CNPJ_FONTES) {
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 8000);
+    try {
+      const r = await fetch(f.url(c), { signal: ac.signal });
+      if (r.status === 404) return { naoEncontrado: true };
+      if (!r.ok) { motivos.push(f.nome + ': HTTP ' + r.status + (r.status === 429 ? ' (limite de consultas)' : '')); continue; }
+      const out = f.le(await r.json());
+      if (!out.razao && !out.end) { motivos.push(f.nome + ': resposta sem dados'); continue; }
+      out.fonte = f.nome; return out;
+    } catch (e) {
+      motivos.push(f.nome + ': ' + (e && e.name === 'AbortError' ? 'sem resposta em 8 s' : 'bloqueado ou sem rede (extensão, firewall ou CORS)'));
+      console.warn('[consulta CNPJ]', f.nome, e);
+    } finally { clearTimeout(t); }
+  }
+  return { falha: true, motivo: motivos.join('; ') };
 }
 function ligaBuscaCnpj(inp, st, campos) {
   if (!inp || !st) return;
@@ -419,12 +437,12 @@ function ligaBuscaCnpj(inp, st, campos) {
     st.textContent = 'Consultando a base pública…';
     const r = await consultaCnpj(dig); if (my !== seq) return;
     if (r.naoEncontrado) { st.textContent = 'CNPJ não encontrado na base pública. Preencha manualmente.'; return; }
-    if (r.falha) { st.textContent = 'Não foi possível consultar agora. Preencha manualmente.'; return; }
+    if (r.falha) { st.textContent = 'Não foi possível consultar agora (' + r.motivo + '). Preencha manualmente.'; return; }
     ultimo = dig;
     const p = campos.pessoa; if (p && !p.value) p.value = 'Jurídica';
     poe('razao', r.razao); poe('end', r.end);
     const av = []; if (r.situacao && !/ativa/i.test(r.situacao)) av.push('Situação cadastral: ' + r.situacao + '.'); if (r.individual) av.push('Empresário individual/MEI: o endereço pode ser residencial (dado pessoal). Confira se é necessário guardá-lo.');
-    st.textContent = 'Preenchido a partir da Receita Federal (BrasilAPI). Confira antes de salvar. ' + av.join(' ');
+    st.textContent = 'Preenchido a partir da Receita Federal (' + (r.fonte || 'BrasilAPI') + '). Confira antes de salvar. ' + av.join(' ');
   });
 }
 function checklistForm(g, dados) {
@@ -1036,7 +1054,7 @@ async function renderTermo() {
 function renderAbout() {
   return `<div class="bar"><div><h1>Sobre</h1><p class="muted">LGPDSAN v${VERSION}</p></div></div>
     <div class="card"><h2>Como a segurança funciona</h2><p>Login pelo Firebase Authentication. Permissões, isolamento entre contabilidades e auditoria são <b>aplicados no servidor</b> pelas Regras do Firestore; esconder um botão na tela não é a proteção.</p>
-    <ul><li>Dados no Firestore, região São Paulo.</li><li>Cada contabilidade é isolada: usuários só leem e gravam nas contabilidades a que estão vinculados. Somente o Administrador acessa todas.</li><li>Auditoria somente de criação: nem o administrador altera eventos pelo app.</li><li>Versões de registros são imutáveis; só a exclusão permanente do registro as remove.</li><li>Única consulta externa: ao digitar um CNPJ válido no checklist de Contratos e Operadores, o CNPJ (somente ele) é enviado à BrasilAPI, que devolve dados públicos da Receita Federal.</li></ul></div>
+    <ul><li>Dados no Firestore, região São Paulo.</li><li>Cada contabilidade é isolada: usuários só leem e gravam nas contabilidades a que estão vinculados. Somente o Administrador acessa todas.</li><li>Auditoria somente de criação: nem o administrador altera eventos pelo app.</li><li>Versões de registros são imutáveis; só a exclusão permanente do registro as remove.</li><li>Única consulta externa: ao digitar um CNPJ válido (checklist de Contratos e Operadores, cadastro de Contabilidades e Termo de Ciência), o CNPJ (somente ele) é enviado à BrasilAPI ou, se ela falhar, ao CNPJ.ws, que devolvem dados públicos da Receita Federal.</li></ul></div>
     <div class="card"><h2>Como calculamos a pontuação do checklist</h2>
     <ul><li><b>Declarado</b>: soma ponderada das respostas. Conforme vale 1, Parcial vale 0,5, Não conforme e sem avaliação valem 0. N/A sai do cálculo.</li>
     <li><b>Peso</b>: itens críticos valem 2; os demais, 1. Crítico é o item que, marcado como Não conforme, gera um ponto de atenção no guia.</li>
