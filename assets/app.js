@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.21.1';
-import { BIBLIO } from './biblioteca.js?v=2.21.1';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.21.1';
+import { firebaseConfig } from './firebase-config.js?v=2.21.2';
+import { BIBLIO } from './biblioteca.js?v=2.21.2';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.21.2';
 
-const VERSION = '2.21.1';
+const VERSION = '2.21.2';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -394,7 +394,7 @@ const fmtEnd = (tipo, lg, num, comp, bairro, mun, uf, cepRaw) => {
   tipo = tituloCase(tipo); lg = tituloCase(lg);
   const rua = tipo && !lg.toLowerCase().startsWith(tipo.toLowerCase()) ? tipo + ' ' + lg : lg;
   const cep = String(cepRaw || '').replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$2');
-  return [rua && (rua + (num ? ', ' + num : '')), comp && tituloCase(comp), tituloCase(bairro), (tituloCase(mun) + (uf ? '/' + uf : '')).replace(/^\/$/, ''), cep && 'CEP ' + cep].filter(Boolean).join(' - ');
+  return [rua && (rua + (num ? ', ' + num : '')), comp && tituloCase(comp), tituloCase(bairro), (tituloCase(mun) + (uf ? '/' + uf : '')).replace(/^\/$/, ''), cep && 'CEP ' + cep].filter(Boolean).join(' - ').replace(/\s+/g, ' ').trim();
 };
 const CNPJ_FONTES = [
   { nome: 'BrasilAPI', url: c => 'https://brasilapi.com.br/api/cnpj/v1/' + c,

@@ -1,6 +1,10 @@
 # Changelog
 Formato SemVer.
 
+## [2.21.2] - 2026-10-09
+### Corrigido
+- Endereço vindo da consulta de CNPJ: espaços repetidos (comuns no complemento cadastrado na Receita) são reduzidos a um
+
 ## [2.21.1] - 2026-10-09
 ### Corrigido
 - Consulta de CNPJ: a mensagem de falha agora diz o motivo (HTTP 429/5xx, bloqueio de rede/extensão/CORS, sem resposta em 8 s) e há uma segunda fonte (CNPJ.ws) quando a BrasilAPI falha. A mensagem de sucesso informa qual fonte respondeu. "Sobre" atualizado
