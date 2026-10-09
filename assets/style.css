@@ -105,3 +105,6 @@ dialog{max-height:92vh;overflow:auto}
 /* impressão sempre em tema claro */
 @media print{html:root,html:root[data-theme],html:root:not([data-theme=light]){--bg:#fff;--surface:#fff;--ink:#000;--muted:#444;--line:#ccc;--brand:#0f766e;--brand-ink:#fff;--brand-soft:#e3f3f1;--warn:#b45309;--warn-soft:#fef3e2;--bad:#b42318;--bad-soft:#fdeceb;--ok:#15803d;--ok-soft:#e6f5ea;--add:#d9f2dd;--del:#fbdcdc;color-scheme:light}}
 .themesel{margin:.4rem 0 .2rem}.themesel label{margin:0 0 .15rem;font-weight:600}.themesel select{padding:.3rem .45rem;font-size:.85rem}
+
+.stage{margin-top:.5rem}.stage select{max-width:16rem}
+.evrow{margin-top:.35rem}.evrow button:not(.link){padding:.15rem .55rem;font-size:.82rem}

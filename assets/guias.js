@@ -2,14 +2,14 @@
 // Fonte do conteúdo: "Contratos e Operadores — Guia de Conformidade LGPD para Escritório de Contabilidade" (2026).
 // Itens com extra:true foram acrescentados pela equipe técnica (não estão no guia original) e precisam de validação jurídica.
 
-import { GUIA_DIREITOS } from './guia-direitos.js?v=2.14.0';
-import { GUIA_GOVERNANCA } from './guia-governanca.js?v=2.14.0';
-import { GUIA_MAPEAMENTO } from './guia-mapeamento.js?v=2.14.0';
-import { GUIA_RETENCAO } from './guia-retencao.js?v=2.14.0';
-import { GUIA_SEGURANCA } from './guia-seguranca.js?v=2.14.0';
-import { GUIA_TREINAMENTO } from './guia-treinamento.js?v=2.14.0';
-import { GUIA_INCIDENTES } from './guia-incidentes.js?v=2.14.0';
-import { GUIA_EMAIL } from './guia-email.js?v=2.14.0';
+import { GUIA_DIREITOS } from './guia-direitos.js?v=2.15.0';
+import { GUIA_GOVERNANCA } from './guia-governanca.js?v=2.15.0';
+import { GUIA_MAPEAMENTO } from './guia-mapeamento.js?v=2.15.0';
+import { GUIA_RETENCAO } from './guia-retencao.js?v=2.15.0';
+import { GUIA_SEGURANCA } from './guia-seguranca.js?v=2.15.0';
+import { GUIA_TREINAMENTO } from './guia-treinamento.js?v=2.15.0';
+import { GUIA_INCIDENTES } from './guia-incidentes.js?v=2.15.0';
+import { GUIA_EMAIL } from './guia-email.js?v=2.15.0';
 
 export const RESP = ['Conforme', 'Parcial', 'Não conforme', 'N/A']; // 'Não avaliado' = campo vazio
 
@@ -117,4 +117,33 @@ export function progresso(g, d) {
   sn.forEach(i => { const v = (d || {})[i.id]; if (v === 'Conforme') ok++; else if (v === 'Parcial') parcial++; else if (v === 'Não conforme') nao++; else if (v === 'N/A') na++; else pend++; });
   const aplic = sn.length - na;
   return { total: sn.length, ok, parcial, nao, na, pend, pct: aplic ? Math.round(ok / aplic * 100) : 0 };
+}
+
+// ---- Pontuação: declarado x comprovado ----
+export const ESTAGIOS = ['Redigido', 'Implantado', 'Testado'];
+const critCache = new Map();
+// Item crítico = marcá-lo "Não conforme" gera um ponto de atenção no guia. Peso 2 na pontuação (os demais, peso 1).
+export function critIds(g) {
+  if (critCache.has(g)) return critCache.get(g);
+  const sn = itensDe(g).filter(i => i.tipo === 'sn'), base = Object.fromEntries(sn.map(i => [i.id, 'Conforme'])), set = new Set();
+  let ref = new Set(); try { ref = new Set(g.alertas(base)); } catch (e) { /* guia sem alertas */ }
+  for (const i of sn) { try { if (g.alertas({ ...base, [i.id]: 'Não conforme' }).some(a => !ref.has(a))) set.add(i.id); } catch (e) { /* ignora */ } }
+  critCache.set(g, set); return set;
+}
+// evPorItem: { idDoItem: nº de evidências } ou null quando as evidências não puderam ser lidas.
+// Declarado: Conforme = 1, Parcial = 0,5. Comprovado: só "Conforme" com ao menos 1 evidência anexada
+// e, nos itens críticos, estágio Implantado ou Testado (Redigido não basta).
+export function pontuacao(g, d, evPorItem) {
+  const crit = critIds(g), dd = d || {}; let tot = 0, decl = 0, comp = 0, conf = 0, semProva = 0;
+  for (const i of itensDe(g)) {
+    if (i.tipo !== 'sn') continue;
+    const v = dd[i.id]; if (v === 'N/A') continue;
+    const w = crit.has(i.id) ? 2 : 1; tot += w;
+    decl += w * (v === 'Conforme' ? 1 : v === 'Parcial' ? 0.5 : 0);
+    if (v === 'Conforme') { conf++;
+      const ev = evPorItem ? (evPorItem[i.id] || 0) : 0, est = dd[i.id + '#e'] || 'Redigido';
+      if (ev > 0 && (!crit.has(i.id) || est !== 'Redigido')) comp += w; else semProva++; }
+  }
+  const pc = x => tot ? Math.round(x / tot * 100) : 0;
+  return { declarado: pc(decl), comprovado: evPorItem ? pc(comp) : null, conformes: conf, semProva: evPorItem ? semProva : null, criticos: crit.size };
 }

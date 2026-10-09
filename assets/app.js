@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.14.0';
-import { BIBLIO } from './biblioteca.js?v=2.14.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso } from './guias.js?v=2.14.0';
+import { firebaseConfig } from './firebase-config.js?v=2.15.0';
+import { BIBLIO } from './biblioteca.js?v=2.15.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.15.0';
 
-const VERSION = '2.14.0';
+const VERSION = '2.15.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -19,7 +19,7 @@ const DEFAULT_CATS = ['Governança e Políticas', 'Direitos dos Titulares', 'Con
 const FIELDS = [['titulo', 'Título'], ['categoria', 'Categoria'], ['descricao', 'Descrição / procedimento'],
   ['status', 'Status'], ['prioridade', 'Prioridade'], ['responsavel', 'Responsável'], ['prazo', 'Prazo'], ['evidencias', 'Evidências (links/referências)']];
 // campos comparáveis de um registro: os fixos + os itens do checklist da categoria
-const fieldList = cat => { const g = guiaDe(cat); return g ? FIELDS.concat(itensDe(g).flatMap(i => i.tipo === 'sn' ? [['d:' + i.id, i.label], ['d:' + i.id + '#o', 'Observação: ' + i.label]] : [['d:' + i.id, i.label]])) : FIELDS; };
+const fieldList = cat => { const g = guiaDe(cat); return g ? FIELDS.concat(itensDe(g).flatMap(i => i.tipo === 'sn' ? [['d:' + i.id, i.label], ['d:' + i.id + '#o', 'Observação: ' + i.label], ['d:' + i.id + '#e', 'Estágio: ' + i.label]] : [['d:' + i.id, i.label]])) : FIELDS; };
 const fval = (snap, k) => k.startsWith('d:') ? fmtVal((snap.dados || {})[k.slice(2)]) : (snap[k] ?? '');
 const FIRM_ACTS = new Set(['Exportação CSV', 'Backup exportado (contabilidade)', 'Evidência enviada', 'Evidência excluída']);
 
@@ -191,6 +191,13 @@ async function loadCore() {
     db.records = (await getDocs(q)).docs.map(d => ({ id: d.id, ...d.data() }));
   } else { db.pessoas = []; db.records = []; }
 }
+// evidências da contabilidade ativa (se as regras ainda não foram publicadas, segue sem elas e a pontuação "comprovada" fica indisponível)
+async function loadEvid() {
+  try { db.evid = (await getDocs(evCol())).docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => tms(b.ts) - tms(a.ts)); db.evidOk = true; }
+  catch (e) { db.evid = []; db.evidOk = false; }
+}
+const evDe = (recId, itemId) => (db.evid || []).filter(e => e.registroId === recId && (!itemId || e.itemId === itemId));
+const evPorItem = recId => { if (!db.evidOk) return null; const o = {}; (db.evid || []).forEach(e => { if (e.registroId === recId && e.itemId) o[e.itemId] = (o[e.itemId] || 0) + 1; }); return o; };
 async function loadAudit(n = 500) {
   const q = query(collection(fs, 'contabilidades', cid, 'auditoria'), orderBy('ts', 'desc'), limit(n));
   return (await getDocs(q)).docs.map(d => d.data()).sort((a, b) => tms(b.ts) - tms(a.ts));
@@ -302,11 +309,13 @@ async function renderDash() {
     <div class="card"><h2>Atribuídos a mim</h2>${mine.length ? miniTable(mine) : '<p class="muted">Nada atribuído a você.</p>'}</div>
     <div class="card"><h2>Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted">Sem atividade.</p>'}</div>`;
 }
-const chkCell = (g, d) => { const p = progresso(g, d); return `<span class="tag ${p.nao ? 'bad' : p.pend ? 'warn' : 'ok'}">${p.pct}%</span> <span class="muted small">${p.pend} pend.</span>`; };
+const chkCell = (g, d, recId) => { const p = progresso(g, d), q = pontuacao(g, d, evPorItem(recId));
+  return `<span class="tag ${p.nao ? 'bad' : p.pend ? 'warn' : 'ok'}" title="Declarado: o que foi respondido (itens críticos pesam 2; Parcial vale metade)">Decl. ${q.declarado}%</span> <span class="tag ${q.comprovado === null ? '' : q.comprovado >= q.declarado && q.declarado ? 'ok' : 'warn'}" title="Comprovado: itens Conforme com evidência anexada (e, nos críticos, estágio Implantado ou Testado)">Comp. ${q.comprovado === null ? '—' : q.comprovado + '%'}</span> <span class="muted small">${p.pend} pend.</span>`; };
 const miniTable = rs => `<div class="tablewrap"><table><tr><th>Registro</th><th>Status</th><th>Prazo</th></tr>${rs.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${statusTag(cur(r).status)}</td><td>${fmtD(cur(r).prazo)}</td></tr>`).join('')}</table></div>`;
 
 /* ---------- lista ---------- */
-function renderList() {
+async function renderList() {
+  await loadEvid();
   bind = () => {
     const q = $('#q'), fc = $('#fc'), fs_ = $('#fs'), fp = $('#fp'), fd = $('#fd');
     let shown = [];
@@ -320,7 +329,7 @@ function renderList() {
       $('#rows').innerHTML = shown.map(r => { const c = cur(r);
         return `<tr><td><a href="${recLink(r)}">${esc(c.titulo)}</a>${r.deleted ? ' <span class="tag bad">excluído</span>' : ''}<br><span class="muted small">${esc(c.categoria)}</span></td>
         <td>${statusTag(c.status)}</td><td>${priorTag(c.prioridade)}</td><td>${esc(c.responsavel) || '—'}</td>
-        <td>${overdue(r) ? '<span class="tag bad">vencido</span> ' : ''}${fmtD(c.prazo)}</td><td>${guiaDe(c.categoria) ? chkCell(guiaDe(c.categoria), c.dados) : '<span class="muted">—</span>'}</td><td>v${r.versao}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">Nenhum registro encontrado.</td></tr>';
+        <td>${overdue(r) ? '<span class="tag bad">vencido</span> ' : ''}${fmtD(c.prazo)}</td><td>${guiaDe(c.categoria) ? chkCell(guiaDe(c.categoria), c.dados, r.id) : '<span class="muted">—</span>'}</td><td>v${r.versao}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">Nenhum registro encontrado.</td></tr>';
       const gb = $('#gbtn'); if (gb) gb.hidden = !guiaDe(fc.value);
     };
     [q, fc, fs_, fp, fd].forEach(el => el.addEventListener('input', draw)); draw();
@@ -358,7 +367,7 @@ function download(name, text, type) {
 const fieldUnion = (c1, c2) => { const m = new Map(); [...fieldList(c1), ...fieldList(c2)].forEach(([k, l]) => m.set(k, l)); return [...m.entries()]; };
 const respTag = v => `<span class="tag ${{ 'Conforme': 'ok', 'Parcial': 'warn', 'Não conforme': 'bad' }[v] || ''}">${esc(v || 'Não avaliado')}</span>`;
 function checklistForm(g, dados) {
-  const dd = dados || {};
+  const dd = dados || {}, crit = critIds(g);
   const item = i => {
     const v = dd[i.id], help = i.ajuda ? `<div class="muted small">${esc(i.ajuda)}</div>` : '';
     const extra = i.extra ? ' <span class="tag brand" title="Item acrescentado pela equipe técnica; validar juridicamente">extra</span>' : '';
@@ -369,7 +378,8 @@ function checklistForm(g, dados) {
     if (i.tipo === 'select') return `<div class="gi">${lab}<select data-k="${i.id}">${opts(i.opcoes, v, '— selecione —')}</select>${help}</div>`;
     if (i.tipo === 'multi') { const sel = new Set(Array.isArray(v) ? v : []);
       return `<div class="gi">${lab}${i.opcoes.map(o => `<label class="chk"><input type="checkbox" data-m="${i.id}" value="${esc(o)}" ${sel.has(o) ? 'checked' : ''}> ${esc(o)}</label>`).join('')}${help}</div>`; }
-    return `<div class="gi">${lab}<div class="row"><select data-k="${i.id}">${opts(RESP, v, 'Não avaliado')}</select><input data-k="${i.id}#o" maxlength="300" placeholder="Observação / evidência (opcional)" value="${esc(dd[i.id + '#o'])}"></div>${help}</div>`;
+    const est = crit.has(i.id) ? `<div class="stage"><label>Estágio do controle <span class="tag warn" title="Item crítico: para contar como comprovado, precisa estar Implantado ou Testado, com evidência anexada">crítico</span></label><select data-k="${i.id}#e">${opts(ESTAGIOS, dd[i.id + '#e'], '— selecione —')}</select></div>` : '';
+    return `<div class="gi">${lab}<div class="row"><select data-k="${i.id}">${opts(RESP, v, 'Não avaliado')}</select><input data-k="${i.id}#o" maxlength="300" placeholder="Observação (opcional)" value="${esc(dd[i.id + '#o'])}"></div>${est}${help}</div>`;
   };
   return `<div class="card guide"><h3>Checklist · ${esc(g.titulo)}</h3><p class="muted small">${esc(g.resumo)}</p>
     ${g.secoes.map(sec => `<details><summary>${esc(sec.titulo)}</summary>${sec.itens.map(item).join('')}</details>`).join('')}</div>`;
@@ -382,19 +392,31 @@ function collectDados(root) {
   Object.assign(o, ms);
   return o;
 }
-function checklistView(g, dados) {
-  const dd = dados || {}, pr = progresso(g, dd), alerts = g.alertas(dd);
+function checklistView(g, dados, rec) {
+  const dd = dados || {}, pr = progresso(g, dd), alerts = g.alertas(dd), crit = critIds(g);
+  const pt = pontuacao(g, dd, rec ? evPorItem(rec.id) : null);
+  const evBtn = e => `<button class="link" data-evopen="${esc(e.id)}" title="${esc(e.descricao)}">${esc(e.nome)}</button>`;
   const val = i => {
     const v = dd[i.id];
-    if (i.tipo === 'sn') return respTag(v) + (dd[i.id + '#o'] ? `<div class="muted small">${esc(dd[i.id + '#o'])}</div>` : '');
-    return v && v.length ? esc(fmtVal(v)) : '<span class="muted">—</span>';
+    if (i.tipo !== 'sn') return v && v.length ? esc(fmtVal(v)) : '<span class="muted">—</span>';
+    let h = respTag(v) + (dd[i.id + '#o'] ? `<div class="muted small">${esc(dd[i.id + '#o'])}</div>` : '');
+    if (rec && v && v !== 'N/A') {
+      const evs = evDe(rec.id, i.id), est = dd[i.id + '#e'];
+      if (crit.has(i.id) && v === 'Conforme') h += `<div class="small">Estágio: <b>${esc(est || 'Redigido (não informado)')}</b></div>`;
+      h += `<div class="small evrow">${evs.length ? 'Evidências: ' + evs.map(evBtn).join(' · ') : (v === 'Conforme' ? '<span class="tag warn">sem evidência</span>' : '')}${can.editRec(rec) && db.evidOk ? ` <button data-anexar="${esc(i.id)}">+ Evidência</button>` : ''}</div>`;
+    }
+    return h;
   };
   return `<div class="card"><h2>Checklist · ${esc(g.titulo)}</h2>
-    <div class="prog" title="${pr.pct}% conforme"><span style="width:${pr.pct}%"></span></div>
-    <p class="small"><b>${pr.pct}% conforme</b> (itens aplicáveis) · ${pr.ok} conformes · ${pr.parcial} parciais · ${pr.nao} não conformes · ${pr.na} N/A · ${pr.pend} sem avaliação</p>
+    <p class="small" style="margin-bottom:.3rem"><b>Declarado ${pt.declarado}%</b> <span class="muted">o que foi respondido</span></p>
+    <div class="prog" title="${pt.declarado}% declarado"><span style="width:${pt.declarado}%"></span></div>
+    <p class="small" style="margin:.6rem 0 .3rem"><b>Comprovado ${pt.comprovado === null ? 'indisponível' : pt.comprovado + '%'}</b> <span class="muted">itens Conforme com evidência${pt.criticos ? ' (críticos também precisam estar Implantados ou Testados)' : ''}</span></p>
+    <div class="prog" title="${pt.comprovado === null ? '' : pt.comprovado + '% comprovado'}"><span style="width:${pt.comprovado || 0}%;background:var(--ok)"></span></div>
+    <p class="small muted">${pr.ok} conformes · ${pr.parcial} parciais · ${pr.nao} não conformes · ${pr.na} N/A · ${pr.pend} sem avaliação${pt.semProva ? ` · <b>${pt.semProva} conforme(s) ainda sem prova</b>` : ''}. Critérios em Sobre / versão.</p>
+    ${pt.comprovado === null ? '<div class="notice">As evidências não puderam ser lidas (regras do Firestore sem a seção <code>evidencias</code>). Publique o <code>firestore.rules</code> atualizado.</div>' : ''}
     ${alerts.length ? `<div class="notice bad"><b>Pontos de atenção</b><ul>${alerts.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
     ${g.secoes.map(sec => `<h3 style="margin-top:1rem">${esc(sec.titulo)}</h3><div class="tablewrap"><table>${sec.itens.map(i =>
-      `<tr><td style="width:55%">${esc(i.label)}${i.extra ? ' <span class="tag brand">extra</span>' : ''}${i.bp ? ' <span class="tag">boa prática</span>' : ''}</td><td>${val(i)}</td></tr>`).join('')}</table></div>`).join('')}</div>`;
+      `<tr><td style="width:55%">${esc(i.label)}${i.extra ? ' <span class="tag brand">extra</span>' : ''}${i.bp ? ' <span class="tag">boa prática</span>' : ''}${crit.has(i.id) ? ' <span class="tag warn" title="Item crítico: peso 2 na pontuação">crítico</span>' : ''}</td><td>${val(i)}</td></tr>`).join('')}</table></div>`).join('')}</div>`;
 }
 
 /* ---------- formulário de registro ---------- */
@@ -465,9 +487,12 @@ async function renderRecord(id) {
   const vs = (await getDocs(vcol(id))).docs.map(d => d.data()).sort((a, b) => a.n - b.n);
   const au = (await getDocs(query(collection(fs, 'contabilidades', cid, 'auditoria'), where('recId', '==', id)))).docs
     .map(d => d.data()).sort((a, b) => tms(b.ts) - tms(a.ts));
+  await loadEvid();
   const c = cur(rec);
   bind = () => {
     const reload = () => route();
+    $$('[data-evopen]').forEach(b => b.onclick = guard(() => abrirEvidencia(db.evid.find(x => x.id === b.dataset.evopen))));
+    $$('[data-anexar]').forEach(b => b.onclick = () => anexarModal(rec, b.dataset.anexar));
     const e = $('#edit'); if (e) e.onclick = () => recordForm(rec);
     const dl = $('#del'); if (dl) dl.onclick = () => confirmBox('Excluir logicamente este registro? Ele sai das listas, mas pode ser restaurado.', 'Excluir', async () => {
       const b = writeBatch(fs); b.update(rdoc(id), { deleted: true }); auditOp(b, 'Exclusão lógica', rec); await b.commit(); reload(); });
@@ -507,7 +532,7 @@ async function renderRecord(id) {
     <div><span class="muted">Criado em</span><br>${fmt(rec.criado)}</div></div>
     <h3 style="margin-top:1rem">Descrição / procedimento</h3><div class="pre">${esc(c.descricao) || '<span class="muted">—</span>'}</div>
     <h3 style="margin-top:1rem">Evidências</h3><div class="pre">${esc(c.evidencias) || '<span class="muted">—</span>'}</div></div>
-    ${guiaDe(c.categoria) ? checklistView(guiaDe(c.categoria), c.dados) : ''}
+    ${guiaDe(c.categoria) ? checklistView(guiaDe(c.categoria), c.dados, rec) : ''}
     <div class="card"><h2>Histórico de versões</h2><div class="tablewrap"><table><tr><th>Versão</th><th>Quando</th><th>Autor</th><th>Justificativa</th><th></th></tr>
     ${vs.slice().reverse().map(v => `<tr><td>v${v.n}${v.n === last ? ' <span class="tag ok">atual</span>' : ''}</td><td>${fmt(v.quando)}</td><td>${esc(v.autor)}</td><td>${esc(v.just)}</td>
     <td>${can.editRec(rec) && v.n !== last ? `<button data-restore="${v.n}">Restaurar</button>` : ''}</td></tr>`).join('')}</table></div></div>
@@ -546,7 +571,7 @@ async function evReduzFoto(file) {
     return await new Promise(ok => cv.toBlob(ok, 'image/jpeg', 0.85));
   } finally { URL.revokeObjectURL(url); }
 }
-async function enviarEvidencia(file, categoria, descricao, onProg) {
+async function enviarEvidencia(file, categoria, descricao, onProg, vinculo) {
   const ext = evExt(file.name);
   if (!EV_TIPOS[ext]) throw new Error('Tipo não permitido. Use PDF, TXT, DOCX, JPG, PNG ou WEBP.');
   if (!(await evAssinaturaOk(file, ext))) throw new Error('O conteúdo do arquivo não corresponde ao tipo ".' + ext + '".');
@@ -560,23 +585,42 @@ async function enviarEvidencia(file, categoria, descricao, onProg) {
     t.on('state_changed', sn => onProg && onProg(Math.round(100 * sn.bytesTransferred / Math.max(1, sn.totalBytes))), no, ok); });
   try {
     await setDoc(evDoc(id), { categoria, descricao, nome: nome.slice(0, 200), tipo: ext, tamanho: blob.size, path, contabId: cid,
-      autorId: me.id, autor: me.nome, ts: serverTimestamp() });
+      autorId: me.id, autor: me.nome, ts: serverTimestamp(),
+      ...(vinculo ? { registroId: vinculo.registroId, itemId: vinculo.itemId, itemRot: String(vinculo.itemRot || '').slice(0, 200) } : {}) });
   } catch (e) { try { await deleteObject(r); } catch (e2) { /* sem arquivo órfão se der */ } throw e; }
-  await auditNow('Evidência enviada', null, categoria + ' · ' + nome + ' (' + fmtTam(blob.size) + ')');
+  await auditNow('Evidência enviada', null, categoria + ' · ' + nome + ' (' + fmtTam(blob.size) + ')' + (vinculo ? ' · item ' + vinculo.itemId : ''));
+}
+async function abrirEvidencia(e) {
+  if (!e) return;
+  const w = window.open('', '_blank'); if (w) w.opener = null;
+  try { const u = await getDownloadURL(sRef(storage, e.path)); if (w) w.location.href = u; else location.href = u; } catch (er) { if (w) w.close(); throw er; }
+}
+function anexarModal(rec, itemId) {
+  const g = guiaDe(cur(rec).categoria), item = g && itensDe(g).find(i => i.id === itemId); if (!item) return;
+  modal(`<h3>Anexar evidência</h3><p class="small muted">${esc(cur(rec).titulo)} · ${esc(item.label)}</p>
+    <form id="axf"><label for="axfile">Arquivo *</label><input id="axfile" type="file" required accept=".pdf,.txt,.docx,.jpg,.jpeg,.png,.webp">
+    <label for="axd">Descrição *</label><input id="axd" required maxlength="300" placeholder="O que este arquivo comprova?">
+    <p class="muted small">PDF, TXT, DOCX, JPG, PNG ou WEBP, até 10 MB. Evite dados pessoais além do necessário para comprovar.</p>
+    <div class="actions"><button class="primary" id="axs">Enviar</button><button type="button" id="axc">Cancelar</button><span class="muted small" id="axst"></span></div></form>`,
+  d => { $('#axc', d).onclick = () => d.close();
+    $('#axf', d).onsubmit = guard(async ev => { ev.preventDefault(); const btn = $('#axs', d); btn.disabled = true;
+      try { await enviarEvidencia($('#axfile', d).files[0], cur(rec).categoria, $('#axd', d).value.trim(), p => { $('#axst', d).textContent = 'Enviando… ' + p + '%'; },
+          { registroId: rec.id, itemId, itemRot: item.label });
+        d.close(); toast('Evidência anexada ao item.'); route(); }
+      catch (e) { $('#axst', d).textContent = ''; btn.disabled = false; throw e; } }); });
 }
 async function renderEvid() {
   const lista = (await getDocs(evCol())).docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => tms(b.ts) - tms(a.ts));
+  db.evid = lista; db.evidOk = true;
   const cats = catList(), contagem = c => lista.filter(e => e.categoria === c).length;
   const linhas = f => { const l = lista.filter(e => !f || e.categoria === f);
-    return l.length ? `<div class="tablewrap"><table><tr><th>Categoria</th><th>Arquivo</th><th>Descrição</th><th>Enviado por</th><th>Quando</th><th>Tamanho</th><th></th></tr>
-    ${l.map(e => `<tr><td><span class="tag brand">${esc(e.categoria)}</span></td><td><button data-open="${esc(e.id)}">${esc(e.nome)}</button></td><td>${esc(e.descricao)}</td>
+    return l.length ? `<div class="tablewrap"><table><tr><th>Categoria</th><th>Arquivo</th><th>Descrição / item</th><th>Enviado por</th><th>Quando</th><th>Tamanho</th><th></th></tr>
+    ${l.map(e => `<tr><td><span class="tag brand">${esc(e.categoria)}</span></td><td><button data-open="${esc(e.id)}">${esc(e.nome)}</button></td><td>${esc(e.descricao)}${e.itemRot ? `<div class="muted small">Item: ${esc(e.itemRot)}</div>` : ''}</td>
     <td>${esc(e.autor)}</td><td>${fmt(e.ts)}</td><td>${esc(fmtTam(e.tamanho || 0))}</td><td>${can.admin() ? `<button class="danger" data-del="${esc(e.id)}">Excluir</button>` : ''}</td></tr>`).join('')}</table></div>`
     : '<p class="muted">Nenhuma evidência' + (f ? ' nesta categoria' : '') + ' enviada ainda.</p>'; };
   bind = () => {
     const draw = () => { const f = $('#evf').value; $('#evl').innerHTML = linhas(f);
-      $$('[data-open]', $('#evl')).forEach(b => b.onclick = guard(async () => { const e = lista.find(x => x.id === b.dataset.open); if (!e) return;
-        const w = window.open('', '_blank'); if (w) w.opener = null;
-        try { const u = await getDownloadURL(sRef(storage, e.path)); if (w) w.location.href = u; else location.href = u; } catch (er) { if (w) w.close(); throw er; } }));
+      $$('[data-open]', $('#evl')).forEach(b => b.onclick = guard(() => abrirEvidencia(lista.find(x => x.id === b.dataset.open))));
       $$('[data-del]', $('#evl')).forEach(b => b.onclick = () => { const e = lista.find(x => x.id === b.dataset.del); if (!e) return;
         confirmBox(`Excluir a evidência "${e.nome}"? O arquivo será apagado do servidor e não poderá ser recuperado.`, 'Excluir', async () => {
           try { await deleteObject(sRef(storage, e.path)); } catch (er) { if (!(er && er.code === 'storage/object-not-found')) throw er; }
@@ -844,7 +888,12 @@ function renderAbout() {
   return `<div class="bar"><div><h1>Sobre</h1><p class="muted">LGPDSAN v${VERSION}</p></div></div>
     <div class="card"><h2>Como a segurança funciona</h2><p>Login pelo Firebase Authentication. Permissões, isolamento entre contabilidades e auditoria são <b>aplicados no servidor</b> pelas Regras do Firestore; esconder um botão na tela não é a proteção.</p>
     <ul><li>Dados no Firestore, região São Paulo.</li><li>Cada contabilidade é isolada: usuários só leem e gravam nas contabilidades a que estão vinculados. Somente o Administrador acessa todas.</li><li>Auditoria somente de criação: nem o administrador altera eventos pelo app.</li><li>Versões de registros são imutáveis; só a exclusão permanente do registro as remove.</li></ul></div>
-    <div class="card"><h2>Limitações conhecidas</h2><ul><li>Sem upload de arquivos (links/referências), sem e-mails de prazo e sem links temporários.</li>
+    <div class="card"><h2>Como calculamos a pontuação do checklist</h2>
+    <ul><li><b>Declarado</b>: soma ponderada das respostas. Conforme vale 1, Parcial vale 0,5, Não conforme e sem avaliação valem 0. N/A sai do cálculo.</li>
+    <li><b>Peso</b>: itens críticos valem 2; os demais, 1. Crítico é o item que, marcado como Não conforme, gera um ponto de atenção no guia.</li>
+    <li><b>Comprovado</b>: só conta o item "Conforme" que tenha ao menos uma evidência anexada. Nos itens críticos, o estágio também precisa ser Implantado ou Testado: um documento redigido não basta.</li>
+    <li>Os percentuais mostram a situação registrada na plataforma. Não são certificação nem garantia de conformidade, e não dispensam validação por advogado e contador.</li></ul></div>
+    <div class="card"><h2>Limitações conhecidas</h2><ul><li>Evidências ficam no Firebase Storage (até 10 MB por arquivo). Sem e-mails de prazo e sem links temporários: quem tem o link de download consegue abrir o arquivo.</li>
     <li>Tentativas de login falhas não entram na auditoria (o servidor limita tentativas, mas o log fica no console do Firebase).</li>
     <li>Sem política de retenção automática nem importação de backup.</li>
     <li>Categorias são compartilhadas entre contabilidades. Não há administrador por contabilidade: usuários são gerenciados pelo Administrador geral.</li></ul></div>

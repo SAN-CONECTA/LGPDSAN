@@ -19,7 +19,7 @@ service cloud.firestore {
         && s.status in ['Rascunho', 'Em vigor', 'Em revisão', 'Arquivado']
         && s.prioridade in ['Baixa', 'Média', 'Alta']
         && s.categoria is string && s.responsavel is string && s.prazo is string
-        && s.get('dados', {}) is map && s.get('dados', {}).size() <= 80;
+        && s.get('dados', {}) is map && s.get('dados', {}).size() <= 250;
     }
 
     // Perfis. Cada usuário lê o próprio; só o administrador lista e altera.
@@ -104,6 +104,9 @@ service cloud.firestore {
           && request.resource.data.descricao is string && request.resource.data.descricao.size() > 0 && request.resource.data.descricao.size() <= 300
           && request.resource.data.nome is string && request.resource.data.nome.size() <= 200
           && request.resource.data.tamanho is int && request.resource.data.tamanho > 0 && request.resource.data.tamanho <= 10485760
+          && (!('registroId' in request.resource.data) || (request.resource.data.registroId is string && request.resource.data.registroId.size() <= 100
+              && request.resource.data.itemId is string && request.resource.data.itemId.size() <= 100
+              && request.resource.data.itemRot is string && request.resource.data.itemRot.size() <= 200))
           && request.resource.data.path is string && request.resource.data.path.matches('evidencias/' + cid + '/' + id + '/.*');
         allow update: if false;
         allow delete: if isAdmin();

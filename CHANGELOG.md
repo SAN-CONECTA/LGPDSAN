@@ -1,6 +1,18 @@
 # Changelog
 Formato SemVer.
 
+## [2.15.0] - 2026-10-09
+Resposta ao relatório de análise (seção 6): a plataforma passa a distinguir o que foi declarado do que foi comprovado.
+### Adicionado
+- Evidência por item do checklist: botão "+ Evidência" na tela do registro (arquivo e descrição); as evidências aparecem no item e na tela Evidências, com o item de origem
+- Estágio do controle (Redigido, Implantado, Testado) nos itens críticos
+- Pontuação em duas barras: **Declarado** e **Comprovado** (Conforme + evidência; nos críticos, também Implantado ou Testado), com aviso de itens "Conforme" sem prova
+- Lista de Registros mostra Decl. e Comp.; página Sobre explica os critérios de cálculo
+### Alterado
+- O percentual agora é ponderado: itens críticos pesam 2 e Parcial vale 0,5 (antes: só a proporção de Conforme). Os números de registros existentes mudam
+- firestore.rules: limite de campos do checklist passou de 80 para 250 (o guia de Governança já podia passar de 80) e campos opcionais de vínculo da evidência
+- Texto de "Limitações conhecidas" atualizado (a plataforma agora tem upload)
+
 ## [2.14.0] - 2026-10-08
 ### Adicionado
 - Menu **Evidências**: envio de PDF, TXT, DOCX, JPG, PNG e WEBP (até 10 MB) por categoria, com descrição, autor e data; filtro por categoria; abrir pelo navegador; exclusão só pelo administrador
