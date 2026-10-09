@@ -1,6 +1,28 @@
 # Changelog
 Formato SemVer.
 
+## [2.16.0] - 2026-10-09
+### Adicionado
+- **Próxima revisão** em cada registro (política, contrato, treinamento, avaliação de fornecedor). Painel e lista destacam revisões vencidas ou nos próximos 30 dias; ao marcar "Em vigor" sem data, sugere 12 meses
+- **Aprovação formal**: o Administrador aprova a versão atual (grava quem, quando e qual versão). Registro editado depois aparece como "alterado após aprovação" até nova aprovação. Painel lista os registros "Em vigor sem aprovação atual"
+- CSV traz as colunas "Próxima revisão" e "Aprovação"; auditoria registra "Versão aprovada"
+### Alterado
+- firestore.rules: só o Administrador grava a aprovação (com o próprio nome, a versão em gravação e a hora do servidor); Edição não consegue alterá-la; campo opcional `revisao`
+- Decisão: editar um registro aprovado NÃO muda o status sozinho (mudar o status criaria nova versão e novo pedido de aprovação, em ciclo). O sinal é a etiqueta e o alerta no Painel
+
+## [2.17.0] - 2026-10-09
+### Adicionado
+- Evidência: "Reaproveitar um arquivo já enviado" no botão + Evidência (um mesmo contrato comprova vários itens sem novo upload). Excluir uma evidência só apaga o arquivo do Storage quando nenhum outro item o usa
+### Alterado
+- O envio de arquivo agora falha em cerca de 30 s, com mensagem clara (regras não publicadas, Storage desativado, sem permissão), em vez de ficar parado em 0%
+- Estágio do controle aparece só quando a resposta é Conforme ou Parcial
+- firestore.rules: o caminho do arquivo da evidência pode apontar para qualquer arquivo da mesma contabilidade (necessário ao reaproveitamento)
+### Corrigido
+- `storage.rules`: removido `firestore.exists()`, que o Storage não aceita (causava `storage/unauthorized`)
+
+## [correção em storage.rules - incorporada na 2.17.0]
+- `storage.rules`: removido `firestore.exists()` (o simulador do Storage acusou "Function not found"); o perfil inativo ou inexistente continua negado, pois `firestore.get()` falha nesse caso
+
 ## [2.15.0] - 2026-10-09
 Resposta ao relatório de análise (seção 6): a plataforma passa a distinguir o que foi declarado do que foi comprovado.
 ### Adicionado

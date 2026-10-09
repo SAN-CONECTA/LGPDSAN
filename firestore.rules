@@ -12,6 +12,14 @@ service cloud.firestore {
     // Escrita em uma contabilidade: Administrador ou usuário de Edição vinculado.
     function canEditIn(cid) { return isAdmin() || (active() && role() == 'edicao' && cid in myContabs()); }
 
+    // Aprovação formal: só o administrador altera, e só para a versão que está gravando, com o próprio nome e a hora do servidor.
+    function aprovOk() {
+      return request.resource.data.get('aprovacao', null) == resource.data.get('aprovacao', null)
+        || (isAdmin() && request.resource.data.aprovacao.porId == request.auth.uid
+            && request.resource.data.aprovacao.versao == request.resource.data.versao
+            && request.resource.data.aprovacao.em == request.time);
+    }
+
     function validSnap(s) {
       return s.titulo is string && s.titulo.size() > 0 && s.titulo.size() <= 200
         && s.descricao is string && s.descricao.size() <= 20000
@@ -19,6 +27,7 @@ service cloud.firestore {
         && s.status in ['Rascunho', 'Em vigor', 'Em revisão', 'Arquivado']
         && s.prioridade in ['Baixa', 'Média', 'Alta']
         && s.categoria is string && s.responsavel is string && s.prazo is string
+        && s.get('revisao', '') is string && s.get('revisao', '').size() <= 10
         && s.get('dados', {}) is map && s.get('dados', {}).size() <= 250;
     }
 
@@ -72,12 +81,14 @@ service cloud.firestore {
           && validSnap(request.resource.data.snap)
           && request.resource.data.versao == 1
           && request.resource.data.deleted == false
+          && !('aprovacao' in request.resource.data)
           && (isAdmin() || request.resource.data.snap.status != 'Arquivado');
-        allow update: if (isAdmin() && validSnap(request.resource.data.snap))
+        allow update: if (isAdmin() && validSnap(request.resource.data.snap) && aprovOk())
           || (canEditIn(cid) && role() == 'edicao'
               && resource.data.deleted == false && request.resource.data.deleted == false
               && resource.data.snap.status != 'Arquivado' && request.resource.data.snap.status != 'Arquivado'
               && validSnap(request.resource.data.snap)
+              && request.resource.data.get('aprovacao', null) == resource.data.get('aprovacao', null)
               && request.resource.data.versao == resource.data.versao + 1);
         allow delete: if isAdmin();
 
@@ -107,7 +118,7 @@ service cloud.firestore {
           && (!('registroId' in request.resource.data) || (request.resource.data.registroId is string && request.resource.data.registroId.size() <= 100
               && request.resource.data.itemId is string && request.resource.data.itemId.size() <= 100
               && request.resource.data.itemRot is string && request.resource.data.itemRot.size() <= 200))
-          && request.resource.data.path is string && request.resource.data.path.matches('evidencias/' + cid + '/' + id + '/.*');
+          && request.resource.data.path is string && request.resource.data.path.matches('evidencias/' + cid + '/.*');
         allow update: if false;
         allow delete: if isAdmin();
       }

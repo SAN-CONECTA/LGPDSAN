@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.15.0';
-import { BIBLIO } from './biblioteca.js?v=2.15.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.15.0';
+import { firebaseConfig } from './firebase-config.js?v=2.17.0';
+import { BIBLIO } from './biblioteca.js?v=2.17.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.17.0';
 
-const VERSION = '2.15.0';
+const VERSION = '2.17.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -17,7 +17,7 @@ const PRIOR = ['Baixa', 'Média', 'Alta'];
 const DEFAULT_CATS = ['Governança e Políticas', 'Direitos dos Titulares', 'Contratos e Operadores', 'Segurança da Informação',
   'Incidentes', 'Retenção e Descarte', 'Treinamento e Cultura', 'Mapeamento de Dados'];
 const FIELDS = [['titulo', 'Título'], ['categoria', 'Categoria'], ['descricao', 'Descrição / procedimento'],
-  ['status', 'Status'], ['prioridade', 'Prioridade'], ['responsavel', 'Responsável'], ['prazo', 'Prazo'], ['evidencias', 'Evidências (links/referências)']];
+  ['status', 'Status'], ['prioridade', 'Prioridade'], ['responsavel', 'Responsável'], ['prazo', 'Prazo'], ['revisao', 'Próxima revisão'], ['evidencias', 'Evidências (links/referências)']];
 // campos comparáveis de um registro: os fixos + os itens do checklist da categoria
 const fieldList = cat => { const g = guiaDe(cat); return g ? FIELDS.concat(itensDe(g).flatMap(i => i.tipo === 'sn' ? [['d:' + i.id, i.label], ['d:' + i.id + '#o', 'Observação: ' + i.label], ['d:' + i.id + '#e', 'Estágio: ' + i.label]] : [['d:' + i.id, i.label]])) : FIELDS; };
 const fval = (snap, k) => k.startsWith('d:') ? fmtVal((snap.dados || {})[k.slice(2)]) : (snap[k] ?? '');
@@ -37,6 +37,7 @@ const auth = getAuth(fbApp);
 auth.languageCode = 'pt-BR';
 const fs = getFirestore(fbApp);
 const storage = getStorage(fbApp);
+storage.maxUploadRetryTime = 30000; storage.maxOperationRetryTime = 30000; // falha em ~30 s em vez de tentar por 10 minutos
 
 let me = null;
 let cid = null; // contabilidade ativa
@@ -76,6 +77,9 @@ function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.ad
 function errMsg(e) {
   const c = e && e.code || '';
   if (c === 'permission-denied') return 'Operação negada: sem permissão ou o registro foi alterado por outra pessoa. Recarregue a página e tente de novo.';
+  if (c === 'storage/unauthorized') return 'Sem permissão para enviar ou abrir arquivos. Confira se as regras do Storage (storage.rules) estão publicadas e se seu perfil tem acesso a esta contabilidade.';
+  if (c === 'storage/retry-limit-exceeded' || c === 'storage/unknown') return 'O envio não concluiu a tempo. Verifique a conexão e se o Storage está ativado no Firebase (plano Blaze) com as regras publicadas.';
+  if (c === 'storage/object-not-found') return 'O arquivo não foi encontrado no Storage.';
   if (c === 'unavailable') return 'Sem conexão com o servidor. Tente novamente.';
   if (c === 'auth/email-already-in-use') return 'Este e-mail já existe no Authentication. Desbloqueie o usuário existente ou remova a conta no console do Firebase.';
   if (c === 'auth/weak-password') return 'Senha fraca.';
@@ -141,6 +145,14 @@ function confirmBox(msg, label, onOk, danger = true) {
 const opts = (arr, sel, blank) => (blank ? `<option value="">${esc(blank)}</option>` : '') + arr.map(v => `<option ${v === sel ? 'selected' : ''}>${esc(v)}</option>`).join('');
 const statusTag = s => `<span class="tag ${{ 'Em vigor': 'ok', 'Em revisão': 'warn', 'Rascunho': '', 'Arquivado': 'brand' }[s] || ''}">${esc(s)}</span>`;
 const priorTag = p => `<span class="tag ${p === 'Alta' ? 'bad' : p === 'Média' ? 'warn' : ''}">${esc(p)}</span>`;
+// revisão periódica e aprovação formal (v2.17.0)
+const diasAte = d => Math.round((new Date(d + 'T00:00:00') - new Date(today() + 'T00:00:00')) / 86400000);
+const revInfo = r => { const c = cur(r); if (!c.revisao || c.status === 'Arquivado' || r.deleted) return null; const n = diasAte(c.revisao);
+  return n < 0 ? { n, k: 'bad', t: `revisão vencida há ${-n} dia(s)` } : n <= 30 ? { n, k: 'warn', t: n === 0 ? 'revisão hoje' : `revisão em ${n} dia(s)` } : null; };
+const revTag = r => { const v = revInfo(r); return v ? `<span class="tag ${v.k}">${v.t}</span>` : ''; };
+const aprovada = r => !!r.aprovacao && r.aprovacao.versao === r.versao;
+const semAprov = r => !r.deleted && cur(r).status === 'Em vigor' && !aprovada(r);
+const maisMeses = (n) => { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
 const overdue = r => { const c = cur(r); return c.prazo && c.prazo < today() && c.status !== 'Arquivado' && c.status !== 'Em vigor'; };
 
 function wordDiff(a, b) {
@@ -298,14 +310,19 @@ async function renderDash() {
   const rs = db.records.filter(r => !r.deleted);
   const by = s => rs.filter(r => cur(r).status === s).length;
   const od = rs.filter(overdue);
+  const rv = rs.filter(r => revInfo(r)).sort((a, b) => cur(a).revisao.localeCompare(cur(b).revisao)), sa = rs.filter(semAprov);
   const mine = rs.filter(r => cur(r).responsavel === me.nome && cur(r).status !== 'Arquivado');
   const recent = (await loadAudit(8)).slice(0, 6);
   return `<div class="bar"><div><h1>Painel</h1><p class="muted">${esc(contabNome(cid))} · visão geral da conformidade.</p></div>
     ${can.edit() ? '<a class="btn primary" href="#/registros" id="dnew">+ Novo registro</a>' : ''}</div>
     <div class="grid"><div class="stat"><b>${rs.length}</b>Registros ativos</div>
     <div class="stat"><b>${by('Em vigor')}</b>Em vigor</div><div class="stat"><b>${by('Em revisão')}</b>Em revisão</div>
-    <div class="stat"><b style="color:${od.length ? 'var(--bad)' : 'inherit'}">${od.length}</b>Prazos vencidos</div></div>
+    <div class="stat"><b style="color:${od.length ? 'var(--bad)' : 'inherit'}">${od.length}</b>Prazos vencidos</div>
+    <div class="stat"><b style="color:${rv.some(r => revInfo(r).n < 0) ? 'var(--bad)' : rv.length ? 'var(--warn)' : 'inherit'}">${rv.length}</b>Revisões vencidas ou em 30 dias</div>
+    <div class="stat"><b style="color:${sa.length ? 'var(--warn)' : 'inherit'}">${sa.length}</b>Em vigor sem aprovação atual</div></div>
     <div class="card"><h2>Prazos vencidos</h2>${od.length ? miniTable(od) : '<p class="muted">Nenhum prazo vencido.</p>'}</div>
+    <div class="card"><h2>Revisões vencidas ou nos próximos 30 dias</h2>${rv.length ? `<div class="tablewrap"><table><tr><th>Registro</th><th>Categoria</th><th>Próxima revisão</th><th></th></tr>${rv.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${esc(cur(r).categoria)}</td><td>${fmtD(cur(r).revisao)}</td><td>${revTag(r)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Nenhuma revisão vencida ou próxima do vencimento. Defina a "Próxima revisão" nos registros de políticas, contratos, treinamentos e avaliações.</p>'}</div>
+    <div class="card"><h2>Em vigor sem aprovação atual</h2>${sa.length ? miniTable(sa) : '<p class="muted">Todos os registros em vigor têm a versão atual aprovada.</p>'}</div>
     <div class="card"><h2>Atribuídos a mim</h2>${mine.length ? miniTable(mine) : '<p class="muted">Nada atribuído a você.</p>'}</div>
     <div class="card"><h2>Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted">Sem atividade.</p>'}</div>`;
 }
@@ -329,7 +346,7 @@ async function renderList() {
       $('#rows').innerHTML = shown.map(r => { const c = cur(r);
         return `<tr><td><a href="${recLink(r)}">${esc(c.titulo)}</a>${r.deleted ? ' <span class="tag bad">excluído</span>' : ''}<br><span class="muted small">${esc(c.categoria)}</span></td>
         <td>${statusTag(c.status)}</td><td>${priorTag(c.prioridade)}</td><td>${esc(c.responsavel) || '—'}</td>
-        <td>${overdue(r) ? '<span class="tag bad">vencido</span> ' : ''}${fmtD(c.prazo)}</td><td>${guiaDe(c.categoria) ? chkCell(guiaDe(c.categoria), c.dados, r.id) : '<span class="muted">—</span>'}</td><td>v${r.versao}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">Nenhum registro encontrado.</td></tr>';
+        <td>${overdue(r) ? '<span class="tag bad">vencido</span> ' : ''}${fmtD(c.prazo)}${revInfo(r) ? '<br>' + revTag(r) : ''}</td><td>${guiaDe(c.categoria) ? chkCell(guiaDe(c.categoria), c.dados, r.id) : '<span class="muted">—</span>'}</td><td>v${r.versao}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">Nenhum registro encontrado.</td></tr>';
       const gb = $('#gbtn'); if (gb) gb.hidden = !guiaDe(fc.value);
     };
     [q, fc, fs_, fp, fd].forEach(el => el.addEventListener('input', draw)); draw();
@@ -352,9 +369,9 @@ async function renderList() {
 async function exportCSV(rs) {
   if (!can.export()) return;
   const q = v => '"' + String(v ?? '').replace(/"/g, '""').replace(/^([=+\-@\t\r])/, "'$1") + '"';
-  const head = ['Contabilidade', 'Título', 'Categoria', 'Status', 'Prioridade', 'Responsável', 'Prazo', 'Versão', 'Descrição', 'Evidências'];
+  const head = ['Contabilidade', 'Título', 'Categoria', 'Status', 'Prioridade', 'Responsável', 'Prazo', 'Próxima revisão', 'Versão', 'Aprovação', 'Descrição', 'Evidências'];
   const lines = [head.map(q).join(';')].concat(rs.map(r => { const c = cur(r);
-    return [contabNome(cid), c.titulo, c.categoria, c.status, c.prioridade, c.responsavel, c.prazo, r.versao, c.descricao, c.evidencias].map(q).join(';'); }));
+    return [contabNome(cid), c.titulo, c.categoria, c.status, c.prioridade, c.responsavel, c.prazo, c.revisao || '', r.versao, r.aprovacao ? `v${r.aprovacao.versao} por ${r.aprovacao.por}${aprovada(r) ? '' : ' (desatualizada)'}` : 'não aprovada', c.descricao, c.evidencias].map(q).join(';'); }));
   download('lgpdsan-registros-' + today() + '.csv', '﻿' + lines.join('\r\n'), 'text/csv;charset=utf-8');
   await auditNow('Exportação CSV', null, `${contabNome(cid)} · ${rs.length} registro(s)`);
 }
@@ -378,7 +395,7 @@ function checklistForm(g, dados) {
     if (i.tipo === 'select') return `<div class="gi">${lab}<select data-k="${i.id}">${opts(i.opcoes, v, '— selecione —')}</select>${help}</div>`;
     if (i.tipo === 'multi') { const sel = new Set(Array.isArray(v) ? v : []);
       return `<div class="gi">${lab}${i.opcoes.map(o => `<label class="chk"><input type="checkbox" data-m="${i.id}" value="${esc(o)}" ${sel.has(o) ? 'checked' : ''}> ${esc(o)}</label>`).join('')}${help}</div>`; }
-    const est = crit.has(i.id) ? `<div class="stage"><label>Estágio do controle <span class="tag warn" title="Item crítico: para contar como comprovado, precisa estar Implantado ou Testado, com evidência anexada">crítico</span></label><select data-k="${i.id}#e">${opts(ESTAGIOS, dd[i.id + '#e'], '— selecione —')}</select></div>` : '';
+    const est = crit.has(i.id) ? `<div class="stage" data-for="${i.id}" ${['Conforme', 'Parcial'].includes(v) ? '' : 'hidden'}><label>Estágio do controle <span class="tag warn" title="Item crítico: para contar como comprovado, precisa estar Implantado ou Testado, com evidência anexada">crítico</span></label><select data-k="${i.id}#e">${opts(ESTAGIOS, dd[i.id + '#e'], '— selecione —')}</select></div>` : '';
     return `<div class="gi">${lab}<div class="row"><select data-k="${i.id}">${opts(RESP, v, 'Não avaliado')}</select><input data-k="${i.id}#o" maxlength="300" placeholder="Observação (opcional)" value="${esc(dd[i.id + '#o'])}"></div>${est}${help}</div>`;
   };
   return `<div class="card guide"><h3>Checklist · ${esc(g.titulo)}</h3><p class="muted small">${esc(g.resumo)}</p>
@@ -421,7 +438,7 @@ function checklistView(g, dados, rec) {
 
 /* ---------- formulário de registro ---------- */
 function recordForm(rec) {
-  const c = rec ? cur(rec) : { titulo: '', categoria: catList()[0] || '', descricao: '', status: 'Rascunho', prioridade: 'Média', responsavel: me.nome, prazo: '', evidencias: '' };
+  const c = rec ? cur(rec) : { titulo: '', categoria: catList()[0] || '', descricao: '', status: 'Rascunho', prioridade: 'Média', responsavel: me.nome, prazo: '', revisao: '', evidencias: '' };
   const statusOpts = me.role === 'admin' ? STATUS : STATUS.filter(s => s !== 'Arquivado');
   modal(`<h3>${rec ? 'Editar registro' : 'Novo registro'} <span class="muted small">· ${esc(contabNome(cid))}</span></h3><form id="rf">
     <label for="t">Título *</label><input id="t" required maxlength="200" value="${esc(c.titulo)}">
@@ -429,7 +446,8 @@ function recordForm(rec) {
     <div><label for="s">Status</label><select id="s">${opts(statusOpts, c.status)}</select></div>
     <div><label for="p">Prioridade</label><select id="p">${opts(PRIOR, c.prioridade)}</select></div></div>
     <div class="row"><div><label for="r">Responsável</label><select id="r">${opts(responsaveis(), c.responsavel, '— ninguém —')}</select></div>
-    <div><label for="z">Prazo</label><input id="z" type="date" value="${esc(c.prazo)}"></div></div>
+    <div><label for="z">Prazo</label><input id="z" type="date" value="${esc(c.prazo)}"></div>
+    <div><label for="rv">Próxima revisão</label><input id="rv" type="date" value="${esc(c.revisao)}"></div></div>
     <label for="d">Descrição / procedimento</label><textarea id="d" maxlength="20000">${esc(c.descricao)}</textarea>
     <label for="e">Evidências (um link ou referência por linha)</label><textarea id="e" maxlength="5000" style="min-height:70px">${esc(c.evidencias)}</textarea>
     <div id="gx"></div>
@@ -441,14 +459,18 @@ function recordForm(rec) {
         const g = guiaDe($('#c', d).value);
         $('#gx', d).innerHTML = g ? checklistForm(g, dadosAtual) : '';
         $('#t', d).placeholder = g ? g.tituloHint : '';
+        $$('.stage', d).forEach(st => { const sel = $('[data-k="' + st.dataset.for + '"]', d), es = $('select', st);
+          const upd = () => { const ok = ['Conforme', 'Parcial'].includes(sel.value); st.hidden = !ok; if (!ok) es.value = ''; };
+          sel.addEventListener('change', upd); });
       };
       $('#c', d).onchange = () => { if (guiaDe(c0)) dadosAtual = collectDados($('#gx', d)); c0 = $('#c', d).value; drawGuide(); };
       let c0 = $('#c', d).value; drawGuide();
+      $('#s', d).onchange = () => { if ($('#s', d).value === 'Em vigor' && !$('#rv', d).value) { $('#rv', d).value = maisMeses(12); toast('Próxima revisão sugerida: 12 meses. Ajuste se precisar.'); } };
       $('#x', d).onclick = () => d.close();
       $('#rf', d).onsubmit = guard(async e => {
         e.preventDefault();
         const snap = { titulo: $('#t', d).value.trim(), categoria: $('#c', d).value, descricao: $('#d', d).value, status: $('#s', d).value,
-          prioridade: $('#p', d).value, responsavel: $('#r', d).value, prazo: $('#z', d).value, evidencias: $('#e', d).value };
+          prioridade: $('#p', d).value, responsavel: $('#r', d).value, prazo: $('#z', d).value, revisao: $('#rv', d).value, evidencias: $('#e', d).value };
         if (guiaDe(snap.categoria)) snap.dados = collectDados($('#gx', d));
         const just = $('#j', d).value.trim();
         $('#sv', d).disabled = true;
@@ -494,6 +516,9 @@ async function renderRecord(id) {
     $$('[data-evopen]').forEach(b => b.onclick = guard(() => abrirEvidencia(db.evid.find(x => x.id === b.dataset.evopen))));
     $$('[data-anexar]').forEach(b => b.onclick = () => anexarModal(rec, b.dataset.anexar));
     const e = $('#edit'); if (e) e.onclick = () => recordForm(rec);
+    const ap = $('#aprov'); if (ap) ap.onclick = () => confirmBox(`Aprovar formalmente a v${rec.versao} deste registro? Ficam registrados seu nome, a data e a versão. Qualquer edição posterior exigirá nova aprovação.`, 'Aprovar', async () => {
+      const b = writeBatch(fs); b.update(rdoc(id), { aprovacao: { versao: rec.versao, porId: me.id, por: me.nome, em: serverTimestamp() } });
+      auditOp(b, 'Versão aprovada', rec, 'v' + rec.versao); await b.commit(); toast('Versão aprovada.'); reload(); }, false);
     const dl = $('#del'); if (dl) dl.onclick = () => confirmBox('Excluir logicamente este registro? Ele sai das listas, mas pode ser restaurado.', 'Excluir', async () => {
       const b = writeBatch(fs); b.update(rdoc(id), { deleted: true }); auditOp(b, 'Exclusão lógica', rec); await b.commit(); reload(); });
     const rs = $('#rest'); if (rs) rs.onclick = guard(async () => {
@@ -522,12 +547,15 @@ async function renderRecord(id) {
   const last = vs.length;
   return `<p class="small"><a href="#/registros">← Registros</a> · ${esc(contabNome(cid))}</p>
     <div class="bar"><div><h1>${esc(c.titulo)} ${rec.deleted ? '<span class="tag bad">excluído</span>' : ''}</h1>
-    <p>${statusTag(c.status)} ${priorTag(c.prioridade)} <span class="tag">${esc(c.categoria)}</span> <span class="tag brand">v${rec.versao}</span></p></div>
+    <p>${statusTag(c.status)} ${priorTag(c.prioridade)} <span class="tag">${esc(c.categoria)}</span> <span class="tag brand">v${rec.versao}</span> ${aprovada(rec) ? `<span class="tag ok" title="Aprovada por ${esc(rec.aprovacao.por)} em ${fmt(rec.aprovacao.em)}">aprovada v${rec.versao}</span>` : rec.aprovacao ? '<span class="tag warn">alterada após aprovação</span>' : '<span class="tag">sem aprovação</span>'} ${revTag(rec)}</p></div>
     <div class="actions" style="margin:0">
     ${can.editRec(rec) ? '<button class="primary" id="edit">Editar</button>' : ''}
+    ${can.admin() && !rec.deleted && c.status !== 'Arquivado' && !aprovada(rec) ? '<button id="aprov">Aprovar esta versão</button>' : ''}
     ${!rec.deleted && can.admin() ? '<button class="danger" id="del">Excluir</button>' : ''}
     ${rec.deleted && can.admin() ? '<button id="rest">Restaurar registro</button><button class="danger" id="hard">Excluir definitivamente</button>' : ''}</div></div>
     ${overdue(rec) ? '<div class="notice bad">Prazo vencido em ' + fmtD(c.prazo) + '.</div>' : ''}
+    ${revInfo(rec) ? `<div class="notice ${revInfo(rec).k === 'bad' ? 'bad' : ''}">Próxima revisão em ${fmtD(c.revisao)}: ${revInfo(rec).t}.</div>` : ''}
+    ${semAprov(rec) ? `<div class="notice">${rec.aprovacao ? `Este registro foi alterado depois da aprovação (aprovada a v${rec.aprovacao.versao}; a atual é a v${rec.versao}).` : 'Este registro está em vigor, mas nunca foi aprovado formalmente.'} Um administrador pode aprovar a versão atual.</div>` : ''}
     <div class="card"><div class="row small"><div><span class="muted">Responsável</span><br>${esc(c.responsavel) || '—'}</div><div><span class="muted">Prazo</span><br>${fmtD(c.prazo)}</div>
     <div><span class="muted">Criado em</span><br>${fmt(rec.criado)}</div></div>
     <h3 style="margin-top:1rem">Descrição / procedimento</h3><div class="pre">${esc(c.descricao) || '<span class="muted">—</span>'}</div>
@@ -597,12 +625,20 @@ async function abrirEvidencia(e) {
 }
 function anexarModal(rec, itemId) {
   const g = guiaDe(cur(rec).categoria), item = g && itensDe(g).find(i => i.id === itemId); if (!item) return;
+  const existentes = [...new Map((db.evid || []).map(e => [e.path, e])).values()].filter(e => !evDe(rec.id, itemId).some(x => x.path === e.path));
   modal(`<h3>Anexar evidência</h3><p class="small muted">${esc(cur(rec).titulo)} · ${esc(item.label)}</p>
     <form id="axf"><label for="axfile">Arquivo *</label><input id="axfile" type="file" required accept=".pdf,.txt,.docx,.jpg,.jpeg,.png,.webp">
     <label for="axd">Descrição *</label><input id="axd" required maxlength="300" placeholder="O que este arquivo comprova?">
     <p class="muted small">PDF, TXT, DOCX, JPG, PNG ou WEBP, até 10 MB. Evite dados pessoais além do necessário para comprovar.</p>
+    ${existentes.length ? `<details style="margin:.5rem 0"><summary>Ou reaproveitar um arquivo já enviado</summary><label for="axre">Arquivo existente</label><select id="axre"><option value="">— selecione —</option>${existentes.map(e => `<option value="${esc(e.id)}">${esc(e.nome)} · ${esc(e.descricao.slice(0, 60))}</option>`).join('')}</select><div class="actions"><button type="button" id="axru">Usar este arquivo neste item</button></div></details>` : ''}
     <div class="actions"><button class="primary" id="axs">Enviar</button><button type="button" id="axc">Cancelar</button><span class="muted small" id="axst"></span></div></form>`,
   d => { $('#axc', d).onclick = () => d.close();
+    const ru = $('#axru', d); if (ru) ru.onclick = guard(async () => { const o = existentes.find(x => x.id === $('#axre', d).value); if (!o) return toast('Escolha o arquivo.');
+      const id = doc(evCol()).id;
+      await setDoc(evDoc(id), { categoria: cur(rec).categoria, descricao: o.descricao, nome: o.nome, tipo: o.tipo, tamanho: o.tamanho, path: o.path, contabId: cid, reuso: true,
+        autorId: me.id, autor: me.nome, ts: serverTimestamp(), registroId: rec.id, itemId, itemRot: String(item.label).slice(0, 200) });
+      await auditNow('Evidência enviada', null, o.categoria + ' · ' + o.nome + ' (reaproveitada) · item ' + itemId);
+      d.close(); toast('Arquivo reaproveitado neste item.'); route(); });
     $('#axf', d).onsubmit = guard(async ev => { ev.preventDefault(); const btn = $('#axs', d); btn.disabled = true;
       try { await enviarEvidencia($('#axfile', d).files[0], cur(rec).categoria, $('#axd', d).value.trim(), p => { $('#axst', d).textContent = 'Enviando… ' + p + '%'; },
           { registroId: rec.id, itemId, itemRot: item.label });
@@ -615,7 +651,7 @@ async function renderEvid() {
   const cats = catList(), contagem = c => lista.filter(e => e.categoria === c).length;
   const linhas = f => { const l = lista.filter(e => !f || e.categoria === f);
     return l.length ? `<div class="tablewrap"><table><tr><th>Categoria</th><th>Arquivo</th><th>Descrição / item</th><th>Enviado por</th><th>Quando</th><th>Tamanho</th><th></th></tr>
-    ${l.map(e => `<tr><td><span class="tag brand">${esc(e.categoria)}</span></td><td><button data-open="${esc(e.id)}">${esc(e.nome)}</button></td><td>${esc(e.descricao)}${e.itemRot ? `<div class="muted small">Item: ${esc(e.itemRot)}</div>` : ''}</td>
+    ${l.map(e => `<tr><td><span class="tag brand">${esc(e.categoria)}</span></td><td><button data-open="${esc(e.id)}">${esc(e.nome)}</button></td><td>${esc(e.descricao)}${e.itemRot ? `<div class="muted small">Item: ${esc(e.itemRot)}</div>` : ''}${e.reuso ? ' <span class="tag">reaproveitada</span>' : ''}</td>
     <td>${esc(e.autor)}</td><td>${fmt(e.ts)}</td><td>${esc(fmtTam(e.tamanho || 0))}</td><td>${can.admin() ? `<button class="danger" data-del="${esc(e.id)}">Excluir</button>` : ''}</td></tr>`).join('')}</table></div>`
     : '<p class="muted">Nenhuma evidência' + (f ? ' nesta categoria' : '') + ' enviada ainda.</p>'; };
   bind = () => {
@@ -623,7 +659,7 @@ async function renderEvid() {
       $$('[data-open]', $('#evl')).forEach(b => b.onclick = guard(() => abrirEvidencia(lista.find(x => x.id === b.dataset.open))));
       $$('[data-del]', $('#evl')).forEach(b => b.onclick = () => { const e = lista.find(x => x.id === b.dataset.del); if (!e) return;
         confirmBox(`Excluir a evidência "${e.nome}"? O arquivo será apagado do servidor e não poderá ser recuperado.`, 'Excluir', async () => {
-          try { await deleteObject(sRef(storage, e.path)); } catch (er) { if (!(er && er.code === 'storage/object-not-found')) throw er; }
+          if (!lista.some(x => x.id !== e.id && x.path === e.path)) { try { await deleteObject(sRef(storage, e.path)); } catch (er) { if (!(er && er.code === 'storage/object-not-found')) throw er; } }
           await deleteDoc(evDoc(e.id)); await auditNow('Evidência excluída', null, e.categoria + ' · ' + e.nome); toast('Evidência excluída.'); route(); }); }); };
     $('#evf').onchange = draw; draw();
     const f = $('#evup'); if (f) f.onsubmit = guard(async ev => { ev.preventDefault();
@@ -893,6 +929,10 @@ function renderAbout() {
     <li><b>Peso</b>: itens críticos valem 2; os demais, 1. Crítico é o item que, marcado como Não conforme, gera um ponto de atenção no guia.</li>
     <li><b>Comprovado</b>: só conta o item "Conforme" que tenha ao menos uma evidência anexada. Nos itens críticos, o estágio também precisa ser Implantado ou Testado: um documento redigido não basta.</li>
     <li>Os percentuais mostram a situação registrada na plataforma. Não são certificação nem garantia de conformidade, e não dispensam validação por advogado e contador.</li></ul></div>
+    <div class="card"><h2>Revisão periódica e aprovação</h2>
+    <ul><li><b>Próxima revisão</b>: data em cada registro (política, contrato, treinamento, avaliação de fornecedor). O Painel e a lista destacam as revisões vencidas ou nos próximos 30 dias. Ao marcar "Em vigor" sem data, o sistema sugere 12 meses.</li>
+    <li><b>Aprovação formal</b>: só o Administrador aprova uma versão; ficam gravados quem aprovou, quando e qual versão. Se o registro for editado depois, ele aparece como "alterado após aprovação" até nova aprovação.</li>
+    <li>Não há envio de e-mail de aviso: os alertas aparecem no Painel.</li></ul></div>
     <div class="card"><h2>Limitações conhecidas</h2><ul><li>Evidências ficam no Firebase Storage (até 10 MB por arquivo). Sem e-mails de prazo e sem links temporários: quem tem o link de download consegue abrir o arquivo.</li>
     <li>Tentativas de login falhas não entram na auditoria (o servidor limita tentativas, mas o log fica no console do Firebase).</li>
     <li>Sem política de retenção automática nem importação de backup.</li>

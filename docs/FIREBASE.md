@@ -46,7 +46,7 @@ Isolamento: o caminho `contabilidades/{cid}/...` + `cid in users/{uid}.contabili
 3. Firebase Console → Authentication → Settings → **Authorized domains** → adicionar `lgpd.sanconecta.com`.
 4. Google Cloud → Credenciais → chave de API → referenciadores HTTP: adicionar `https://lgpd.sanconecta.com/*`.
 
-## Evidências (Firebase Storage) — v2.15.0
+## Evidências (Firebase Storage) — v2.17.0
 O menu **Evidências** guarda os arquivos no Storage e os dados (categoria, descrição, autor, data) no Firestore.
 1. Firebase Console → **Upgrade** para o plano **Blaze** (exige cartão; há cota gratuita mensal). Em seguida, em Orçamentos e alertas (Google Cloud → Faturamento), crie um alerta de valor baixo (ex.: R$ 20) para ser avisado se algo sair do esperado.
 2. Build → **Storage** → Começar. Escolha o local `southamerica-east1` (São Paulo) e o modo de produção. O bucket deve ser o de `storageBucket` em `assets/firebase-config.js`.

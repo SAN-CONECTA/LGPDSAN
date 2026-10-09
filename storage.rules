@@ -3,8 +3,8 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     function perfil() { return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
-    function ativo() { return request.auth != null
-      && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) && perfil().ativo == true; }
+    // Sem firestore.exists(): se o perfil não existir, firestore.get falha e o acesso é negado do mesmo jeito.
+    function ativo() { return request.auth != null && perfil().ativo == true; }
     function vinculado(cid) { return cid in perfil().get('contabilidades', []); }
     function podeLer(cid) { return ativo() && (perfil().role == 'admin' || vinculado(cid)); }
     function podeEnviar(cid) { return ativo() && (perfil().role == 'admin' || (perfil().role == 'edicao' && vinculado(cid))); }
