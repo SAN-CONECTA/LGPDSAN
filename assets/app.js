@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.17.0';
-import { BIBLIO } from './biblioteca.js?v=2.17.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.17.0';
+import { firebaseConfig } from './firebase-config.js?v=2.18.0';
+import { BIBLIO } from './biblioteca.js?v=2.18.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.18.0';
 
-const VERSION = '2.17.0';
+const VERSION = '2.18.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -223,7 +223,7 @@ const responsaveis = () => [...new Set([me.nome, ...db.pessoas.map(p => p.nome)]
 /* ---------- roteamento ---------- */
 const app = $('#app');
 const routes = [
-  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio],
+  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/manual', 'Manual', renderManual],
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
@@ -247,7 +247,7 @@ async function route() {
   }
   const nav = routes.filter(r => r[3] !== 'admin' || can.admin())
     .map(r => `<a href="${r[0]}" class="${r[0] === main ? 'on' : ''}">${r[1]}</a>`).join('');
-  app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><div class="prod">LGPDSAN <span class="muted">· Conformidade LGPD</span></div>
+  app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><div class="prod">Conformidade LGPD</div>
     <div id="csel" class="csel"></div>
     <nav class="nav">${nav}</nav>
     <div class="who small"><b>${esc(me.nome)}</b><br><span class="muted">${ROLES[me.role]} · v${VERSION}</span><div class="themesel"><label for="tema">Tema</label><select id="tema">${Object.entries(TEMAS).map(([k, v]) => `<option value="${k}"${k === me.tema ? ' selected' : ''}>${v}</option>`).join('')}</select></div><button class="link" id="out">Sair</button></div></aside>
@@ -277,7 +277,7 @@ window.addEventListener('hashchange', route);
 
 /* ---------- login ---------- */
 function renderLogin(msg = '') {
-  app.innerHTML = `<div class="login"><div class="card"><div class="logo big"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><h1 class="prod-title">LGPDSAN <span class="muted">· Conformidade LGPD</span></h1>
+  app.innerHTML = `<div class="login"><div class="card"><div class="logo big"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><h1 class="prod-title">Conformidade LGPD</h1>
     <form id="f"><label for="em">E-mail</label><input id="em" type="email" required autocomplete="username">
     <label for="pw">Senha</label><input id="pw" type="password" required autocomplete="current-password">
     <p id="err" class="small" style="color:var(--bad);min-height:1.2em">${esc(msg)}</p>
@@ -917,6 +917,23 @@ async function renderBiblioDoc(slug) {
   bind = () => { const n = $('#bnotas'); if (n && g) n.onclick = () => { const d = document.createElement('dialog'); d.innerHTML = `<div class="guide-ref"><h2>${esc(g.titulo)} · referência</h2>${g.referencia}</div><div class="actions"><button id="bx">Fechar</button></div>`; document.body.appendChild(d); d.showModal(); $('#bx', d).onclick = () => { d.close(); d.remove(); }; d.onclose = () => d.remove(); }; };
   return `<div class="bar"><div><p class="small"><a href="#/biblioteca">← Biblioteca</a></p><h1>${esc(b.titulo)}</h1><p class="muted small">Documento recebido, somente leitura. Termina em: ${esc(b.fim)}.</p></div>
     <div class="actions" style="margin:0"><a class="btn" href="biblioteca/${b.slug}.docx" download>Baixar original (.docx)</a>${g ? '<button id="bnotas">Notas de revisão</button>' : ''}</div></div>
+    <div class="card doc">${corpo}</div>`;
+}
+
+async function renderManual() {
+  let corpo;
+  try {
+    const r = await fetch(`manual.html?v=${VERSION}`, { cache: 'no-cache' });
+    if (!r.ok) throw new Error(String(r.status));
+    corpo = await r.text();
+  } catch (e) { corpo = `<p class="muted">Não foi possível carregar o manual (${esc(e.message)}).</p>`; }
+  const toc = [...corpo.matchAll(/<h2 id="([^"]+)">([^<]+)<\/h2>/g)].map(m => `<li><a href="#/manual" data-go="${m[1]}">${m[2]}</a></li>`).join('');
+  bind = () => {
+    $$('[data-go]').forEach(a => a.onclick = ev => { ev.preventDefault(); const t = document.getElementById(a.dataset.go); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    const pb = $('#mprn'); if (pb) pb.onclick = () => window.print();
+  };
+  return `<div class="bar"><div><h1>Manual do usuário</h1><p class="muted">LGPDSAN v${VERSION}. Como usar cada parte do sistema.</p></div><div class="actions" style="margin:0"><button id="mprn">Imprimir manual</button></div></div>
+    <div class="card"><h2>Neste manual</h2><ol class="toc">${toc}</ol></div>
     <div class="card doc">${corpo}</div>`;
 }
 

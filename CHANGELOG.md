@@ -1,6 +1,12 @@
 # Changelog
 Formato SemVer.
 
+## [2.18.0] - 2026-10-09
+### Adicionado
+- **Manual do usuário** dentro do sistema (menu "Manual", para todos os perfis): perfis de acesso, primeiros passos, Painel, Registros, checklist Declarado x Comprovado, Evidências, revisão e aprovação, administração, backup e auditoria, rotina sugerida, limites conhecidos e perguntas frequentes. Índice no topo e botão para imprimir. O texto fica em `manual.html`
+### Alterado
+- Título do menu e da tela de login: apenas "Conformidade LGPD" (sem o prefixo "LGPDSAN ·")
+
 ## [2.16.0] - 2026-10-09
 ### Adicionado
 - **Próxima revisão** em cada registro (política, contrato, treinamento, avaliação de fornecedor). Painel e lista destacam revisões vencidas ou nos próximos 30 dias; ao marcar "Em vigor" sem data, sugere 12 meses
