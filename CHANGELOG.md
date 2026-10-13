@@ -1,6 +1,10 @@
 # Changelog
 Formato SemVer.
 
+## [2.22.6] - 2026-10-13
+### Alterado
+- Contabilidades: a coluna "Usuários vinculados" agora lista o **nome** e o perfil de cada usuário ativo vinculado (administradores não aparecem, pois acessam todas)
+
 ## [2.22.5] - 2026-10-13
 ### Adicionado
 - Auditoria: coluna **Contabilidade** (eventos do sistema aparecem como "Sistema") e busca também por contabilidade. A auditoria dentro de um registro não ganha a coluna

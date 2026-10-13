@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.22.5';
-import { BIBLIO } from './biblioteca.js?v=2.22.5';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.22.5';
+import { firebaseConfig } from './firebase-config.js?v=2.22.6';
+import { BIBLIO } from './biblioteca.js?v=2.22.6';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.22.6';
 
-const VERSION = '2.22.5';
+const VERSION = '2.22.6';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -953,8 +953,8 @@ function renderContabs() {
     <div class="card"><form id="cf" class="row" style="align-items:end"><div><label for="cn" style="margin-top:0">Nova contabilidade</label><input id="cn" maxlength="100" placeholder="Nome do escritório"></div>
     <div class="actions" style="margin:0"><button class="primary">Adicionar</button><button type="button" id="cnext">Criar “${esc(nextName())}”</button></div></form></div>
     <div class="card tablewrap"><table><tr><th>Nome</th><th>Usuários vinculados</th><th></th></tr>${db.contabs.map(c => {
-      const us = db.users.filter(u => u.role !== 'admin' && u.ativo && (u.contabilidades || []).includes(c.id)).length;
-      return `<tr><td>${firmLogo(c.id) ? `<img class="firmlogo-th" src="${firmLogo(c.id)}" alt=""> ` : ''}${esc(c.nome)}</td><td>${us}</td><td style="text-align:right"><button data-ren="${esc(c.id)}">Editar</button> <button class="danger" data-del="${esc(c.id)}">Excluir</button></td></tr>`; }).join('') || '<tr><td colspan="3" class="muted">Nenhuma contabilidade.</td></tr>'}</table></div>
+      const us = db.users.filter(u => u.role !== 'admin' && u.ativo && (u.contabilidades || []).includes(c.id));
+      return `<tr><td>${firmLogo(c.id) ? `<img class="firmlogo-th" src="${firmLogo(c.id)}" alt=""> ` : ''}${esc(c.nome)}</td><td>${us.length ? us.map(u => `${esc(u.nome)} <span class="muted small">(${esc(ROLES[u.role] || '')})</span>`).join('<br>') : '<span class="muted">Nenhum</span>'}</td><td style="text-align:right"><button data-ren="${esc(c.id)}">Editar</button> <button class="danger" data-del="${esc(c.id)}">Excluir</button></td></tr>`; }).join('') || '<tr><td colspan="3" class="muted">Nenhuma contabilidade.</td></tr>'}</table></div>
     ${(db.contabsAll || []).some(c => c.excluida) ? `<div class="card tablewrap"><h2>Excluídas</h2><table>${db.contabsAll.filter(c => c.excluida).map(c => `<tr><td>${esc(c.nome)}</td><td style="text-align:right"><button data-res="${esc(c.id)}">Restaurar</button></td></tr>`).join('')}</table></div>` : ''}`;
 }
 
