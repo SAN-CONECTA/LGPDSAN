@@ -1,6 +1,17 @@
 # Changelog
 Formato SemVer.
 
+## [2.24.0] - 2026-10-13
+### Adicionado
+- **Governança e Políticas: seção "1. Diagnóstico do enquadramento"** antes do encarregado: porte, Simples, natureza jurídica, limite de receita, grupo econômico, volume de titulares, dados sensíveis, tecnologia nova, monitoramento, decisões automatizadas e exigência contratual do cliente, com **resultado sugerido** calculado na tela
+- **Situação do encarregado** (nomeado interno/externo/empresa, dispensado com responsável pelo canal, ainda não definido), com nome, cargo, vínculo e contato público
+- Cadastro da contabilidade: **porte, Simples e natureza jurídica** preenchidos pela consulta ao CNPJ (editáveis, com data da consulta); alimentam o diagnóstico
+- Itens com regra de aplicação (`aplica`): quando o encarregado é dispensado, designação, conflito de interesses e independência contam como N/A (saem da nota e dos alertas) e entra o item do canal de atendimento ao titular
+### Alterado
+- `c_porte` e `c_altoRisco` unificados em `c_enq` ("avaliação de enquadramento registrada"); o resultado de alto risco deixa de gerar alerta de "não verificado"
+- Seções de Governança renumeradas (1 a 6). Registros antigos de Governança perdem apenas o campo livre "Encarregado: nome e contato" (agora são campos separados)
+- Sem mudança nas regras do Firestore
+
 ## [2.23.0] - 2026-10-13
 ### Adicionado
 - **Trilha de adequação** no Painel: as categorias na ordem sugerida por dependência (Governança, Mapeamento, Segurança, Incidentes, Contratos, Retenção, Direitos dos Titulares, Email, Treinamento), com situação (Não iniciada / Em andamento / Em vigor), nº de registros, % declarado médio e destaque do **próximo passo**

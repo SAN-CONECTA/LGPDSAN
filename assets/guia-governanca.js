@@ -3,22 +3,73 @@
 
 const G = (id, label, ajuda, extra = false) => ({ id, tipo: 'sn', label, ajuda, extra });
 
+
+const nom = d => /^Nomeado/.test((d || {}).encSit || '');
+const disp = d => /^Dispensado/.test((d || {}).encSit || '');
+const PORTE_OK = ['Microempresa (ME)', 'Empresa de pequeno porte (EPP)', 'MEI'];
+// Resultado sugerido do diagnóstico (não é decisão: as faixas de volume são convenção interna; validar com advogado).
+export function resultadoEnq(d) {
+  d = d || {};
+  const porte = (d.dgLimite === 'Não' || d.dgGrupo === 'Sim' || d.dgPorte === 'Demais') ? 'fora'
+    : (PORTE_OK.includes(d.dgPorte) && d.dgLimite === 'Sim' && d.dgGrupo === 'Não') ? 'ok' : 'indef';
+  const f = d.dgTitulares, geral = f === 'Acima de 5.000' ? 'sim' : f === 'De 500 a 5.000' ? 'talvez' : f === 'Até 500' ? 'nao' : 'indef';
+  const esp = ['dgSaude', 'dgSind', 'dgBio', 'dgIA', 'dgMonit', 'dgDecis'].map(k => d[k]);
+  const especifico = esp.some(v => v === 'Sim') ? 'sim' : esp.some(v => !v || v === 'Não sei') ? 'indef' : 'nao';
+  const risco = geral === 'sim' && especifico === 'sim' ? 'alto' : geral === 'talvez' && especifico === 'sim' ? 'cinza'
+    : (geral === 'nao' || especifico === 'nao') ? 'baixo' : 'indef';
+  let nivel, titulo;
+  if (risco === 'alto') { nivel = 'alto'; titulo = 'Indício de alto risco: a dispensa não vale. Nomear encarregado tende a ser obrigatório.'; }
+  else if (risco === 'cinza') { nivel = 'cinza'; titulo = 'Zona cinza: dado sensível com volume intermediário. Nomear é a opção mais segura; decidir com apoio jurídico.'; }
+  else if (risco === 'baixo' && porte === 'ok') { nivel = 'dispensa'; titulo = 'Dispensa possível: pequeno porte e sem indício de alto risco. Recomenda-se designar um responsável pelo canal de atendimento.'; }
+  else if (risco === 'baixo' && porte === 'fora') { nivel = 'nomear'; titulo = 'Fora do regime de pequeno porte: a dispensa não vale. Nomear encarregado.'; }
+  else { nivel = 'incompleto'; titulo = 'Diagnóstico incompleto: responda os itens em branco ou com "Não sei".'; }
+  const linhas = [];
+  linhas.push('Porte: ' + (porte === 'ok' ? 'pequeno porte confirmado (porte, limite de receita e grupo econômico).' : porte === 'fora' ? 'fora do regime de pequeno porte.' : 'não confirmado.'));
+  linhas.push('Volume (larga escala): ' + (geral === 'sim' ? 'alto.' : geral === 'talvez' ? 'intermediário.' : geral === 'nao' ? 'baixo.' : 'não informado.'));
+  linhas.push('Critério específico (dado sensível, tecnologia nova, vigilância, decisão automatizada): ' + (especifico === 'sim' ? 'presente.' : especifico === 'nao' ? 'ausente.' : 'não confirmado.'));
+  if (d.dgExigiu === 'Sim') linhas.push('Cliente já exigiu encarregado em contrato: pode valer mesmo com a dispensa legal.');
+  return { nivel, titulo, linhas, aviso: 'Sugestão calculada das respostas, com faixas internas (não são da lei). Se o escritório é operador dos dados dos clientes, a obrigação do art. 41 é do controlador: validar com advogado.' };
+}
+
 export const GUIA_GOVERNANCA = {
   titulo: 'Governança e Políticas',
   tituloHint: 'Ex.: Governança LGPD 2026',
   resumo: 'Checklist de estrutura de governança, princípios e bases legais do escritório. Um registro por contabilidade, revisado a cada trimestre ou quando algo mudar.',
   secoes: [
-    { id: 'g1', titulo: '1. Estrutura e papéis', itens: [
+    { id: 'g0', titulo: '1. Diagnóstico do enquadramento (porte, volume e risco)', itens: [
+      { id: 'dgPorte', tipo: 'select', label: 'Porte na Receita Federal', opcoes: ['Microempresa (ME)', 'Empresa de pequeno porte (EPP)', 'MEI', 'Demais', 'Não consultado'], ajuda: 'Vem do cadastro da contabilidade (consulta ao CNPJ). Confira com o cliente: o porte da Receita é declarado e pode estar desatualizado.', cad: 'porteRfb', extra: true },
+      { id: 'dgSimples', tipo: 'select', label: 'Optante pelo Simples Nacional?', opcoes: ['Sim', 'Não', 'Não sei'], cad: 'simples', extra: true },
+      { id: 'dgNat', tipo: 'texto', label: 'Natureza jurídica', ajuda: 'Ex.: Sociedade Empresária Limitada.', cad: 'natJur', extra: true },
+      { id: 'dgLimite', tipo: 'select', label: 'Receita bruta anual dentro do limite de pequeno porte da LC 123/2006?', opcoes: ['Sim', 'Não', 'Não sei'], ajuda: 'Referência: R$ 4,8 milhões por ano (EPP). Confirmar com o contador do cliente e no texto oficial da Res. CD/ANPD 2/2022 (hipóteses de exclusão).', extra: true },
+      { id: 'dgGrupo', tipo: 'select', label: 'O escritório integra grupo econômico cuja receita ultrapassa o limite?', opcoes: ['Não', 'Sim', 'Não sei'], ajuda: 'Nenhum cadastro público informa isso: perguntar ao cliente.', extra: true },
+      { id: 'dgColab', tipo: 'texto', label: 'Nº de colaboradores do escritório', extra: true },
+      { id: 'dgClientes', tipo: 'texto', label: 'Nº de clientes-empresa atendidos', extra: true },
+      { id: 'dgPF', tipo: 'texto', label: 'Nº de clientes pessoa física (0 se não atende)', ajuda: 'Ex.: declarações de IRPF.', extra: true },
+      { id: 'dgTitulares', tipo: 'select', label: 'Quantas pessoas têm dados tratados pelo escritório (empregados dos clientes e clientes pessoa física, estimativa)?', opcoes: ['Até 500', 'De 500 a 5.000', 'Acima de 5.000', 'Não sei'], ajuda: 'Larga escala conta titulares de dados, não o tamanho do escritório. Some empregados dos clientes (folha, admissão, atestados) e clientes pessoa física. As faixas são convenção interna deste sistema, não da lei: validar com advogado.', extra: true },
+      G('c_controlador', 'Os papéis de controlador e operador estão definidos para cada tipo de dado?', 'Para dados dos clientes-empresa, o escritório costuma atuar como operador (e o encarregado é obrigação do controlador, art. 41). Para dados dos próprios colaboradores e de clientes pessoa física, atua como controlador. Validar caso a caso.'),
+      { id: 'dgSaude', tipo: 'select', label: 'Trata dados de saúde (atestados, exames admissionais)?', opcoes: ['Sim', 'Não', 'Não sei'], extra: true },
+      { id: 'dgSind', tipo: 'select', label: 'Trata filiação sindical (contribuição sindical)?', opcoes: ['Sim', 'Não', 'Não sei'], extra: true },
+      { id: 'dgBio', tipo: 'select', label: 'Trata biometria (ponto biométrico) ou dados de crianças e adolescentes (dependentes, menor aprendiz)?', opcoes: ['Sim', 'Não', 'Não sei'], extra: true },
+      { id: 'dgIA', tipo: 'select', label: 'Usa inteligência artificial ou outra tecnologia nova sobre dados de clientes?', opcoes: ['Sim', 'Não', 'Não sei'], extra: true },
+      { id: 'dgMonit', tipo: 'select', label: 'Há monitoramento sistemático (câmeras, rastreamento, e-mail ou tela)?', opcoes: ['Sim', 'Não', 'Não sei'], extra: true },
+      { id: 'dgDecis', tipo: 'select', label: 'Há decisões automatizadas com efeito relevante sobre pessoas (score, perfil)?', opcoes: ['Sim', 'Não', 'Não sei'], extra: true },
+      { id: 'dgExigiu', tipo: 'select', label: 'Algum cliente já exigiu encarregado em contrato?', opcoes: ['Não', 'Sim'], ajuda: 'Mesmo com a dispensa legal, o contrato com o cliente pode exigir a nomeação.', extra: true },
+      { id: 'dgResultado', tipo: 'resultado', label: 'Resultado sugerido do diagnóstico', calc: resultadoEnq },
+      G('c_enq', 'A avaliação de enquadramento (pequeno porte e alto risco) está registrada, com data e responsável?', 'Res. CD/ANPD 2/2022. Guarde o diagnóstico acima e a decisão tomada com o cliente. Conferir as hipóteses de exclusão no texto oficial.', true),
+      { id: 'porteRes', tipo: 'select', label: 'Enquadramento adotado (decisão do escritório, com o cliente)', opcoes: ['Agente de pequeno porte (regime simplificado)', 'Fora do regime de pequeno porte', 'Não avaliado'], ajuda: 'Decisão sua: o resultado acima é só sugestão. Validar com advogado.', extra: true },
+    ] },
+    { id: 'g1', titulo: '2. Encarregado e estrutura de papéis', itens: [
+      { id: 'encSit', tipo: 'select', label: 'Situação do encarregado (DPO)', opcoes: ['Nomeado: colaborador interno', 'Nomeado: pessoa física externa', 'Nomeado: empresa externa (com pessoa física indicada)', 'Dispensado (pequeno porte), com responsável pelo canal', 'Ainda não definido'], ajuda: 'Decida depois do diagnóstico acima. Mesmo dispensado, designe quem atende titulares e ANPD (boa prática e atenuante).', extra: true },
+      { id: 'encNome', tipo: 'texto', label: 'Nome do encarregado (ou do responsável pelo canal, se dispensado)', ajuda: 'Art. 41. Quem decide a finalidade e os meios do tratamento (sócio-administrador, diretor, gestor de TI, de RH) tende a ter conflito de interesses. Res. CD/ANPD 18/2024. Validar.' },
+      { id: 'encCargo', tipo: 'texto', label: 'Cargo ou função na empresa', extra: true },
+      { id: 'encVinculo', tipo: 'select', label: 'Vínculo', opcoes: ['Colaborador interno (CLT)', 'Pessoa física externa', 'Empresa externa'], ajuda: 'Se for empresa externa, ela deve indicar uma pessoa física responsável.', extra: true },
+      { id: 'encContato', tipo: 'texto', label: 'E-mail ou canal público de contato', ajuda: 'É o contato divulgado ao titular (site, Política de Privacidade).', extra: true },
       { id: 'controlador', tipo: 'texto', label: 'Controlador (pessoa jurídica) e sócio/diretor responsável', ajuda: 'Pela lei, o controlador é a pessoa jurídica; o sócio decide em nome dela.' },
-      { id: 'encarregado', tipo: 'texto', label: 'Encarregado (DPO): nome e contato', ajuda: 'Art. 41. Agentes de pequeno porte podem ser dispensados da nomeação (Res. CD/ANPD 2/2022, art. 11), mas devem manter canal de atendimento ao titular. Tratamento de alto risco (ex.: dado sensível em larga escala) afasta o regime: folha, atestados e filiação sindical exigem análise. Res. CD/ANPD 18/2024 regula a atuação do encarregado. Validar enquadramento.' },
-      G('c_controlador', 'Os papéis de controlador e operador estão definidos para cada tipo de dado?', 'Para dados dos clientes-empresa, o escritório costuma atuar como operador. Validar caso a caso.'),
-      G('c_encarr', 'O encarregado está nomeado e sua identidade e contato são divulgados publicamente?', 'Art. 41, § 1º.'),
-      { id: 'porteRes', tipo: 'select', label: 'Enquadramento do escritório (Res. CD/ANPD 2/2022)', opcoes: ['Agente de pequeno porte (regime simplificado)', 'Fora do regime de pequeno porte', 'Não avaliado'], ajuda: 'Registre o resultado da avaliação dos dois itens abaixo. Validar com advogado.', extra: true },
-      G('c_porte', 'O escritório avaliou e registrou formalmente se se enquadra como agente de tratamento de pequeno porte?', 'Res. CD/ANPD 2/2022: o regime simplificado (dispensa de encarregado, prazos em dobro) depende do porte e da ausência de hipóteses de exclusão. Guarde a avaliação, com data e responsável.', true),
-      G('c_altoRisco', 'Foi verificado, com registro, que nenhum tratamento é de alto risco a ponto de afastar o regime de pequeno porte (ex.: dados sensíveis ou de crianças em larga escala, vigilância, decisões automatizadas)?', 'Folha, atestados e filiação sindical exigem análise caso a caso. Conferir as hipóteses de exclusão no texto oficial da Res. 2/2022.', true),
-      G('c_encDesig', 'Há ato formal de designação do encarregado (documento escrito, datado e assinado)?', 'Res. CD/ANPD 18/2024. Mesmo quando a nomeação é dispensada, registre quem atende titulares e ANPD. Conferir os artigos no texto oficial.', true),
-      G('c_encConf', 'O encarregado não acumula função que gere conflito de interesses (ex.: decidir sobre o tratamento que ele mesmo fiscaliza)?', 'A ANPD recomenda evitar o acúmulo de funções que comprometam a independência do encarregado. Sócio que decide e fiscaliza ao mesmo tempo é o caso típico. Validar o fundamento na Res. 18/2024.', true),
-      G('c_encIndep', 'O encarregado tem acesso direto à direção e autonomia para exercer a função, com recursos e tempo para isso?', 'Res. CD/ANPD 18/2024. Validar o fundamento.', true),
+      { ...G('c_canal', 'Há canal de atendimento ao titular divulgado publicamente (e-mail ou formulário), com responsável definido?', 'Res. CD/ANPD 2/2022, art. 11: o dispensado de nomear encarregado mantém o canal de atendimento. Se o encarregado é nomeado, o contato dele é o canal (próximo item).', true), aplica: d => !nom(d) },
+      { ...G('c_encarr', 'O encarregado está nomeado e sua identidade e contato são divulgados publicamente?', 'Art. 41, § 1º.'), aplica: d => !disp(d) },
+      { ...G('c_encDesig', 'Há ato formal de designação do encarregado (documento escrito, datado e assinado)?', 'Res. CD/ANPD 18/2024. Mesmo quando a nomeação é dispensada, registre quem atende titulares e ANPD. Conferir os artigos no texto oficial.', true), aplica: d => !disp(d) },
+      { ...G('c_encConf', 'O encarregado não acumula função que gere conflito de interesses (ex.: decidir sobre o tratamento que ele mesmo fiscaliza)?', 'A ANPD recomenda evitar o acúmulo de funções que comprometam a independência do encarregado. Sócio que decide e fiscaliza ao mesmo tempo é o caso típico. Validar o fundamento na Res. 18/2024.', true), aplica: d => !disp(d) },
+      { ...G('c_encIndep', 'O encarregado tem acesso direto à direção e autonomia para exercer a função, com recursos e tempo para isso?', 'Res. CD/ANPD 18/2024. Validar o fundamento.', true), aplica: d => !disp(d) },
       G('c_gestor', 'Há gestor de dados responsável por catalogar dados, prazos de retenção e eliminação segura?'),
       G('c_ti', 'Há responsável de TI/Segurança pelas medidas técnicas (criptografia, firewall, backup, controle de acesso, logs)?'),
       G('c_rh', 'O RH inclui cláusulas LGPD nos contratos de trabalho e revoga acessos no desligamento?'),
@@ -26,7 +77,7 @@ export const GUIA_GOVERNANCA = {
       G('c_oper', 'Analistas e contadores têm acesso restrito ao necessário para a função e foram instruídos a não compartilhar dados sem autorização?'),
       G('c_matriz', 'Os papéis, responsabilidades e níveis de acesso estão formalizados por escrito?', 'Item acrescentado: o guia descreve a tabela de papéis, mas não pergunta se ela existe formalizada.', true)
     ] },
-    { id: 'g2', titulo: '2. Comitê de Conformidade LGPD', itens: [
+    { id: 'g2', titulo: '3. Comitê de Conformidade LGPD', itens: [
       G('c_comite', 'Existe comitê de conformidade (encarregado, controlador, TI, jurídico, gestor de dados e RH quando cabível)?'),
       { id: 'ultReuniao', tipo: 'texto', label: 'Data da última reunião do comitê' },
       G('c_trim', 'O comitê se reúne no mínimo trimestralmente, com reuniões extraordinárias em caso de incidente ou novo tratamento?'),
@@ -34,7 +85,7 @@ export const GUIA_GOVERNANCA = {
       G('c_ata', 'Cada reunião gera ata com data, participantes, decisões, responsáveis e prazos?'),
       G('c_ataSeg', 'As atas ficam em local seguro, com acesso restrito aos membros do comitê?')
     ] },
-    { id: 'g3', titulo: '3. Princípios (art. 6º da LGPD)', itens: [
+    { id: 'g3', titulo: '4. Princípios (art. 6º da LGPD)', itens: [
       G('p_final', 'Finalidade: dados coletados para um fim não são reutilizados para outro sem nova base legal?'),
       G('p_adeq', 'Adequação: os dados coletados são compatíveis com a finalidade informada?'),
       G('p_nec', 'Necessidade: coleta limitada ao mínimo necessário (ex.: sem telefone residencial se a comunicação é digital)?'),
@@ -46,7 +97,7 @@ export const GUIA_GOVERNANCA = {
       G('p_disc', 'Não discriminação: nenhum tratamento é usado para fins discriminatórios ilícitos ou abusivos?', 'O guia recebido não lista este princípio (art. 6º, IX).', true),
       G('p_resp', 'Responsabilização e prestação de contas: registros demonstram a conformidade (inventário, consentimentos, decisões do comitê)?')
     ] },
-    { id: 'g4', titulo: '4. Bases legais (art. 7º) e registros', itens: [
+    { id: 'g4', titulo: '5. Bases legais (art. 7º) e registros', itens: [
       G('c_baseMap', 'Cada tipo de dado e finalidade está vinculado a uma base legal documentada?', 'Bases mais usadas em contabilidade: execução de contrato (art. 7º, V), obrigação legal (II), exercício regular de direitos (VI), legítimo interesse (IX) e consentimento (I).'),
       G('c_consent', 'Quando a base é consentimento, ele é prévio, informado, específico, livre e revogável, e há registro?'),
       G('c_obrigLegal', 'Para obrigação legal, a norma e o prazo de guarda estão citados?'),
@@ -58,7 +109,7 @@ export const GUIA_GOVERNANCA = {
       G('c_sens', 'Dados sensíveis (art. 5º, II e art. 11), como saúde ocupacional de colaboradores, foram identificados e têm base legal própria?', 'Item acrescentado: o guia cita "saúde ocupacional" em outro documento. CPF, CNPJ e dados financeiros não são sensíveis pela lei.', true),
       G('c_ropa', 'Existe registro das operações de tratamento atualizado (art. 37)?', 'O guia usa a sigla "RRPD"; o termo da lei é "registro das operações de tratamento".')
     ] },
-    { id: 'g5', titulo: '5. Treinamento, documentação e incidentes', itens: [
+    { id: 'g5', titulo: '6. Treinamento, documentação e incidentes', itens: [
       G('c_treino', 'Há treinamento periódico em LGPD para a equipe, com registro de participação?', 'O guia cita treinamento como objetivo, mas a seção não veio.', true),
       G('c_ret', 'Há política de retenção e eliminação segura, com prazos por tipo de dado?', 'Idem: seção não recebida.', true),
       G('c_incid', 'Há plano de resposta a incidentes com comunicação à ANPD e aos titulares em até 3 dias úteis?', 'Res. CD/ANPD 15/2024 (6 dias úteis para agentes de pequeno porte). Seção não recebida.', true),
@@ -70,16 +121,17 @@ export const GUIA_GOVERNANCA = {
   ],
   alertas: d => {
     const a = [];
-    if (d.c_encarr === 'Não conforme') a.push('Encarregado não nomeado ou sem contato divulgado.');
+    if (d.c_encarr === 'Não conforme' && !disp(d)) a.push('Encarregado não nomeado ou sem contato divulgado.');
+    if (d.c_canal === 'Não conforme' && !nom(d)) a.push('Sem canal de atendimento ao titular divulgado.');
+    if (['alto', 'cinza', 'nomear'].includes(resultadoEnq(d).nivel) && !nom(d)) a.push('Diagnóstico indica alto risco ou fora do pequeno porte, sem encarregado nomeado: validar com advogado.');
     if (d.c_comite === 'Não conforme') a.push('Sem comitê de conformidade.');
     if (d.c_ata === 'Não conforme') a.push('Reuniões sem ata: sem prova de conformidade em auditoria.');
     if (d.c_baseMap === 'Não conforme') a.push('Tratamentos sem base legal documentada.');
     if (d.c_ropa === 'Não conforme') a.push('Sem registro das operações de tratamento.');
     if (d.p_transp === 'Não conforme') a.push('Sem Aviso de Privacidade.');
-    if (d.c_porte === 'Não conforme') a.push('Enquadramento como agente de pequeno porte não avaliado: prazos e dispensas podem não valer.');
-    if (d.c_altoRisco === 'Não conforme') a.push('Tratamento de alto risco não verificado: pode afastar o regime de pequeno porte.');
-    if (d.c_encDesig === 'Não conforme') a.push('Encarregado sem ato formal de designação.');
-    if (d.c_encConf === 'Não conforme') a.push('Encarregado com conflito de interesses.');
+    if (d.c_enq === 'Não conforme') a.push('Enquadramento (pequeno porte e alto risco) sem avaliação registrada: dispensas e prazos podem não valer.');
+    if (d.c_encDesig === 'Não conforme' && !disp(d)) a.push('Encarregado sem ato formal de designação.');
+    if (d.c_encConf === 'Não conforme' && !disp(d)) a.push('Encarregado com conflito de interesses.');
     if (d.c_oficioReg === 'Não conforme') a.push('Ofícios da ANPD sem registro ou resposta no prazo.');
     if (d.c_li === 'Não conforme' || d.c_liBal === 'Não conforme') a.push('Legítimo interesse usado sem avaliação documentada.');
     if (d.c_incid === 'Não conforme') a.push('Sem plano de resposta a incidentes.');

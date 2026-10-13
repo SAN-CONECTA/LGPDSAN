@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.23.0';
-import { BIBLIO } from './biblioteca.js?v=2.23.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.23.0';
+import { firebaseConfig } from './firebase-config.js?v=2.24.0';
+import { BIBLIO } from './biblioteca.js?v=2.24.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.24.0';
 
-const VERSION = '2.23.0';
+const VERSION = '2.24.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -31,7 +31,7 @@ const trilhaPos = c => { const i = TRILHA.findIndex(t => t[0] === c); return i <
 const FIELDS = [['titulo', 'Título'], ['categoria', 'Categoria'], ['descricao', 'Descrição / procedimento'],
   ['status', 'Status'], ['prioridade', 'Prioridade'], ['responsavel', 'Responsável'], ['prazo', 'Prazo'], ['revisao', 'Próxima revisão'], ['evidencias', 'Evidências (links/referências)']];
 // campos comparáveis de um registro: os fixos + os itens do checklist da categoria
-const fieldList = cat => { const g = guiaDe(cat); return g ? FIELDS.concat(itensDe(g).flatMap(i => i.tipo === 'sn' ? [['d:' + i.id, i.label], ['d:' + i.id + '#o', 'Observação: ' + i.label], ['d:' + i.id + '#e', 'Estágio: ' + i.label]] : [['d:' + i.id, i.label]])) : FIELDS; };
+const fieldList = cat => { const g = guiaDe(cat); return g ? FIELDS.concat(itensDe(g).filter(i => i.tipo !== 'resultado').flatMap(i => i.tipo === 'sn' ? [['d:' + i.id, i.label], ['d:' + i.id + '#o', 'Observação: ' + i.label], ['d:' + i.id + '#e', 'Estágio: ' + i.label]] : [['d:' + i.id, i.label]])) : FIELDS; };
 const fval = (snap, k) => k.startsWith('d:') ? fmtVal((snap.dados || {})[k.slice(2)]) : (snap[k] ?? '');
 const FIRM_ACTS = new Set(['Exportação CSV', 'Backup exportado (contabilidade)', 'Evidência enviada', 'Evidência excluída']);
 
@@ -417,14 +417,18 @@ const fmtEnd = (tipo, lg, num, comp, bairro, mun, uf, cepRaw) => {
   const cep = String(cepRaw || '').replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$2');
   return [rua && (rua + (num ? ', ' + num : '')), comp && tituloCase(comp), tituloCase(bairro), (tituloCase(mun) + (uf ? '/' + uf : '')).replace(/^\/$/, ''), cep && 'CEP ' + cep].filter(Boolean).join(' - ').replace(/\s+/g, ' ').trim();
 };
+const PORTES = ['Microempresa (ME)', 'Empresa de pequeno porte (EPP)', 'MEI', 'Demais'];
+const normPorte = (txt, mei) => mei ? 'MEI' : /micro/i.test(String(txt || '')) ? PORTES[0] : /pequeno/i.test(String(txt || '')) ? PORTES[1] : /demais/i.test(String(txt || '')) ? PORTES[3] : '';
 const CNPJ_FONTES = [
   { nome: 'BrasilAPI', url: c => 'https://brasilapi.com.br/api/cnpj/v1/' + c,
     le: d => ({ razao: String(d.razao_social || '').trim(), end: fmtEnd(d.descricao_tipo_de_logradouro, d.logradouro, d.numero, d.complemento, d.bairro, d.municipio, d.uf, d.cep),
-      situacao: d.descricao_situacao_cadastral || '', individual: /individual|mei/i.test(String(d.natureza_juridica || '')) || d.opcao_pelo_mei === true }) },
+      situacao: d.descricao_situacao_cadastral || '', individual: /individual|mei/i.test(String(d.natureza_juridica || '')) || d.opcao_pelo_mei === true,
+      porte: normPorte(d.porte, d.opcao_pelo_mei === true), simples: d.opcao_pelo_simples === true ? 'Sim' : d.opcao_pelo_simples === false ? 'Não' : '', nat: String(d.natureza_juridica || '').trim() }) },
   { nome: 'CNPJ.ws', url: c => 'https://publica.cnpj.ws/cnpj/' + c,
     le: d => { const e = d.estabelecimento || {}; return { razao: String(d.razao_social || '').trim(),
       end: fmtEnd(e.tipo_logradouro, e.logradouro, e.numero, e.complemento, e.bairro, e.cidade && e.cidade.nome, e.estado && e.estado.sigla, e.cep),
-      situacao: String(e.situacao_cadastral || ''), individual: /individual|mei/i.test(String((d.natureza_juridica && d.natureza_juridica.descricao) || '')) }; } }
+      situacao: String(e.situacao_cadastral || ''), individual: /individual|mei/i.test(String((d.natureza_juridica && d.natureza_juridica.descricao) || '')),
+      porte: normPorte(d.porte && d.porte.descricao, !!(d.simples && /sim/i.test(String(d.simples.mei || '')))), simples: d.simples ? (/sim/i.test(String(d.simples.simples || '')) ? 'Sim' : 'Não') : '', nat: String((d.natureza_juridica && d.natureza_juridica.descricao) || '').trim() }; } }
 ];
 async function consultaCnpj(c) {
   const motivos = [];
@@ -447,7 +451,7 @@ async function consultaCnpj(c) {
 function ligaBuscaCnpj(inp, st, campos) {
   if (!inp || !st) return;
   let ultimo = '', seq = 0;
-  ['razao', 'end'].forEach(k => { const el = campos[k]; if (el) el.addEventListener('input', () => { delete el.dataset.auto; }); });
+  ['razao', 'end', 'porte', 'simples', 'nat'].forEach(k => { const el = campos[k]; if (el) el.addEventListener('input', () => { delete el.dataset.auto; }); });
   const poe = (k, v) => { const el = campos[k]; if (el && v && (!el.value.trim() || el.dataset.auto === '1')) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dataset.auto = '1'; } };
   inp.addEventListener('input', async () => {
     const dig = inp.value.replace(/\D/g, ''), my = ++seq;
@@ -461,7 +465,7 @@ function ligaBuscaCnpj(inp, st, campos) {
     if (r.falha) { st.textContent = 'Não foi possível consultar agora (' + r.motivo + '). Preencha manualmente.'; return; }
     ultimo = dig;
     const p = campos.pessoa; if (p && !p.value) p.value = 'Jurídica';
-    poe('razao', r.razao); poe('end', r.end);
+    poe('razao', r.razao); poe('end', r.end); poe('porte', r.porte); poe('simples', r.simples); poe('nat', r.nat); inp.dataset.consulta = new Date().toISOString().slice(0, 10);
     const av = []; if (r.situacao && !/ativa/i.test(r.situacao)) av.push('Situação cadastral: ' + r.situacao + '.'); if (r.individual) av.push('Empresário individual/MEI: o endereço pode ser residencial (dado pessoal). Confira se é necessário guardá-lo.');
     st.textContent = 'Preenchido a partir da Receita Federal (' + (r.fonte || 'BrasilAPI') + '). Confira antes de salvar. ' + av.join(' ');
   });
@@ -506,27 +510,40 @@ const LEG_GERAL = { legenda: [
   ['Não conforme', 'não faz. Nos itens críticos, gera ponto de atenção e a pergunta vale peso 2. Na nota: vale 0.'],
   ['N/A', 'não se aplica ao escritório. Só use se tiver conferido; "acho que não" não vale. Na nota: sai do cálculo.'],
   ['Perguntas com ⓘ próprio', 'têm uma legenda específica, que vale no lugar desta.']] };
+const resHtml = r => `<div class="resbox-in ${r.nivel}"><b>${esc(r.titulo)}</b><ul>${r.linhas.map(l => `<li>${esc(l)}</li>`).join('')}</ul><div class="muted small">${esc(r.aviso)}</div></div>`;
+// Atualiza, no formulário, os itens que dependem de outras respostas (aplica) e os blocos calculados (resultado).
+function atualizaGuia(g, root) {
+  const d = collectDados(root);
+  itensDe(g).forEach(i => {
+    if (i.aplica) { const w = root.querySelector('[data-ap="' + i.id + '"]'); if (!w) return; const ap = aplicaItem(i, d);
+      w.classList.toggle('inativo', !ap); w.querySelectorAll('[data-k]').forEach(el => { el.disabled = !ap; });
+      let n = w.querySelector('.apnota'); if (!ap && !n) { n = document.createElement('div'); n.className = 'apnota muted small'; n.textContent = 'Não se aplica com a situação atual do encarregado (conta como N/A).'; w.appendChild(n); } if (ap && n) n.remove(); }
+    if (i.tipo === 'resultado') { const w = root.querySelector('[data-calc="' + i.id + '"]'); if (w) w.innerHTML = resHtml(i.calc(d)); }
+  });
+}
 function checklistForm(g, dados) {
   const dd = dados || {}, crit = critIds(g);
   const item = i => {
-    const v = dd[i.id], help = i.ajuda ? `<div class="muted small">${esc(i.ajuda)}</div>` : '';
+    const cadV = i.cad ? ((db.contabs.find(x => x.id === cid) || {})[i.cad] || '') : undefined;
+    const v = dd[i.id] !== undefined ? dd[i.id] : cadV, help = i.ajuda ? `<div class="muted small">${esc(i.ajuda)}</div>` : '';
     const extra = i.extra ? ' <span class="tag brand" title="Item acrescentado pela equipe técnica; validar juridicamente">extra</span>' : '';
     const bp = i.bp ? ' <span class="tag" title="Boa prática / critério interno: não é exigência expressa da LGPD ou de resolução da ANPD">boa prática</span>' : '';
     const lab = `<div class="labrow"><label>${esc(i.label)}${extra}${bp}</label>${legIcon(i)}</div>`;
+    if (i.tipo === 'resultado') return `<div class="gi">${lab}<div class="resbox" data-calc="${i.id}"></div></div>`;
     if (i.tipo === 'texto') return `<div class="gi">${lab}<input data-k="${i.id}" maxlength="300" value="${esc(v)}"${i.busca ? ` data-busca="${i.busca}" inputmode="numeric" autocomplete="off"` : ''}>${i.busca ? '<div class="muted small" data-bs aria-live="polite"></div>' : ''}${help}</div>`;
     if (i.tipo === 'area') return `<div class="gi">${lab}<textarea data-k="${i.id}" maxlength="2000" style="min-height:70px">${esc(v)}</textarea>${help}</div>`;
     if (i.tipo === 'select') return `<div class="gi">${lab}<select data-k="${i.id}">${opts(i.opcoes, v, '— selecione —')}</select>${help}</div>`;
     if (i.tipo === 'multi') { const sel = new Set(Array.isArray(v) ? v : []);
       return `<div class="gi">${lab}${i.opcoes.map(o => `<label class="chk"><input type="checkbox" data-m="${i.id}" value="${esc(o)}" ${sel.has(o) ? 'checked' : ''}> ${esc(o)}</label>`).join('')}${help}</div>`; }
     const est = crit.has(i.id) ? `<div class="stage" data-for="${i.id}" ${['Conforme', 'Parcial'].includes(v) ? '' : 'hidden'}><label>Estágio do controle <span class="tag warn" title="Item crítico: para contar como comprovado, precisa estar Implantado ou Testado, com evidência anexada">crítico</span></label><select data-k="${i.id}#e">${opts(ESTAGIOS, dd[i.id + '#e'], '— selecione —')}</select></div>` : '';
-    return `<div class="gi">${lab}<div class="row"><select data-k="${i.id}">${respOpts(v)}</select><input data-k="${i.id}#o" maxlength="300" placeholder="Observação (opcional)" value="${esc(dd[i.id + '#o'])}"></div>${est}${help}</div>`;
+    return `<div class="gi" ${i.aplica ? `data-ap="${i.id}"` : ''}>${lab}<div class="row"><select data-k="${i.id}">${respOpts(v)}</select><input data-k="${i.id}#o" maxlength="300" placeholder="Observação (opcional)" value="${esc(dd[i.id + '#o'])}"></div>${est}${help}</div>`;
   };
   return `<div class="card guide"><div class="stickhd"><h3>Checklist · ${esc(g.titulo)}</h3>${barraResp()}</div><p class="muted small">${esc(g.resumo)}</p>
     ${g.secoes.map(sec => `<details><summary>${esc(sec.titulo)}</summary>${sec.itens.map(item).join('')}</details>`).join('')}</div>`;
 }
 function collectDados(root) {
   const o = {};
-  root.querySelectorAll('[data-k]').forEach(el => { const v = el.value.trim(); if (v) o[el.dataset.k] = v.slice(0, el.tagName === 'TEXTAREA' ? 2000 : 300); });
+  root.querySelectorAll('[data-k]').forEach(el => { if (el.disabled) return; const v = el.value.trim(); if (v) o[el.dataset.k] = v.slice(0, el.tagName === 'TEXTAREA' ? 2000 : 300); });
   const ms = {};
   root.querySelectorAll('[data-m]:checked').forEach(el => { (ms[el.dataset.m] = ms[el.dataset.m] || []).push(el.value); });
   Object.assign(o, ms);
@@ -538,7 +555,9 @@ function checklistView(g, dados, rec) {
   const evBtn = e => `<button class="link" data-evopen="${esc(e.id)}" title="${esc(e.descricao)}">${esc(e.nome)}</button>`;
   const val = i => {
     const v = dd[i.id];
+    if (i.tipo === 'resultado') return resHtml(i.calc(dd));
     if (i.tipo !== 'sn') return v && v.length ? esc(fmtVal(v)) : '<span class="muted">—</span>';
+    if (!aplicaItem(i, dd)) return respTag('N/A') + '<div class="muted small">Não se aplica com a situação atual do encarregado.</div>';
     let h = respTag(v) + (dd[i.id + '#o'] ? `<div class="muted small">${esc(dd[i.id + '#o'])}</div>` : '');
     if (rec && v && v !== 'N/A') {
       const evs = evDe(rec.id, i.id), est = dd[i.id + '#e'];
@@ -582,6 +601,7 @@ function recordForm(rec) {
         const g = guiaDe($('#c', d).value);
         $('#gx', d).innerHTML = g ? checklistForm(g, dadosAtual) : '';
         if (g) { const gx = $('#gx', d), cp = k => gx.querySelector('[data-k="' + k + '"]'); ligaBuscaCnpj(gx.querySelector('[data-busca="cnpj"]'), gx.querySelector('[data-bs]'), { razao: cp('razao'), end: cp('end'), pessoa: cp('pessoa') }); }
+        if (g) { const gx = $('#gx', d), run = () => atualizaGuia(g, gx); gx.oninput = run; gx.onchange = run; run(); }
         $('#t', d).placeholder = g ? g.tituloHint : '';
         $$('.stage', d).forEach(st => { const sel = $('[data-k="' + st.dataset.for + '"]', d), es = $('select', st);
           const upd = () => { const ok = ['Conforme', 'Parcial'].includes(sel.value); st.hidden = !ok; if (!ok) es.value = ''; };
@@ -921,6 +941,11 @@ function renderContabs() {
         <label for="cz">Razão social</label><input id="cz" maxlength="200" value="${esc(c.razaoSocial)}">
         <label for="cj">CNPJ</label><input id="cj" maxlength="18" inputmode="numeric" autocomplete="off" value="${esc(c.cnpj)}"><div class="muted small" id="cjs" aria-live="polite">Com um CNPJ válido, razão social e endereço são preenchidos pela base pública da Receita Federal.</div>
         <label for="ce">Endereço</label><input id="ce" maxlength="300" value="${esc(c.endereco)}">
+        <h4 style="margin:1rem 0 .2rem">Enquadramento (preenchido pela consulta ao CNPJ; confira)</h4>
+        <div class="row"><div><label for="cpt">Porte na Receita</label><select id="cpt">${opts(PORTES, c.porteRfb, '— não consultado —')}</select></div>
+        <div><label for="csn">Optante pelo Simples Nacional</label><select id="csn">${opts(['Sim', 'Não'], c.simples, '— não consultado —')}</select></div></div>
+        <label for="cnat">Natureza jurídica</label><input id="cnat" maxlength="120" value="${esc(c.natJur)}">
+        <div class="muted small">${c.consultaEm ? 'Última consulta à Receita: ' + esc(c.consultaEm.split('-').reverse().join('/')) + '. ' : ''}O porte é declarado à Receita e pode estar desatualizado. Alimenta o diagnóstico do checklist de Governança; não decide dispensa de encarregado.</div>
         <label for="cp">Canal de privacidade (e-mail ou outro canal de atendimento)</label><input id="cp" maxlength="200" value="${esc(c.canalPrivacidade)}">
         <label for="lf">Logo do escritório</label>
         <div class="firmlogo-prev" id="lp">${firmLogo(c.id) ? `<img src="${firmLogo(c.id)}" alt="Logo atual">` : '<span class="muted small">Sem logo.</span>'}</div>
@@ -928,7 +953,7 @@ function renderContabs() {
         <div class="muted small">PNG, JPG ou WEBP. A imagem é reduzida automaticamente. Aparece no cabeçalho dos registros e nos relatórios impressos.</div>
         <div class="actions"><button class="primary">Salvar</button><button type="button" id="lrm"${firmLogo(c.id) ? '' : ' hidden'}>Remover logo</button><button type="button" id="x">Cancelar</button></div></form>`, d => {
         $('#x', d).onclick = () => d.close();
-        ligaBuscaCnpj($('#cj', d), $('#cjs', d), { razao: $('#cz', d), end: $('#ce', d) });
+        ligaBuscaCnpj($('#cj', d), $('#cjs', d), { razao: $('#cz', d), end: $('#ce', d), porte: $('#cpt', d), simples: $('#csn', d), nat: $('#cnat', d) });
         const prev = () => { $('#lp', d).innerHTML = novaLogo ? `<img src="${novaLogo}" alt="Nova logo">` : '<span class="muted small">Sem logo.</span>'; };
         $('#lf', d).onchange = guard(async () => { const f = $('#lf', d).files[0]; if (!f) return; try { novaLogo = await prepararLogo(f); prev(); $('#lrm', d).hidden = false; } catch (e) { $('#lf', d).value = ''; toast(e.message); } });
         $('#lrm', d).onclick = () => { novaLogo = ''; $('#lf', d).value = ''; prev(); $('#lrm', d).hidden = true; };
@@ -936,7 +961,9 @@ function renderContabs() {
           if (nome !== c.nome && db.contabsAll.some(x => x.id !== c.id && x.nome.toLowerCase() === nome.toLowerCase())) return toast('Já existe uma contabilidade com este nome.');
           const dig = $('#cj', d).value.replace(/\D/g, '');
           if (dig && (dig.length !== 14 || !cnpjValido(dig))) return toast('CNPJ inválido. Confira os dígitos ou deixe em branco.');
-          const cad = { razaoSocial: $('#cz', d).value.trim(), cnpj: dig ? dig.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : '', endereco: $('#ce', d).value.trim(), canalPrivacidade: $('#cp', d).value.trim() };
+          const cad = { razaoSocial: $('#cz', d).value.trim(), cnpj: dig ? dig.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : '', endereco: $('#ce', d).value.trim(), canalPrivacidade: $('#cp', d).value.trim(),
+            porteRfb: $('#cpt', d).value, simples: $('#csn', d).value, natJur: $('#cnat', d).value.trim() };
+          if ($('#cj', d).dataset.consulta && ['porteRfb', 'simples', 'natJur'].some(k => (c[k] || '') !== cad[k])) cad.consultaEm = $('#cj', d).dataset.consulta;
           const mudouCad = Object.keys(cad).some(k => (c[k] || '') !== cad[k]);
           const upd = { nome, ...cad }; if (novaLogo !== null) upd.logo = novaLogo;
           if (nome === c.nome && novaLogo === null && !mudouCad) return d.close();

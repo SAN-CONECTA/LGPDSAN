@@ -133,3 +133,7 @@ dialog{max-height:92vh;overflow:auto}
 .stickhd{position:sticky;top:-1.25rem;z-index:5;background:var(--surface);margin:-.25rem 0 .25rem;padding:.5rem 0 .4rem;border-bottom:1px solid var(--line)}.stickhd h3{margin:0 0 .3rem}
 .respbar{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem .9rem;font-size:.82rem;color:var(--muted)}.respbar b{color:var(--ink)}
 .gi .row{grid-template-columns:minmax(17rem,22rem) 1fr}
+
+.resbox-in{border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:var(--radius);padding:.6rem .8rem;background:var(--surface)}.resbox-in ul{margin:.3rem 0;padding-left:1.1rem}
+.resbox-in.dispensa{border-left-color:var(--ok)}.resbox-in.cinza{border-left-color:var(--warn)}.resbox-in.alto,.resbox-in.nomear{border-left-color:var(--bad)}
+.gi.inativo{opacity:.55}

@@ -2,14 +2,14 @@
 // Fonte do conteúdo: "Contratos e Operadores — Guia de Conformidade LGPD para Escritório de Contabilidade" (2026).
 // Itens com extra:true foram acrescentados pela equipe técnica (não estão no guia original) e precisam de validação jurídica.
 
-import { GUIA_DIREITOS } from './guia-direitos.js?v=2.23.0';
-import { GUIA_GOVERNANCA } from './guia-governanca.js?v=2.23.0';
-import { GUIA_MAPEAMENTO } from './guia-mapeamento.js?v=2.23.0';
-import { GUIA_RETENCAO } from './guia-retencao.js?v=2.23.0';
-import { GUIA_SEGURANCA } from './guia-seguranca.js?v=2.23.0';
-import { GUIA_TREINAMENTO } from './guia-treinamento.js?v=2.23.0';
-import { GUIA_INCIDENTES } from './guia-incidentes.js?v=2.23.0';
-import { GUIA_EMAIL } from './guia-email.js?v=2.23.0';
+import { GUIA_DIREITOS } from './guia-direitos.js?v=2.24.0';
+import { GUIA_GOVERNANCA } from './guia-governanca.js?v=2.24.0';
+import { GUIA_MAPEAMENTO } from './guia-mapeamento.js?v=2.24.0';
+import { GUIA_RETENCAO } from './guia-retencao.js?v=2.24.0';
+import { GUIA_SEGURANCA } from './guia-seguranca.js?v=2.24.0';
+import { GUIA_TREINAMENTO } from './guia-treinamento.js?v=2.24.0';
+import { GUIA_INCIDENTES } from './guia-incidentes.js?v=2.24.0';
+import { GUIA_EMAIL } from './guia-email.js?v=2.24.0';
 
 export const RESP = ['Conforme', 'Parcial', 'Não conforme', 'N/A']; // 'Não avaliado' = campo vazio
 
@@ -113,10 +113,12 @@ for (const [k, ids] of Object.entries(BP)) for (const sec of GUIAS[k].secoes) fo
 export const guiaDe = cat => GUIAS[cat] || null;
 export const itensDe = g => g.secoes.flatMap(s => s.itens);
 export const fmtVal = v => Array.isArray(v) ? v.join(', ') : (v ?? '');
+// Item com `aplica(d)` falso (ex.: encarregado dispensado) conta como N/A: sai da nota e dos alertas.
+export const aplicaItem = (i, d) => !i.aplica || i.aplica(d || {});
 export function progresso(g, d) {
   const sn = itensDe(g).filter(i => i.tipo === 'sn');
   let ok = 0, parcial = 0, nao = 0, na = 0, pend = 0;
-  sn.forEach(i => { const v = (d || {})[i.id]; if (v === 'Conforme') ok++; else if (v === 'Parcial') parcial++; else if (v === 'Não conforme') nao++; else if (v === 'N/A') na++; else pend++; });
+  sn.forEach(i => { const v = aplicaItem(i, d) ? (d || {})[i.id] : 'N/A'; if (v === 'Conforme') ok++; else if (v === 'Parcial') parcial++; else if (v === 'Não conforme') nao++; else if (v === 'N/A') na++; else pend++; });
   const aplic = sn.length - na;
   return { total: sn.length, ok, parcial, nao, na, pend, pct: aplic ? Math.round(ok / aplic * 100) : 0 };
 }
@@ -139,7 +141,7 @@ export function pontuacao(g, d, evPorItem) {
   const crit = critIds(g), dd = d || {}; let tot = 0, decl = 0, comp = 0, conf = 0, semProva = 0;
   for (const i of itensDe(g)) {
     if (i.tipo !== 'sn') continue;
-    const v = dd[i.id]; if (v === 'N/A') continue;
+    const v = dd[i.id]; if (v === 'N/A' || !aplicaItem(i, dd)) continue;
     const w = crit.has(i.id) ? 2 : 1; tot += w;
     decl += w * (v === 'Conforme' ? 1 : v === 'Parcial' ? 0.5 : 0);
     if (v === 'Conforme') { conf++;
