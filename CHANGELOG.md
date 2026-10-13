@@ -1,6 +1,10 @@
 # Changelog
 Formato SemVer.
 
+## [2.22.2] - 2026-10-13
+### Corrigido
+- Legendas "Como responder" das perguntas do inventário de dados e da atualização do anexo (Contratos e Operadores, item 2) não traziam a regra do N/A. Acrescentadas, no mesmo estilo da pergunta de dados sensíveis
+
 ## [2.22.1] - 2026-10-13
 ### Corrigido
 - Legenda "Como responder" (ⓘ): dentro da janela de edição do registro o quadro abria atrás da janela e ficava ilegível. Agora abre na frente, e a tecla Esc fecha só o quadro (não a janela de edição)
