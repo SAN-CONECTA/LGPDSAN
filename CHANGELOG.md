@@ -1,6 +1,12 @@
 # Changelog
 Formato SemVer.
 
+## [2.23.0] - 2026-10-13
+### Adicionado
+- **Trilha de adequação** no Painel: as categorias na ordem sugerida por dependência (Governança, Mapeamento, Segurança, Incidentes, Contratos, Retenção, Direitos dos Titulares, Email, Treinamento), com situação (Não iniciada / Em andamento / Em vigor), nº de registros, % declarado médio e destaque do **próximo passo**
+### Alterado
+- Listas de categorias (Registros, Evidências, filtros) seguem a mesma ordem, em vez de alfabética; categorias criadas pelo administrador ficam ao final. A ordem é uma sugestão, não exigência da LGPD
+
 ## [2.22.6] - 2026-10-13
 ### Alterado
 - Contabilidades: a coluna "Usuários vinculados" agora lista o **nome** e o perfil de cada usuário ativo vinculado (administradores não aparecem, pois acessam todas)

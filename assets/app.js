@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.22.6';
-import { BIBLIO } from './biblioteca.js?v=2.22.6';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.22.6';
+import { firebaseConfig } from './firebase-config.js?v=2.23.0';
+import { BIBLIO } from './biblioteca.js?v=2.23.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.23.0';
 
-const VERSION = '2.22.6';
+const VERSION = '2.23.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -16,6 +16,18 @@ const STATUS = ['Rascunho', 'Em vigor', 'Em revisão', 'Arquivado'];
 const PRIOR = ['Baixa', 'Média', 'Alta'];
 const DEFAULT_CATS = ['Governança e Políticas', 'Direitos dos Titulares', 'Contratos e Operadores', 'Segurança da Informação',
   'Incidentes', 'Retenção e Descarte', 'Treinamento e Cultura', 'Mapeamento de Dados'];
+// Ordem sugerida de adequação (v2.23.0): por dependência, não por exigência legal. Categorias criadas pelo administrador vão ao final.
+const TRILHA = [
+  ['Governança e Políticas', 'Define quem responde (encarregado, art. 41) e dá mandato ao resto.'],
+  ['Mapeamento de Dados', 'Base de tudo (art. 37): quais dados existem, onde estão e por quê.'],
+  ['Segurança da Informação', 'Maior exposição real (art. 46); começa junto com o mapeamento.'],
+  ['Incidentes', 'Plano pronto antes de acontecer (art. 48).'],
+  ['Contratos e Operadores', 'Precisa do mapeamento para saber quem recebe dados.'],
+  ['Retenção e Descarte', 'Precisa do mapeamento para saber o que guardar e por quanto tempo.'],
+  ['Direitos dos Titulares', 'Responder em 15 dias exige saber onde estão os dados (art. 18).'],
+  ['Tratamento de Email', 'Regras de uso do e-mail, que apoiam políticas e segurança.'],
+  ['Treinamento e Cultura', 'Treina-se sobre o que já está decidido; contínuo.']];
+const trilhaPos = c => { const i = TRILHA.findIndex(t => t[0] === c); return i < 0 ? 999 : i; };
 const FIELDS = [['titulo', 'Título'], ['categoria', 'Categoria'], ['descricao', 'Descrição / procedimento'],
   ['status', 'Status'], ['prioridade', 'Prioridade'], ['responsavel', 'Responsável'], ['prazo', 'Prazo'], ['revisao', 'Próxima revisão'], ['evidencias', 'Evidências (links/referências)']];
 // campos comparáveis de um registro: os fixos + os itens do checklist da categoria
@@ -59,7 +71,7 @@ const can = {
   export: () => me && me.role !== 'consulta',
   editRec: r => me && (me.role === 'admin' || (me.role === 'edicao' && cur(r).status !== 'Arquivado' && !r.deleted))
 };
-const catList = () => db.categorias.slice().sort((a, b) => a.localeCompare(b, 'pt-BR'));
+const catList = () => db.categorias.slice().sort((a, b) => trilhaPos(a) - trilhaPos(b) || a.localeCompare(b, 'pt-BR'));
 
 /* ---------- auditoria (gravada no servidor, só criação) ---------- */
 const isSys = (acao, rec) => !rec && !FIRM_ACTS.has(acao);
@@ -306,6 +318,14 @@ async function logout() { try { await auditNow('Logout'); } catch (e) {} me = nu
 
 /* ---------- painel ---------- */
 const recLink = r => `#/registro/${cid}/${r.id}`;
+function trilhaHtml(rs) {
+  const cats = catList(), passos = cats.map(c => { const rc = rs.filter(r => cur(r).categoria === c), vig = rc.filter(r => cur(r).status === 'Em vigor').length, g = guiaDe(c);
+    const decl = g && rc.length ? Math.round(rc.reduce((a, r) => a + pontuacao(g, cur(r).dados).declarado, 0) / rc.length) : null;
+    return { c, n: rc.length, vig, decl, dica: (TRILHA.find(t => t[0] === c) || [])[1] || 'Categoria acrescentada pelo administrador.' }; });
+  const prox = passos.find(p => !p.vig);
+  return `<div class="tablewrap"><table><tr><th>#</th><th>Categoria</th><th>Situação</th><th>Registros</th><th>Declarado</th></tr>${passos.map((p, i) => `<tr${p === prox ? ' style="background:var(--brand-soft, rgba(15,118,110,.08))"' : ''}><td>${i + 1}</td><td><b>${esc(p.c)}</b>${p === prox ? ' <span class="tag brand">próximo passo</span>' : ''}<br><span class="muted small">${esc(p.dica)}</span></td>
+    <td><span class="tag ${p.vig ? 'ok' : p.n ? 'warn' : ''}">${p.vig ? 'Em vigor' : p.n ? 'Em andamento' : 'Não iniciada'}</span></td><td>${p.n}</td><td>${p.decl === null ? '<span class="muted">—</span>' : p.decl + '%'}</td></tr>`).join('')}</table></div>`;
+}
 async function renderDash() {
   const rs = db.records.filter(r => !r.deleted);
   const by = s => rs.filter(r => cur(r).status === s).length;
@@ -320,6 +340,7 @@ async function renderDash() {
     <div class="stat"><b style="color:${od.length ? 'var(--bad)' : 'inherit'}">${od.length}</b>Prazos vencidos</div>
     <div class="stat"><b style="color:${rv.some(r => revInfo(r).n < 0) ? 'var(--bad)' : rv.length ? 'var(--warn)' : 'inherit'}">${rv.length}</b>Revisões vencidas ou em 30 dias</div>
     <div class="stat"><b style="color:${sa.length ? 'var(--warn)' : 'inherit'}">${sa.length}</b>Em vigor sem aprovação atual</div></div>
+    <div class="card"><h2>Trilha de adequação</h2><p class="muted small">Ordem sugerida, por dependência entre os temas (não é exigência da LGPD). "Em vigor" = há ao menos um registro em vigor na categoria.</p>${trilhaHtml(rs)}</div>
     <div class="card"><h2>Prazos vencidos</h2>${od.length ? miniTable(od) : '<p class="muted">Nenhum prazo vencido.</p>'}</div>
     <div class="card"><h2>Revisões vencidas ou nos próximos 30 dias</h2>${rv.length ? `<div class="tablewrap"><table><tr><th>Registro</th><th>Categoria</th><th>Próxima revisão</th><th></th></tr>${rv.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${esc(cur(r).categoria)}</td><td>${fmtD(cur(r).revisao)}</td><td>${revTag(r)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Nenhuma revisão vencida ou próxima do vencimento. Defina a "Próxima revisão" nos registros de políticas, contratos, treinamentos e avaliações.</p>'}</div>
     <div class="card"><h2>Em vigor sem aprovação atual</h2>${sa.length ? miniTable(sa) : '<p class="muted">Todos os registros em vigor têm a versão atual aprovada.</p>'}</div>
