@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.22.0';
-import { BIBLIO } from './biblioteca.js?v=2.22.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.22.0';
+import { firebaseConfig } from './firebase-config.js?v=2.22.1';
+import { BIBLIO } from './biblioteca.js?v=2.22.1';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.22.1';
 
-const VERSION = '2.22.0';
+const VERSION = '2.22.1';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -454,7 +454,7 @@ const legIcon = i => i.legenda ? `<span class="legwrap no-print"><button type="b
     if (dono === btn && pop) return;
     fecha(); dono = btn; aberto = Date.now(); btn.setAttribute('aria-expanded', 'true');
     pop = document.createElement('div'); pop.className = 'legpop'; pop.setAttribute('role', 'tooltip');
-    pop.innerHTML = btn.nextElementSibling.innerHTML; document.body.appendChild(pop);
+    pop.innerHTML = btn.nextElementSibling.innerHTML; (btn.closest('dialog') || document.body).appendChild(pop); // dentro da janela modal, senão fica atrás dela
     const r = btn.getBoundingClientRect(), w = pop.offsetWidth;
     pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
     const abaixo = r.bottom + 6, h = pop.offsetHeight;
@@ -470,7 +470,7 @@ const legIcon = i => i.legenda ? `<span class="legwrap no-print"><button type="b
     if (b) { e.preventDefault(); if (dono === b && fixo) fecha(); else { abre(b); fixo = true; } return; }
     if (pop && !e.target.closest('.legpop')) fecha();
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pop) { const b = dono; fecha(); if (b) b.focus(); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pop) { e.preventDefault(); e.stopPropagation(); const b = dono; fecha(); if (b) b.focus(); } }, true);
   window.addEventListener('hashchange', fecha); window.addEventListener('scroll', () => { if (pop && !fixo && Date.now() - aberto > 600) fecha(); }, true);
 })();
 function checklistForm(g, dados) {

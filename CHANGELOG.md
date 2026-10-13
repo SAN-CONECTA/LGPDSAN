@@ -1,6 +1,10 @@
 # Changelog
 Formato SemVer.
 
+## [2.22.1] - 2026-10-13
+### Corrigido
+- Legenda "Como responder" (ⓘ): dentro da janela de edição do registro o quadro abria atrás da janela e ficava ilegível. Agora abre na frente, e a tecla Esc fecha só o quadro (não a janela de edição)
+
 ## [2.22.0] - 2026-10-13
 ### Adicionado
 - **Legenda "Como responder"** nas perguntas do checklist: ícone ⓘ ao lado do título que abre um quadro com o significado de cada resposta para aquela pergunta. Abre ao passar o mouse (computador), ao clicar/tocar (celular) e pelo teclado; fecha com clique fora ou Esc. Aparece no formulário e na visão do registro; não sai na impressão
