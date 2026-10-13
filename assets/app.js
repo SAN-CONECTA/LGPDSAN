@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.22.2';
-import { BIBLIO } from './biblioteca.js?v=2.22.2';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.22.2';
+import { firebaseConfig } from './firebase-config.js?v=2.22.3';
+import { BIBLIO } from './biblioteca.js?v=2.22.3';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.22.3';
 
-const VERSION = '2.22.2';
+const VERSION = '2.22.3';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -446,7 +446,7 @@ function ligaBuscaCnpj(inp, st, campos) {
   });
 }
 // legenda "Como responder" (v2.22.0): ícone ⓘ ao lado da pergunta; quadro abre ao passar o mouse, ao clicar ou pelo teclado
-const legIcon = i => i.legenda ? `<span class="legwrap no-print"><button type="button" class="info" aria-label="Como responder esta pergunta" aria-expanded="false">ⓘ</button><span class="legtxt" hidden><b>Como responder</b><ul>${i.legenda.map(([r, t]) => `<li><b>${esc(r)}:</b> ${esc(t)}</li>`).join('')}</ul></span></span>` : '';
+const legIcon = (i, titulo = 'Como responder') => i.legenda ? `<span class="legwrap no-print"><button type="button" class="info" aria-label="${esc(titulo)}" aria-expanded="false">ⓘ</button><span class="legtxt" hidden><b>${esc(titulo)}</b><ul>${i.legenda.map(([r, t]) => `<li><b>${esc(r)}:</b> ${esc(t)}</li>`).join('')}</ul></span></span>` : '';
 (() => {
   let pop = null, dono = null, fixo = false, tmo = 0, aberto = 0;
   const fecha = () => { if (pop) pop.remove(); if (dono) dono.setAttribute('aria-expanded', 'false'); pop = dono = null; fixo = false; };
@@ -473,6 +473,14 @@ const legIcon = i => i.legenda ? `<span class="legwrap no-print"><button type="b
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && pop) { e.preventDefault(); e.stopPropagation(); const b = dono; fecha(); if (b) b.focus(); } }, true);
   window.addEventListener('hashchange', fecha); window.addEventListener('scroll', () => { if (pop && !fixo && Date.now() - aberto > 600) fecha(); }, true);
 })();
+// legenda geral das cinco respostas, no título do checklist (v2.22.3)
+const LEG_GERAL = { legenda: [
+  ['Não avaliado', 'ainda não foi respondida; é pendência, não uma resposta. Na nota: vale 0, como Não conforme, e conta no total.'],
+  ['Conforme', 'o escritório faz isso hoje e consegue mostrar como (documento, registro ou configuração). Na nota: Declarado vale 1; só entra no Comprovado com pelo menos uma evidência anexada.'],
+  ['Parcial', 'faz em parte, ou faz sem formalizar ou sem cobrir tudo. Na nota: Declarado vale 0,5; nunca conta como Comprovado.'],
+  ['Não conforme', 'não faz. Nos itens críticos, gera ponto de atenção e a pergunta vale peso 2. Na nota: vale 0.'],
+  ['N/A', 'não se aplica ao escritório. Só use se tiver conferido; "acho que não" não vale. Na nota: sai do cálculo.'],
+  ['Perguntas com ⓘ próprio', 'têm uma legenda específica, que vale no lugar desta.']] };
 function checklistForm(g, dados) {
   const dd = dados || {}, crit = critIds(g);
   const item = i => {
@@ -488,7 +496,7 @@ function checklistForm(g, dados) {
     const est = crit.has(i.id) ? `<div class="stage" data-for="${i.id}" ${['Conforme', 'Parcial'].includes(v) ? '' : 'hidden'}><label>Estágio do controle <span class="tag warn" title="Item crítico: para contar como comprovado, precisa estar Implantado ou Testado, com evidência anexada">crítico</span></label><select data-k="${i.id}#e">${opts(ESTAGIOS, dd[i.id + '#e'], '— selecione —')}</select></div>` : '';
     return `<div class="gi">${lab}<div class="row"><select data-k="${i.id}">${opts(RESP, v, 'Não avaliado')}</select><input data-k="${i.id}#o" maxlength="300" placeholder="Observação (opcional)" value="${esc(dd[i.id + '#o'])}"></div>${est}${help}</div>`;
   };
-  return `<div class="card guide"><h3>Checklist · ${esc(g.titulo)}</h3><p class="muted small">${esc(g.resumo)}</p>
+  return `<div class="card guide"><h3>Checklist · ${esc(g.titulo)}${legIcon(LEG_GERAL, 'Legenda das respostas')}</h3><p class="muted small">${esc(g.resumo)}</p>
     ${g.secoes.map(sec => `<details><summary>${esc(sec.titulo)}</summary>${sec.itens.map(item).join('')}</details>`).join('')}</div>`;
 }
 function collectDados(root) {
@@ -514,7 +522,7 @@ function checklistView(g, dados, rec) {
     }
     return h;
   };
-  return `<div class="card"><h2>Checklist · ${esc(g.titulo)}</h2>
+  return `<div class="card"><h2>Checklist · ${esc(g.titulo)}${legIcon(LEG_GERAL, 'Legenda das respostas')}</h2>
     <p class="small" style="margin-bottom:.3rem"><b>Declarado ${pt.declarado}%</b> <span class="muted">o que foi respondido</span></p>
     <div class="prog" title="${pt.declarado}% declarado"><span style="width:${pt.declarado}%"></span></div>
     <p class="small" style="margin:.6rem 0 .3rem"><b>Comprovado ${pt.comprovado === null ? 'indisponível' : pt.comprovado + '%'}</b> <span class="muted">itens Conforme com evidência${pt.criticos ? ' (críticos também precisam estar Implantados ou Testados)' : ''}</span></p>

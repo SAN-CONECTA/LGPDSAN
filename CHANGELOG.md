@@ -1,6 +1,10 @@
 # Changelog
 Formato SemVer.
 
+## [2.22.3] - 2026-10-13
+### Adicionado
+- **Legenda geral das respostas** (ⓘ no título do checklist, no formulário e na visão do registro): significado de Não avaliado, Conforme, Parcial, Não conforme e N/A e como cada uma entra na nota (Declarado e Comprovado). As perguntas com legenda própria continuam com a delas
+
 ## [2.22.2] - 2026-10-13
 ### Corrigido
 - Legendas "Como responder" das perguntas do inventário de dados e da atualização do anexo (Contratos e Operadores, item 2) não traziam a regra do N/A. Acrescentadas, no mesmo estilo da pergunta de dados sensíveis
