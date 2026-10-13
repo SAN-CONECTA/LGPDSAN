@@ -1,6 +1,11 @@
 # Changelog
 Formato SemVer.
 
+## [2.22.4] - 2026-10-13
+### Alterado
+- Checklist: **barra fixa** no topo (não sai da tela ao rolar) com o resumo das respostas e o ⓘ da legenda completa
+- Opções do dropdown agora trazem texto curto (ex.: "Conforme — faço e consigo mostrar"); o valor gravado não muda. Textos editáveis em `RESP_DICA` (app.js)
+
 ## [2.22.3] - 2026-10-13
 ### Adicionado
 - **Legenda geral das respostas** (ⓘ no título do checklist, no formulário e na visão do registro): significado de Não avaliado, Conforme, Parcial, Não conforme e N/A e como cada uma entra na nota (Declarado e Comprovado). As perguntas com legenda própria continuam com a delas

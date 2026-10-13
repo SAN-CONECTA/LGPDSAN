@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.22.3';
-import { BIBLIO } from './biblioteca.js?v=2.22.3';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.22.3';
+import { firebaseConfig } from './firebase-config.js?v=2.22.4';
+import { BIBLIO } from './biblioteca.js?v=2.22.4';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.22.4';
 
-const VERSION = '2.22.3';
+const VERSION = '2.22.4';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -473,7 +473,11 @@ const legIcon = (i, titulo = 'Como responder') => i.legenda ? `<span class="legw
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && pop) { e.preventDefault(); e.stopPropagation(); const b = dono; fecha(); if (b) b.focus(); } }, true);
   window.addEventListener('hashchange', fecha); window.addEventListener('scroll', () => { if (pop && !fixo && Date.now() - aberto > 600) fecha(); }, true);
 })();
-// legenda geral das cinco respostas, no título do checklist (v2.22.3)
+// textos curtos das respostas (v2.22.4): aparecem no dropdown e na barra fixa. Edite aqui.
+const RESP_DICA = { '': 'ainda não respondi', 'Conforme': 'faço e consigo mostrar', 'Parcial': 'faço em parte', 'Não conforme': 'não faço', 'N/A': 'não se aplica' };
+const respOpts = sel => ['', ...RESP].map(v => `<option value="${esc(v)}" ${v === (sel || '') ? 'selected' : ''}>${esc(v || 'Não avaliado')} — ${esc(RESP_DICA[v])}</option>`).join('');
+const barraResp = () => `<div class="respbar no-print">${['Conforme', 'Parcial', 'Não conforme', 'N/A'].map(v => `<span><b>${v}</b> ${esc(RESP_DICA[v])}</span>`).join('')}${legIcon(LEG_GERAL, 'Legenda das respostas')}</div>`;
+// legenda geral das cinco respostas (ⓘ da barra)
 const LEG_GERAL = { legenda: [
   ['Não avaliado', 'ainda não foi respondida; é pendência, não uma resposta. Na nota: vale 0, como Não conforme, e conta no total.'],
   ['Conforme', 'o escritório faz isso hoje e consegue mostrar como (documento, registro ou configuração). Na nota: Declarado vale 1; só entra no Comprovado com pelo menos uma evidência anexada.'],
@@ -494,9 +498,9 @@ function checklistForm(g, dados) {
     if (i.tipo === 'multi') { const sel = new Set(Array.isArray(v) ? v : []);
       return `<div class="gi">${lab}${i.opcoes.map(o => `<label class="chk"><input type="checkbox" data-m="${i.id}" value="${esc(o)}" ${sel.has(o) ? 'checked' : ''}> ${esc(o)}</label>`).join('')}${help}</div>`; }
     const est = crit.has(i.id) ? `<div class="stage" data-for="${i.id}" ${['Conforme', 'Parcial'].includes(v) ? '' : 'hidden'}><label>Estágio do controle <span class="tag warn" title="Item crítico: para contar como comprovado, precisa estar Implantado ou Testado, com evidência anexada">crítico</span></label><select data-k="${i.id}#e">${opts(ESTAGIOS, dd[i.id + '#e'], '— selecione —')}</select></div>` : '';
-    return `<div class="gi">${lab}<div class="row"><select data-k="${i.id}">${opts(RESP, v, 'Não avaliado')}</select><input data-k="${i.id}#o" maxlength="300" placeholder="Observação (opcional)" value="${esc(dd[i.id + '#o'])}"></div>${est}${help}</div>`;
+    return `<div class="gi">${lab}<div class="row"><select data-k="${i.id}">${respOpts(v)}</select><input data-k="${i.id}#o" maxlength="300" placeholder="Observação (opcional)" value="${esc(dd[i.id + '#o'])}"></div>${est}${help}</div>`;
   };
-  return `<div class="card guide"><h3>Checklist · ${esc(g.titulo)}${legIcon(LEG_GERAL, 'Legenda das respostas')}</h3><p class="muted small">${esc(g.resumo)}</p>
+  return `<div class="card guide"><div class="stickhd"><h3>Checklist · ${esc(g.titulo)}</h3>${barraResp()}</div><p class="muted small">${esc(g.resumo)}</p>
     ${g.secoes.map(sec => `<details><summary>${esc(sec.titulo)}</summary>${sec.itens.map(item).join('')}</details>`).join('')}</div>`;
 }
 function collectDados(root) {

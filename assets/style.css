@@ -129,3 +129,7 @@ dialog{max-height:92vh;overflow:auto}
 .legpop{position:fixed;z-index:60;max-width:min(26rem,calc(100vw - 16px));background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:.7rem .85rem;font-size:.88rem;line-height:1.45}
 .legpop ul{margin:.4rem 0 0;padding-left:1.1rem}.legpop li{margin:.3rem 0}
 @media print{.legwrap,.legpop{display:none!important}}
+
+.stickhd{position:sticky;top:-1.25rem;z-index:5;background:var(--surface);margin:-.25rem 0 .25rem;padding:.5rem 0 .4rem;border-bottom:1px solid var(--line)}.stickhd h3{margin:0 0 .3rem}
+.respbar{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem .9rem;font-size:.82rem;color:var(--muted)}.respbar b{color:var(--ink)}
+.gi .row{grid-template-columns:minmax(17rem,22rem) 1fr}
