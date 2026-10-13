@@ -1,6 +1,10 @@
 # Changelog
 Formato SemVer.
 
+## [2.22.5] - 2026-10-13
+### Adicionado
+- Auditoria: coluna **Contabilidade** (eventos do sistema aparecem como "Sistema") e busca também por contabilidade. A auditoria dentro de um registro não ganha a coluna
+
 ## [2.22.4] - 2026-10-13
 ### Alterado
 - Checklist: **barra fixa** no topo (não sai da tela ao rolar) com o resumo das respostas e o ⓘ da legenda completa

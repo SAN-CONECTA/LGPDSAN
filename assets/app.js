@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.22.4';
-import { BIBLIO } from './biblioteca.js?v=2.22.4';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.22.4';
+import { firebaseConfig } from './firebase-config.js?v=2.22.5';
+import { BIBLIO } from './biblioteca.js?v=2.22.5';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.22.5';
 
-const VERSION = '2.22.4';
+const VERSION = '2.22.5';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -669,7 +669,7 @@ async function renderRecord(id) {
     <td>${can.editRec(rec) && v.n !== last ? `<button data-restore="${v.n}">Restaurar</button>` : ''}</td></tr>`).join('')}</table></div></div>
     ${vs.length > 1 ? `<div class="card"><h2>Comparar versões</h2><div class="row"><div><label for="va">De</label><select id="va">${vopts(vs.length - 1)}</select></div>
     <div><label for="vb">Para</label><select id="vb">${vopts(vs.length)}</select></div></div><div id="diff"></div></div>` : ''}
-    <div class="card"><h2>Auditoria deste registro</h2>${auditRows(au)}</div>`;
+    <div class="card"><h2>Auditoria deste registro</h2>${auditRows(au, false)}</div>`;
 }
 
 /* ---------- evidências: arquivos no Firebase Storage; dados de cada uma no Firestore ---------- */
@@ -784,15 +784,16 @@ async function renderEvid() {
 }
 
 /* ---------- auditoria ---------- */
-const auditRows = list => list.length ? `<div class="tablewrap"><table><tr><th>Quando</th><th>Usuário</th><th>Ação</th><th>Registro</th><th>Detalhe</th></tr>
-  ${list.map(a => `<tr><td>${fmt(a.ts)}</td><td>${esc(a.user)}<br><span class="muted small">${esc(ROLES[a.role] || '')}</span></td><td>${esc(a.acao)}</td><td>${esc(a.recTitulo)}</td><td>${esc(a.detalhe)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Sem eventos.</p>';
+const audContab = a => a.contabId ? contabNome(a.contabId) : 'Sistema';
+const auditRows = (list, comContab = true) => list.length ? `<div class="tablewrap"><table><tr><th>Quando</th><th>Usuário</th>${comContab ? '<th>Contabilidade</th>' : ''}<th>Ação</th><th>Registro</th><th>Detalhe</th></tr>
+  ${list.map(a => `<tr><td>${fmt(a.ts)}</td><td>${esc(a.user)}<br><span class="muted small">${esc(ROLES[a.role] || '')}</span></td>${comContab ? `<td>${esc(audContab(a))}</td>` : ''}<td>${esc(a.acao)}</td><td>${esc(a.recTitulo)}</td><td>${esc(a.detalhe)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Sem eventos.</p>';
 async function renderAudit() {
   const all = await loadAudit(500);
   const sys = can.admin() ? await loadSysAudit(200) : null;
   bind = () => { const q = $('#aq'), draw = () => { const t = q.value.toLowerCase();
-    $('#alist').innerHTML = auditRows(all.filter(a => !t || [a.user, a.acao, a.recTitulo, a.detalhe].join(' ').toLowerCase().includes(t))); }; q.oninput = draw; draw(); };
+    $('#alist').innerHTML = auditRows(all.filter(a => !t || [a.user, audContab(a), a.acao, a.recTitulo, a.detalhe].join(' ').toLowerCase().includes(t))); }; q.oninput = draw; draw(); };
   return `<div class="bar"><div><h1>Auditoria</h1><p class="muted">${esc(contabNome(cid))} · últimos 500 eventos. Somente leitura: o servidor não permite editar nem apagar eventos.</p></div></div>
-    <div class="card"><label for="aq" style="margin-top:0">Filtrar</label><input id="aq" type="search" placeholder="Usuário, ação, registro…"><div id="alist" style="margin-top:.75rem"></div></div>
+    <div class="card"><label for="aq" style="margin-top:0">Filtrar</label><input id="aq" type="search" placeholder="Usuário, contabilidade, ação, registro…"><div id="alist" style="margin-top:.75rem"></div></div>
     ${sys ? `<div class="card"><h2>Eventos do sistema (administrador)</h2><p class="muted small">Logins, usuários, contabilidades, categorias. Últimos 200.</p>${auditRows(sys)}</div>` : ''}`;
 }
 
