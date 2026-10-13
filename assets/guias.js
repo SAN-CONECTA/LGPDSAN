@@ -2,14 +2,14 @@
 // Fonte do conteúdo: "Contratos e Operadores — Guia de Conformidade LGPD para Escritório de Contabilidade" (2026).
 // Itens com extra:true foram acrescentados pela equipe técnica (não estão no guia original) e precisam de validação jurídica.
 
-import { GUIA_DIREITOS } from './guia-direitos.js?v=2.21.2';
-import { GUIA_GOVERNANCA } from './guia-governanca.js?v=2.21.2';
-import { GUIA_MAPEAMENTO } from './guia-mapeamento.js?v=2.21.2';
-import { GUIA_RETENCAO } from './guia-retencao.js?v=2.21.2';
-import { GUIA_SEGURANCA } from './guia-seguranca.js?v=2.21.2';
-import { GUIA_TREINAMENTO } from './guia-treinamento.js?v=2.21.2';
-import { GUIA_INCIDENTES } from './guia-incidentes.js?v=2.21.2';
-import { GUIA_EMAIL } from './guia-email.js?v=2.21.2';
+import { GUIA_DIREITOS } from './guia-direitos.js?v=2.22.0';
+import { GUIA_GOVERNANCA } from './guia-governanca.js?v=2.22.0';
+import { GUIA_MAPEAMENTO } from './guia-mapeamento.js?v=2.22.0';
+import { GUIA_RETENCAO } from './guia-retencao.js?v=2.22.0';
+import { GUIA_SEGURANCA } from './guia-seguranca.js?v=2.22.0';
+import { GUIA_TREINAMENTO } from './guia-treinamento.js?v=2.22.0';
+import { GUIA_INCIDENTES } from './guia-incidentes.js?v=2.22.0';
+import { GUIA_EMAIL } from './guia-email.js?v=2.22.0';
 
 export const RESP = ['Conforme', 'Parcial', 'Não conforme', 'N/A']; // 'Não avaliado' = campo vazio
 
@@ -33,9 +33,11 @@ export const GUIAS = {
       { id: 's2', titulo: '2. Dados pessoais processados', itens: [
         { id: 'dadosCat', tipo: 'multi', label: 'Categorias de dados que o operador processa', opcoes: ['Dados de clientes', 'Dados de funcionários', 'Dados fiscais / IRPF', 'Dados de fornecedores', 'Metadados de acesso (IP, logins, atividades)'] },
         { id: 'c_dados', tipo: 'sn', label: 'O contrato especifica exatamente quais dados pessoais são processados (campo a campo)?', ajuda: 'Dados de fornecedor e metadados exigem menor rigor, mas devem ser mencionados.' },
-        { id: 'c_inv', tipo: 'sn', label: 'Existe o anexo "Inventário de Dados Processados", classificando cada campo (público, interno, confidencial, sensível)?' },
-        { id: 'c_invAtual', tipo: 'sn', label: 'O anexo é atualizado sempre que novos dados passam a ser tratados?' },
-        { id: 'c_sens', tipo: 'sn', extra: true, label: 'Dados sensíveis (art. 5º, II da LGPD: saúde, biometria, filiação sindical, origem racial, etc.), se houver, foram identificados e têm proteção reforçada?', ajuda: 'Item acrescentado: dados financeiros e fiscais são de alto risco, mas a lei não os lista como sensíveis. O guia original os marca como sensíveis; validar o critério adotado.' }
+        { id: 'c_inv', tipo: 'sn', label: 'Existe o anexo "Inventário de Dados Processados", classificando cada campo (público, interno, confidencial, sensível)?',
+          legenda: [['Conforme', 'o anexo existe e classifica cada campo (público, interno, confidencial, sensível).'], ['Parcial', 'existe uma lista, mas incompleta ou sem a classificação.'], ['Não conforme', 'não há lista. É item crítico: sem ela, as duas perguntas seguintes não se sustentam.']] },
+        { id: 'c_invAtual', tipo: 'sn', label: 'O anexo é atualizado sempre que novos dados passam a ser tratados?',
+          legenda: [['Conforme', 'o anexo é revisado sempre que o escritório passa a enviar um dado novo, e existe rotina ou registro disso.'], ['Parcial', 'é atualizado, mas sem rotina definida, ou a última atualização não acompanhou todas as mudanças.'], ['Não conforme', 'a lista está desatualizada ou ninguém a atualiza.']] },
+        { id: 'c_sens', tipo: 'sn', extra: true, label: 'Dados sensíveis (art. 5º, II da LGPD: saúde, biometria, filiação sindical, origem racial, etc.), se houver, foram identificados e têm proteção reforçada?', legenda: [['Conforme', 'você conferiu os dados enviados, identificou os sensíveis (saúde, biometria, filiação sindical, origem racial etc.) e o contrato prevê proteção reforçada, como acesso restrito e criptografia.'], ['Parcial', 'os sensíveis foram identificados, mas a proteção reforçada não está no contrato ou está incompleta.'], ['Não conforme', 'o fornecedor recebe dado sensível e ele não foi identificado nem protegido.'], ['N/A', 'só se você tiver conferido e o fornecedor não recebe dado sensível. "Acho que não" não vale como N/A.']], ajuda: 'Item acrescentado: dados financeiros e fiscais são de alto risco, mas a lei não os lista como sensíveis. O guia original os marca como sensíveis; validar o critério adotado.' }
       ] },
       { id: 's3', titulo: '3. Tipo de processamento', itens: [
         { id: 'procTipos', tipo: 'multi', label: 'Operações que o operador realiza', opcoes: ['Armazenamento', 'Análise / processamento', 'Transmissão (integrações)', 'Backup', 'Limpeza / exclusão', 'Compartilhamento com terceiros (fisco, bancos)', 'Acesso administrativo (sem ver dados pessoais)', 'Auditoria / conformidade'] },

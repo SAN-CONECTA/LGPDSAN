@@ -1,6 +1,12 @@
 # Changelog
 Formato SemVer.
 
+## [2.22.0] - 2026-10-13
+### Adicionado
+- **Legenda "Como responder"** nas perguntas do checklist: ícone ⓘ ao lado do título que abre um quadro com o significado de cada resposta para aquela pergunta. Abre ao passar o mouse (computador), ao clicar/tocar (celular) e pelo teclado; fecha com clique fora ou Esc. Aparece no formulário e na visão do registro; não sai na impressão
+- Legendas escritas para as três perguntas do item "2. Dados pessoais processados" de Contratos e Operadores (inventário de dados, atualização do anexo, dados sensíveis). Outras perguntas e categorias ganham legenda adicionando o campo `legenda` ao item do guia
+- Manual: parágrafo sobre o ícone ⓘ no capítulo do checklist
+
 ## [2.21.2] - 2026-10-09
 ### Corrigido
 - Endereço vindo da consulta de CNPJ: espaços repetidos (comuns no complemento cadastrado na Receita) são reduzidos a um

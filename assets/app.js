@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.21.2';
-import { BIBLIO } from './biblioteca.js?v=2.21.2';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.21.2';
+import { firebaseConfig } from './firebase-config.js?v=2.22.0';
+import { BIBLIO } from './biblioteca.js?v=2.22.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ESTAGIOS } from './guias.js?v=2.22.0';
 
-const VERSION = '2.21.2';
+const VERSION = '2.22.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -445,13 +445,41 @@ function ligaBuscaCnpj(inp, st, campos) {
     st.textContent = 'Preenchido a partir da Receita Federal (' + (r.fonte || 'BrasilAPI') + '). Confira antes de salvar. ' + av.join(' ');
   });
 }
+// legenda "Como responder" (v2.22.0): ícone ⓘ ao lado da pergunta; quadro abre ao passar o mouse, ao clicar ou pelo teclado
+const legIcon = i => i.legenda ? `<span class="legwrap no-print"><button type="button" class="info" aria-label="Como responder esta pergunta" aria-expanded="false">ⓘ</button><span class="legtxt" hidden><b>Como responder</b><ul>${i.legenda.map(([r, t]) => `<li><b>${esc(r)}:</b> ${esc(t)}</li>`).join('')}</ul></span></span>` : '';
+(() => {
+  let pop = null, dono = null, fixo = false, tmo = 0, aberto = 0;
+  const fecha = () => { if (pop) pop.remove(); if (dono) dono.setAttribute('aria-expanded', 'false'); pop = dono = null; fixo = false; };
+  const abre = btn => {
+    if (dono === btn && pop) return;
+    fecha(); dono = btn; aberto = Date.now(); btn.setAttribute('aria-expanded', 'true');
+    pop = document.createElement('div'); pop.className = 'legpop'; pop.setAttribute('role', 'tooltip');
+    pop.innerHTML = btn.nextElementSibling.innerHTML; document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect(), w = pop.offsetWidth;
+    pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+    const abaixo = r.bottom + 6, h = pop.offsetHeight;
+    pop.style.top = (abaixo + h > window.innerHeight - 8 && r.top - h - 6 > 8 ? r.top - h - 6 : abaixo) + 'px';
+    pop.addEventListener('mouseenter', () => clearTimeout(tmo));
+    pop.addEventListener('mouseleave', () => { if (!fixo) tmo = setTimeout(fecha, 200); });
+  };
+  const hover = () => window.matchMedia && matchMedia('(hover: hover)').matches;
+  document.addEventListener('mouseover', e => { const b = e.target.closest && e.target.closest('.info'); if (b && hover()) { clearTimeout(tmo); abre(b); } });
+  document.addEventListener('mouseout', e => { const b = e.target.closest && e.target.closest('.info'); if (b && !fixo && hover()) tmo = setTimeout(fecha, 200); });
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('.info');
+    if (b) { e.preventDefault(); if (dono === b && fixo) fecha(); else { abre(b); fixo = true; } return; }
+    if (pop && !e.target.closest('.legpop')) fecha();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pop) { const b = dono; fecha(); if (b) b.focus(); } });
+  window.addEventListener('hashchange', fecha); window.addEventListener('scroll', () => { if (pop && !fixo && Date.now() - aberto > 600) fecha(); }, true);
+})();
 function checklistForm(g, dados) {
   const dd = dados || {}, crit = critIds(g);
   const item = i => {
     const v = dd[i.id], help = i.ajuda ? `<div class="muted small">${esc(i.ajuda)}</div>` : '';
     const extra = i.extra ? ' <span class="tag brand" title="Item acrescentado pela equipe técnica; validar juridicamente">extra</span>' : '';
     const bp = i.bp ? ' <span class="tag" title="Boa prática / critério interno: não é exigência expressa da LGPD ou de resolução da ANPD">boa prática</span>' : '';
-    const lab = `<label>${esc(i.label)}${extra}${bp}</label>`;
+    const lab = `<div class="labrow"><label>${esc(i.label)}${extra}${bp}</label>${legIcon(i)}</div>`;
     if (i.tipo === 'texto') return `<div class="gi">${lab}<input data-k="${i.id}" maxlength="300" value="${esc(v)}"${i.busca ? ` data-busca="${i.busca}" inputmode="numeric" autocomplete="off"` : ''}>${i.busca ? '<div class="muted small" data-bs aria-live="polite"></div>' : ''}${help}</div>`;
     if (i.tipo === 'area') return `<div class="gi">${lab}<textarea data-k="${i.id}" maxlength="2000" style="min-height:70px">${esc(v)}</textarea>${help}</div>`;
     if (i.tipo === 'select') return `<div class="gi">${lab}<select data-k="${i.id}">${opts(i.opcoes, v, '— selecione —')}</select>${help}</div>`;
@@ -495,7 +523,7 @@ function checklistView(g, dados, rec) {
     ${pt.comprovado === null ? '<div class="notice">As evidências não puderam ser lidas (regras do Firestore sem a seção <code>evidencias</code>). Publique o <code>firestore.rules</code> atualizado.</div>' : ''}
     ${alerts.length ? `<div class="notice bad"><b>Pontos de atenção</b><ul>${alerts.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
     ${g.secoes.map(sec => `<h3 style="margin-top:1rem">${esc(sec.titulo)}</h3><div class="tablewrap"><table>${sec.itens.map(i =>
-      `<tr><td style="width:55%">${esc(i.label)}${i.extra ? ' <span class="tag brand">extra</span>' : ''}${i.bp ? ' <span class="tag">boa prática</span>' : ''}${crit.has(i.id) ? ' <span class="tag warn" title="Item crítico: peso 2 na pontuação">crítico</span>' : ''}</td><td>${val(i)}</td></tr>`).join('')}</table></div>`).join('')}</div>`;
+      `<tr><td style="width:55%">${esc(i.label)}${legIcon(i)}${i.extra ? ' <span class="tag brand">extra</span>' : ''}${i.bp ? ' <span class="tag">boa prática</span>' : ''}${crit.has(i.id) ? ' <span class="tag warn" title="Item crítico: peso 2 na pontuação">crítico</span>' : ''}</td><td>${val(i)}</td></tr>`).join('')}</table></div>`).join('')}</div>`;
 }
 
 /* ---------- formulário de registro ---------- */

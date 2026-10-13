@@ -120,3 +120,12 @@ dialog{max-height:92vh;overflow:auto}
 .termo .t-sign{margin-top:1.6rem}.termo .t-sign p{margin:1.1rem 0}
 .termo.editando{outline:2px dashed var(--brand);outline-offset:4px;cursor:text}
 @media print{.termo{max-width:none;border:0;box-shadow:none;padding:0;font-size:11pt}.termo .ph.vazio{background:none;color:inherit;padding:0}.termo h2{break-after:avoid}.termo .t-sign{break-inside:avoid}.termo.editando{outline:0}}
+
+/* legenda "Como responder" (v2.22.0) */
+.labrow{display:flex;align-items:flex-start;gap:.35rem}.labrow label{flex:1 1 auto}
+.legwrap{display:inline-block;margin-left:.3rem;vertical-align:baseline}
+.info{background:none;border:0;padding:0 .15rem;margin:0;font-size:1.05rem;line-height:1;color:var(--brand);cursor:help;border-radius:50%}
+.info:hover,.info:focus-visible,.info[aria-expanded="true"]{background:var(--brand-soft)}
+.legpop{position:fixed;z-index:60;max-width:min(26rem,calc(100vw - 16px));background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:.7rem .85rem;font-size:.88rem;line-height:1.45}
+.legpop ul{margin:.4rem 0 0;padding-left:1.1rem}.legpop li{margin:.3rem 0}
+@media print{.legwrap,.legpop{display:none!important}}
