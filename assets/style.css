@@ -157,3 +157,6 @@ dialog{max-height:92vh;overflow:auto}
 .nav .grp.open>.grph .car{transform:rotate(45deg)}
 .nav .grp .subnav{display:none}.nav .grp.open .subnav{display:block}
 .nav .subnav a{padding:.35rem .75rem .35rem 1.6rem;font-size:.92em;margin-top:.1rem}.nav .subnav a::before{content:'· ';color:var(--muted)}
+
+/* Auditoria: linha de filtros por coluna (v2.28.1) */
+.audt .filtros th{padding:.25rem .4rem;text-transform:none;font-weight:400;letter-spacing:0}.audt .filtros input,.audt .filtros select{width:100%;min-width:6.5rem;margin:0;padding:.3rem .4rem;font-size:.85em}

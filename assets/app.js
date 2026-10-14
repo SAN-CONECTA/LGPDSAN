@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.28.0';
-import { BIBLIO } from './biblioteca.js?v=2.28.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.28.0';
+import { firebaseConfig } from './firebase-config.js?v=2.28.1';
+import { BIBLIO } from './biblioteca.js?v=2.28.1';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.28.1';
 
-const VERSION = '2.28.0';
+const VERSION = '2.28.1';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -239,7 +239,7 @@ const routes = [
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
-// Grupos recolhíveis do menu (v2.28.0). [id, título, itens [hash, rótulo, soAdmin]]
+// Grupos recolhíveis do menu (v2.28.1). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
   ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Contabilidades', true]]],
   ['aprendizado', 'Aprendizado', [['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false]]],
@@ -858,23 +858,44 @@ async function maisEventos(pg) {
   pg.fim = snap.docs.length < PAG_AUD;
 }
 const pagInfo = pg => `${pg.itens.length} evento${pg.itens.length === 1 ? '' : 's'} carregado${pg.itens.length === 1 ? '' : 's'}${pg.fim ? ' · todos os eventos já estão na tela' : ''}`;
+// Tabela de auditoria com filtro por coluna (linha de filtros sob o cabeçalho): texto livre em Quando/Registro/Detalhe, lista em Usuário/Contabilidade/Ação.
+const audCols = cc => [['ts', 'Quando', 't'], ['user', 'Usuário', 's'], ...(cc ? [['cont', 'Contabilidade', 's']] : []), ['acao', 'Ação', 's'], ['rec', 'Registro', 't'], ['det', 'Detalhe', 't']];
+const audVal = (a, k) => String(k === 'ts' ? fmt(a.ts) : k === 'user' ? a.user : k === 'cont' ? audContab(a) : k === 'acao' ? a.acao : k === 'rec' ? a.recTitulo : a.detalhe) || '';
+const audTabela = (id, cc) => `<div class="tablewrap"><table class="audt" id="${id}"><thead><tr>${audCols(cc).map(c => `<th>${c[1]}</th>`).join('')}</tr>
+  <tr class="filtros">${audCols(cc).map(c => `<th>${c[2] === 's' ? `<select data-f="${c[0]}" aria-label="Filtrar por ${c[1]}"></select>` : `<input type="search" data-f="${c[0]}" placeholder="filtrar" aria-label="Filtrar por ${c[1]}">`}</th>`).join('')}</tr></thead><tbody></tbody></table></div>`;
+// Redesenha só o corpo (os campos de filtro ficam intocados). Devolve quantas linhas passam nos filtros.
+function audDesenha(id, itens, cc, geral = '') {
+  const root = $('#' + id), cols = audCols(cc), f = {};
+  root.querySelectorAll('[data-f]').forEach(el => { f[el.dataset.f] = el.value; });
+  cols.filter(c => c[2] === 's').forEach(c => { const sel = root.querySelector(`select[data-f="${c[0]}"]`), cur = sel.value;
+    const vals = [...new Set(itens.map(a => audVal(a, c[0])).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'pt-BR'));
+    const html = `<option value="">Todos</option>` + vals.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    if (sel.dataset.h !== html) { sel.innerHTML = html; sel.dataset.h = html; sel.value = vals.includes(cur) ? cur : ''; } });
+  const g = geral.toLowerCase();
+  const ok = itens.filter(a => cols.every(c => { const t = f[c[0]]; if (!t) return true; const v = audVal(a, c[0]); return c[2] === 's' ? v === t : v.toLowerCase().includes(t.toLowerCase()); })
+    && (!g || cols.map(c => audVal(a, c[0])).join(' ').toLowerCase().includes(g)));
+  root.querySelector('tbody').innerHTML = ok.length ? ok.map(a => `<tr><td>${fmt(a.ts)}</td><td>${esc(a.user)}<br><span class="muted small">${esc(ROLES[a.role] || '')}</span></td>${cc ? `<td>${esc(audContab(a))}</td>` : ''}<td>${esc(a.acao)}</td><td>${esc(a.recTitulo)}</td><td>${esc(a.detalhe)}</td></tr>`).join('')
+    : `<tr><td colspan="${cols.length}" class="muted">Sem eventos${itens.length ? ' com esses filtros' : ''}.</td></tr>`;
+  return { n: ok.length, filtrado: !!g || Object.values(f).some(Boolean) };
+}
 async function renderAudit() {
   const pc = novoPager(collection(fs, 'contabilidades', cid, 'auditoria')), ps = can.admin() ? novoPager(collection(fs, 'auditoria')) : null;
   await maisEventos(pc); if (ps) await maisEventos(ps);
   bind = () => {
     const q = $('#aq');
-    const draw = () => { const t = q.value.toLowerCase();
-      $('#alist').innerHTML = auditRows(pc.itens.filter(a => !t || [a.user, audContab(a), a.acao, a.recTitulo, a.detalhe].join(' ').toLowerCase().includes(t)));
-      $('#ainfo').textContent = pagInfo(pc) + (t ? ' · o filtro vale só para os eventos carregados' : ''); $('#amais').hidden = pc.fim; };
-    const drawS = () => { if (!ps) return; $('#slist').innerHTML = auditRows(ps.itens); $('#sinfo').textContent = pagInfo(ps); $('#smais').hidden = ps.fim; };
-    q.oninput = draw; draw(); drawS();
+    const info = (pg, r) => pagInfo(pg) + (r.filtrado ? ` · ${r.n} com os filtros (valem só para os eventos carregados)` : '');
+    const draw = () => { const r = audDesenha('atab', pc.itens, true, q.value); $('#ainfo').textContent = info(pc, r); $('#amais').hidden = pc.fim; };
+    const drawS = () => { if (!ps) return; const r = audDesenha('stab', ps.itens, false); $('#sinfo').textContent = info(ps, r); $('#smais').hidden = ps.fim; };
+    q.oninput = draw; $('#atab').addEventListener('input', draw); $('#atab').addEventListener('change', draw);
+    if (ps) { $('#stab').addEventListener('input', drawS); $('#stab').addEventListener('change', drawS); }
+    draw(); drawS();
     $('#amais').onclick = guard(async () => { $('#amais').disabled = true; try { await maisEventos(pc); } finally { $('#amais').disabled = false; } draw(); });
     if (ps) $('#smais').onclick = guard(async () => { $('#smais').disabled = true; try { await maisEventos(ps); } finally { $('#smais').disabled = false; } drawS(); });
   };
   return `<div class="bar"><div><h1>Auditoria</h1><p class="muted">${esc(contabNome(cid))} · do mais recente para o mais antigo. Somente leitura: o servidor não permite editar nem apagar eventos.</p></div></div>
-    <div class="card"><label for="aq" style="margin-top:0">Filtrar</label><input id="aq" type="search" placeholder="Usuário, contabilidade, ação, registro…"><div id="alist" style="margin-top:.75rem"></div>
+    <div class="card"><label for="aq" style="margin-top:0">Busca geral</label><input id="aq" type="search" placeholder="Procura em todas as colunas…"><div style="margin-top:.75rem">${audTabela('atab', true)}</div>
       <div class="actions"><span class="muted small" id="ainfo" aria-live="polite"></span><button id="amais" type="button">Carregar mais ${PAG_AUD}</button></div></div>
-    ${ps ? `<div class="card"><h2>Eventos do sistema (administrador)</h2><p class="muted small">Logins, usuários, contabilidades, categorias.</p><div id="slist"></div>
+    ${ps ? `<div class="card"><h2>Eventos do sistema (administrador)</h2><p class="muted small">Logins, usuários, contabilidades, categorias.</p>${audTabela('stab', false)}
       <div class="actions"><span class="muted small" id="sinfo" aria-live="polite"></span><button id="smais" type="button">Carregar mais ${PAG_AUD}</button></div></div>` : ''}`;
 }
 

@@ -1,6 +1,10 @@
 # Changelog
 Formato SemVer.
 
+## [2.28.1] - 2026-10-14
+### Adicionado
+- Auditoria e Eventos do sistema: **filtro por coluna** logo abaixo do cabeçalho. Usuário, Contabilidade e Ação têm lista com os valores existentes; Quando, Registro e Detalhe filtram por texto. Os filtros se combinam e valem para os eventos já carregados; a busca geral da Auditoria continua
+
 ## [2.28.0] - 2026-10-14
 ### Alterado
 - Auditoria e Eventos do sistema: sem limite de histórico na tela. Carregam 200 eventos (do mais recente para o mais antigo) e o botão **Carregar mais 200** busca os seguintes, até o fim. O contador mostra quantos estão carregados. O filtro de texto vale só para os eventos já carregados
