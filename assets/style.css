@@ -137,3 +137,7 @@ dialog{max-height:92vh;overflow:auto}
 .resbox-in{border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:var(--radius);padding:.6rem .8rem;background:var(--surface)}.resbox-in ul{margin:.3rem 0;padding-left:1.1rem}
 .resbox-in.dispensa{border-left-color:var(--ok)}.resbox-in.cinza{border-left-color:var(--warn)}.resbox-in.alto,.resbox-in.nomear{border-left-color:var(--bad)}
 .gi.inativo{opacity:.55}
+
+.cfgbar{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:1rem;padding-bottom:.4rem}
+.cfgtabs{display:flex;gap:.25rem;flex-wrap:wrap}.cfgtabs a{padding:.35rem .8rem;border-radius:8px;color:var(--ink);text-decoration:none}
+.cfgtabs a:hover{background:var(--bg)}.cfgtabs a.on{background:var(--brand-soft);color:var(--brand);font-weight:600}

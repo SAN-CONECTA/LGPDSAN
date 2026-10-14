@@ -1,6 +1,10 @@
 # Changelog
 Formato SemVer.
 
+## [2.25.0] - 2026-10-13
+### Alterado
+- Menu lateral: novo botão **Configurações**, com três abas: Categorias, Backup e Sobre / versão. Categorias e Backup continuam só para o Administrador; os demais perfis veem apenas Sobre / versão. As rotas antigas (`#/categorias`, `#/backup`, `#/sobre`) continuam funcionando
+
 ## [2.24.0] - 2026-10-13
 ### Adicionado
 - **Governança e Políticas: seção "1. Diagnóstico do enquadramento"** antes do encarregado: porte, Simples, natureza jurídica, limite de receita, grupo econômico, volume de titulares, dados sensíveis, tecnologia nova, monitoramento, decisões automatizadas e exigência contratual do cliente, com **resultado sugerido** calculado na tela
