@@ -1,6 +1,11 @@
 # Changelog
 Formato SemVer.
 
+## [2.28.0] - 2026-10-14
+### Alterado
+- Auditoria e Eventos do sistema: sem limite de histórico na tela. Carregam 200 eventos (do mais recente para o mais antigo) e o botão **Carregar mais 200** busca os seguintes, até o fim. O contador mostra quantos estão carregados. O filtro de texto vale só para os eventos já carregados
+- Nada muda no armazenamento: os eventos sempre ficaram todos no banco (as regras continuam impedindo editar ou apagar). Sem alteração em `firestore.rules`
+
 ## [2.27.0] - 2026-10-14
 ### Adicionado
 - Temas de cor: Azul, Lilás, Rosa, Laranja, Verde, Grafite, Escuro azulado e Escuro lilás, além de Automático, Claro e Escuro. Trocam a cor de destaque (botões, item ativo do menu) e dão um leve tom ao fundo

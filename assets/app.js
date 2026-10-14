@@ -1,14 +1,14 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndPassword, signOut, onAuthStateChanged,
   createUserWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
-import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
+import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.27.0';
-import { BIBLIO } from './biblioteca.js?v=2.27.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.27.0';
+import { firebaseConfig } from './firebase-config.js?v=2.28.0';
+import { BIBLIO } from './biblioteca.js?v=2.28.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.28.0';
 
-const VERSION = '2.27.0';
+const VERSION = '2.28.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -239,7 +239,7 @@ const routes = [
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
-// Grupos recolhíveis do menu (v2.27.0). [id, título, itens [hash, rótulo, soAdmin]]
+// Grupos recolhíveis do menu (v2.28.0). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
   ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Contabilidades', true]]],
   ['aprendizado', 'Aprendizado', [['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false]]],
@@ -848,14 +848,34 @@ async function renderEvid() {
 const audContab = a => a.contabId ? contabNome(a.contabId) : 'Sistema';
 const auditRows = (list, comContab = true) => list.length ? `<div class="tablewrap"><table><tr><th>Quando</th><th>Usuário</th>${comContab ? '<th>Contabilidade</th>' : ''}<th>Ação</th><th>Registro</th><th>Detalhe</th></tr>
   ${list.map(a => `<tr><td>${fmt(a.ts)}</td><td>${esc(a.user)}<br><span class="muted small">${esc(ROLES[a.role] || '')}</span></td>${comContab ? `<td>${esc(audContab(a))}</td>` : ''}<td>${esc(a.acao)}</td><td>${esc(a.recTitulo)}</td><td>${esc(a.detalhe)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Sem eventos.</p>';
+const PAG_AUD = 200; // eventos por página; "Carregar mais" não tem teto
+const novoPager = colRef => ({ colRef, itens: [], last: null, fim: false });
+async function maisEventos(pg) {
+  const q = pg.last ? query(pg.colRef, orderBy('ts', 'desc'), startAfter(pg.last), limit(PAG_AUD)) : query(pg.colRef, orderBy('ts', 'desc'), limit(PAG_AUD));
+  const snap = await getDocs(q);
+  pg.itens = pg.itens.concat(snap.docs.map(d => d.data()));
+  if (snap.docs.length) pg.last = snap.docs[snap.docs.length - 1];
+  pg.fim = snap.docs.length < PAG_AUD;
+}
+const pagInfo = pg => `${pg.itens.length} evento${pg.itens.length === 1 ? '' : 's'} carregado${pg.itens.length === 1 ? '' : 's'}${pg.fim ? ' · todos os eventos já estão na tela' : ''}`;
 async function renderAudit() {
-  const all = await loadAudit(500);
-  const sys = can.admin() ? await loadSysAudit(200) : null;
-  bind = () => { const q = $('#aq'), draw = () => { const t = q.value.toLowerCase();
-    $('#alist').innerHTML = auditRows(all.filter(a => !t || [a.user, audContab(a), a.acao, a.recTitulo, a.detalhe].join(' ').toLowerCase().includes(t))); }; q.oninput = draw; draw(); };
-  return `<div class="bar"><div><h1>Auditoria</h1><p class="muted">${esc(contabNome(cid))} · últimos 500 eventos. Somente leitura: o servidor não permite editar nem apagar eventos.</p></div></div>
-    <div class="card"><label for="aq" style="margin-top:0">Filtrar</label><input id="aq" type="search" placeholder="Usuário, contabilidade, ação, registro…"><div id="alist" style="margin-top:.75rem"></div></div>
-    ${sys ? `<div class="card"><h2>Eventos do sistema (administrador)</h2><p class="muted small">Logins, usuários, contabilidades, categorias. Últimos 200.</p>${auditRows(sys)}</div>` : ''}`;
+  const pc = novoPager(collection(fs, 'contabilidades', cid, 'auditoria')), ps = can.admin() ? novoPager(collection(fs, 'auditoria')) : null;
+  await maisEventos(pc); if (ps) await maisEventos(ps);
+  bind = () => {
+    const q = $('#aq');
+    const draw = () => { const t = q.value.toLowerCase();
+      $('#alist').innerHTML = auditRows(pc.itens.filter(a => !t || [a.user, audContab(a), a.acao, a.recTitulo, a.detalhe].join(' ').toLowerCase().includes(t)));
+      $('#ainfo').textContent = pagInfo(pc) + (t ? ' · o filtro vale só para os eventos carregados' : ''); $('#amais').hidden = pc.fim; };
+    const drawS = () => { if (!ps) return; $('#slist').innerHTML = auditRows(ps.itens); $('#sinfo').textContent = pagInfo(ps); $('#smais').hidden = ps.fim; };
+    q.oninput = draw; draw(); drawS();
+    $('#amais').onclick = guard(async () => { $('#amais').disabled = true; try { await maisEventos(pc); } finally { $('#amais').disabled = false; } draw(); });
+    if (ps) $('#smais').onclick = guard(async () => { $('#smais').disabled = true; try { await maisEventos(ps); } finally { $('#smais').disabled = false; } drawS(); });
+  };
+  return `<div class="bar"><div><h1>Auditoria</h1><p class="muted">${esc(contabNome(cid))} · do mais recente para o mais antigo. Somente leitura: o servidor não permite editar nem apagar eventos.</p></div></div>
+    <div class="card"><label for="aq" style="margin-top:0">Filtrar</label><input id="aq" type="search" placeholder="Usuário, contabilidade, ação, registro…"><div id="alist" style="margin-top:.75rem"></div>
+      <div class="actions"><span class="muted small" id="ainfo" aria-live="polite"></span><button id="amais" type="button">Carregar mais ${PAG_AUD}</button></div></div>
+    ${ps ? `<div class="card"><h2>Eventos do sistema (administrador)</h2><p class="muted small">Logins, usuários, contabilidades, categorias.</p><div id="slist"></div>
+      <div class="actions"><span class="muted small" id="sinfo" aria-live="polite"></span><button id="smais" type="button">Carregar mais ${PAG_AUD}</button></div></div>` : ''}`;
 }
 
 /* ---------- usuários (admin) ---------- */
