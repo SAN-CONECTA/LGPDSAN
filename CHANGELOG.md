@@ -1,6 +1,16 @@
 # Changelog
 Formato SemVer.
 
+## [2.26.0] - 2026-10-14
+### Alterado
+- Menu lateral reorganizado em **grupos recolhíveis** (clique no título abre/fecha; o grupo da tela atual abre sozinho): **Controle** (Auditoria, Usuários, Contabilidades), **Aprendizado** (Biblioteca, Manual) e **Configurações** (Categorias, Backup, Sobre / versão). Painel, Registros, Evidências e Termo de Ciência seguem soltos
+- Usuários, Contabilidades, Categorias e Backup continuam só para o Administrador; grupo sem itens permitidos não aparece. Os endereços das telas não mudaram
+- Consolida as entradas 2.25.0 e 2.25.1 (não publicadas separadamente)
+
+## [2.25.1] - 2026-10-14
+### Alterado
+- Configurações: Categorias, Backup e Sobre / versão passam a ficar **abaixo do botão Configurações, no próprio menu lateral** (sempre visíveis, com o item atual destacado). A barra de abas no topo da página foi removida
+
 ## [2.25.0] - 2026-10-13
 ### Alterado
 - Menu lateral: novo botão **Configurações**, com três abas: Categorias, Backup e Sobre / versão. Categorias e Backup continuam só para o Administrador; os demais perfis veem apenas Sobre / versão. As rotas antigas (`#/categorias`, `#/backup`, `#/sobre`) continuam funcionando

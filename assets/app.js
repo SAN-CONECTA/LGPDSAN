@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.25.0';
-import { BIBLIO } from './biblioteca.js?v=2.25.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.25.0';
+import { firebaseConfig } from './firebase-config.js?v=2.26.0';
+import { BIBLIO } from './biblioteca.js?v=2.26.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.26.0';
 
-const VERSION = '2.25.0';
+const VERSION = '2.26.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -239,10 +239,13 @@ const routes = [
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
-// Configurações (v2.25.0): um botão no menu, três abas.
-const CONFIG_TABS = [['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]];
-const configTabs = h => { const t = CONFIG_TABS.filter(x => !x[2] || can.admin());
-  return `<div class="cfgbar no-print"><b>Configurações</b><nav class="cfgtabs">${t.map(x => `<a href="${x[0]}" class="${x[0] === h ? 'on' : ''}">${x[1]}</a>`).join('')}</nav></div>`; };
+// Grupos recolhíveis do menu (v2.26.0). [id, título, itens [hash, rótulo, soAdmin]]
+const GRUPOS = [
+  ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Contabilidades', true]]],
+  ['aprendizado', 'Aprendizado', [['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false]]],
+  ['config', 'Configurações', [['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]]]
+];
+const gruposAbertos = new Set();
 let bind = null, seq = 0;
 function contabSelector() {
   if (db.contabs.length > 1) return `<label for="cs" style="margin-top:0">Contabilidade</label><select id="cs">${db.contabs.map(c => `<option value="${esc(c.id)}" ${c.id === cid ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>`;
@@ -261,14 +264,26 @@ async function route() {
     main = r[0]; needs = !!r[4];
     view = (r[3] === 'admin' && !can.admin()) ? () => `<h1>Acesso negado</h1><p class="muted">Seu perfil não permite acessar esta área.</p>` : r[2];
   }
-  const emConfig = CONFIG_TABS.some(x => x[0] === main), cfgHref = can.admin() ? '#/categorias' : '#/sobre';
-  const nav = routes.filter(r => (r[3] !== 'admin' || can.admin()) && !CONFIG_TABS.some(x => x[0] === r[0]))
-    .map(r => `<a href="${r[0]}" class="${r[0] === main ? 'on' : ''}">${r[1]}</a>`).join('') + `<a href="${cfgHref}" class="${emConfig ? 'on' : ''}">Configurações</a>`;
+  const mk = (hash, rot, cls) => `<a href="${hash}" class="${cls || ''}${hash === main ? ' on' : ''}">${rot}</a>`;
+  const ordem = ['#/', '#/registros', '#/evidencias', '#/termo'];
+  const nav = ordem.map(hh => routes.find(r => r[0] === hh)).map(r => mk(r[0], r[1])).join('') + GRUPOS.map(g => {
+    const itens = g[2].filter(x => !x[2] || can.admin());
+    if (!itens.length) return '';
+    const ativo = itens.some(x => x[0] === main);
+    if (ativo) gruposAbertos.add(g[0]);
+    const aberto = gruposAbertos.has(g[0]);
+    return `<div class="grp${aberto ? ' open' : ''}${ativo ? ' ativo' : ''}" data-g="${g[0]}"><button type="button" class="grph" aria-expanded="${aberto}">${g[1]}<span class="car" aria-hidden="true"></span></button><div class="subnav">${itens.map(x => mk(x[0], x[1])).join('')}</div></div>`;
+  }).join('');
   app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><div class="prod">Conformidade LGPD</div>
     <div id="csel" class="csel"></div>
     <nav class="nav">${nav}</nav>
     <div class="who small"><b>${esc(me.nome)}</b><br><span class="muted">${ROLES[me.role]} · v${VERSION}</span><div class="themesel"><label for="tema">Tema</label><select id="tema">${Object.entries(TEMAS).map(([k, v]) => `<option value="${k}"${k === me.tema ? ' selected' : ''}>${v}</option>`).join('')}</select></div><button class="link" id="out">Sair</button></div></aside>
     <main id="main"><p class="muted">Carregando…</p></main></div>`;
+  document.querySelectorAll('.nav .grph').forEach(bt => bt.onclick = () => {
+    const gd = bt.parentElement, id = gd.dataset.g, ab = !gd.classList.contains('open');
+    gd.classList.toggle('open', ab); bt.setAttribute('aria-expanded', ab);
+    if (ab) gruposAbertos.add(id); else gruposAbertos.delete(id);
+  });
   $('#out').onclick = guard(logout);
   $('#tema').onchange = async e => { const t = e.target.value; me.tema = t; applyTheme(t); lsSet('lgpdsan:tema:' + me.id, t); lsSet('lgpdsan:tema', t);
     try { await updateDoc(doc(fs, 'users', me.id), { tema: t }); } catch (err) { /* sem permissão nas regras: a escolha fica só neste navegador */ } };
@@ -287,7 +302,7 @@ async function route() {
     else html = await view();
   } catch (e) { console.error(e); html = `<h1>Não foi possível carregar</h1><p class="muted">${esc(errMsg(e))}</p>`; bind = null; }
   if (my !== seq) return;
-  $('#main').innerHTML = (emConfig && !recRoute ? configTabs(main) : '') + html;
+  $('#main').innerHTML = html;
   if (bind) { const f = bind; bind = null; f(); }
 }
 window.addEventListener('hashchange', route);

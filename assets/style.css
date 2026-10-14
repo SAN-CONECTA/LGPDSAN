@@ -141,3 +141,10 @@ dialog{max-height:92vh;overflow:auto}
 .cfgbar{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:1rem;padding-bottom:.4rem}
 .cfgtabs{display:flex;gap:.25rem;flex-wrap:wrap}.cfgtabs a{padding:.35rem .8rem;border-radius:8px;color:var(--ink);text-decoration:none}
 .cfgtabs a:hover{background:var(--bg)}.cfgtabs a.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
+
+.nav .grph{display:flex;align-items:center;justify-content:space-between;width:100%;padding:.55rem .75rem;border:0;border-radius:8px;background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.nav .grph:hover{background:var(--bg)}.nav .grp.ativo>.grph{color:var(--brand);font-weight:600}
+.nav .grph .car{width:.45rem;height:.45rem;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(-45deg);transition:transform .15s}
+.nav .grp.open>.grph .car{transform:rotate(45deg)}
+.nav .grp .subnav{display:none}.nav .grp.open .subnav{display:block}
+.nav .subnav a{padding:.35rem .75rem .35rem 1.6rem;font-size:.92em;margin-top:.1rem}.nav .subnav a::before{content:'· ';color:var(--muted)}
