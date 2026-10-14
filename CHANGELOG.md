@@ -1,6 +1,12 @@
 # Changelog
 Formato SemVer.
 
+## [2.27.0] - 2026-10-14
+### Adicionado
+- Temas de cor: Azul, Lilás, Rosa, Laranja, Verde, Grafite, Escuro azulado e Escuro lilás, além de Automático, Claro e Escuro. Trocam a cor de destaque (botões, item ativo do menu) e dão um leve tom ao fundo
+### Atenção
+- `firestore.rules` mudou: a regra de preferência de tema agora aceita os novos valores. **Publique as regras de novo**; sem isso a escolha de cor vale só no navegador onde foi feita (o sistema não dá erro)
+
 ## [2.26.0] - 2026-10-14
 ### Alterado
 - Menu lateral reorganizado em **grupos recolhíveis** (clique no título abre/fecha; o grupo da tela atual abre sozinho): **Controle** (Auditoria, Usuários, Contabilidades), **Aprendizado** (Biblioteca, Manual) e **Configurações** (Categorias, Backup, Sobre / versão). Painel, Registros, Evidências e Termo de Ciência seguem soltos

@@ -36,10 +36,10 @@ service cloud.firestore {
       allow get: if request.auth != null && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
       allow create, update, delete: if isAdmin();
-      // Cada usuário pode alterar apenas a própria preferência de tema (claro / escuro / auto).
+      // Cada usuário pode alterar apenas a própria preferência de tema (auto, claro, escuro e temas de cor).
       allow update: if request.auth != null && request.auth.uid == uid && active()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tema'])
-        && request.resource.data.tema in ['auto', 'claro', 'escuro'];
+        && request.resource.data.tema in ['auto', 'claro', 'escuro', 'azul', 'lilas', 'rosa', 'laranja', 'verde', 'grafite', 'escuro-azul', 'escuro-lilas'];
     }
 
     match /config/{doc} {

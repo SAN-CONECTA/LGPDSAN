@@ -4,11 +4,11 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.26.0';
-import { BIBLIO } from './biblioteca.js?v=2.26.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.26.0';
+import { firebaseConfig } from './firebase-config.js?v=2.27.0';
+import { BIBLIO } from './biblioteca.js?v=2.27.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.27.0';
 
-const VERSION = '2.26.0';
+const VERSION = '2.27.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -135,12 +135,12 @@ async function prepararLogo(file) {
   } finally { URL.revokeObjectURL(url); }
 }
 /* ---------- tema claro / escuro (escolha por usuário) ---------- */
-const TEMAS = { auto: 'Automático (do sistema)', claro: 'Claro', escuro: 'Escuro' };
+const TEMAS = { auto: 'Automático (do sistema)', claro: 'Claro (verde-azulado)', azul: 'Azul', lilas: 'Lilás', rosa: 'Rosa', laranja: 'Laranja', verde: 'Verde', grafite: 'Grafite', escuro: 'Escuro', 'escuro-azul': 'Escuro azulado', 'escuro-lilas': 'Escuro lilás' };
 const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* sem armazenamento: vale só nesta sessão */ } };
 function applyTheme(t) {
   const el = document.documentElement;
-  if (t === 'claro') el.dataset.theme = 'light'; else if (t === 'escuro') el.dataset.theme = 'dark'; else delete el.dataset.theme;
+  if (t === 'claro') el.dataset.theme = 'light'; else if (t === 'escuro') el.dataset.theme = 'dark'; else if (t !== 'auto' && t in TEMAS) el.dataset.theme = t; else delete el.dataset.theme;
 }
 const temaDe = u => [u && u.tema, u && lsGet('lgpdsan:tema:' + u.id)].find(t => t in TEMAS) || 'auto'; // 'lgpdsan:tema' (sem usuário) só evita o piscar na tela de login
 const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { console.error(e); toast(errMsg(e)); } };
@@ -239,7 +239,7 @@ const routes = [
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
-// Grupos recolhíveis do menu (v2.26.0). [id, título, itens [hash, rótulo, soAdmin]]
+// Grupos recolhíveis do menu (v2.27.0). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
   ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Contabilidades', true]]],
   ['aprendizado', 'Aprendizado', [['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false]]],

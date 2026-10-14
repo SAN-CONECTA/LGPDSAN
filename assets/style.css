@@ -4,7 +4,7 @@
   --warn:#b45309;--warn-soft:#fef3e2;--bad:#b42318;--bad-soft:#fdeceb;--ok:#15803d;--ok-soft:#e6f5ea;
   --add:#d9f2dd;--del:#fbdcdc;--radius:10px;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+@media (prefers-color-scheme:dark){:root:not([data-theme]){
   --bg:#0f1418;--surface:#171e24;--ink:#e6ebef;--muted:#93a1ad;--line:#26303a;
   --brand:#2dd4bf;--brand-ink:#04211e;--brand-soft:#12312e;
   --warn:#fbbf24;--warn-soft:#33270d;--bad:#f87171;--bad-soft:#381815;--ok:#4ade80;--ok-soft:#10301b;
@@ -14,6 +14,15 @@
   --warn:#fbbf24;--warn-soft:#33270d;--bad:#f87171;--bad-soft:#381815;--ok:#4ade80;--ok-soft:#10301b;
   --add:#17391f;--del:#42201f;}
 :root[data-theme=light]{color-scheme:light}
+/* Temas de cor (v2.27.0): só trocam a cor de destaque; fundo levemente tingido */
+:root[data-theme=azul]{color-scheme:light;--brand:#1d4ed8;--brand-ink:#fff;--brand-soft:#e3ebfd;--bg:#f3f6fc;--line:#d9e0ee}
+:root[data-theme=lilas]{color-scheme:light;--brand:#6d28d9;--brand-ink:#fff;--brand-soft:#eee6fb;--bg:#f6f4fb;--line:#e0dbee}
+:root[data-theme=rosa]{color-scheme:light;--brand:#be185d;--brand-ink:#fff;--brand-soft:#fbe6ef;--bg:#fbf4f7;--line:#eedbe4}
+:root[data-theme=laranja]{color-scheme:light;--brand:#c2410c;--brand-ink:#fff;--brand-soft:#fdebdf;--bg:#fbf6f2;--line:#eedfd3}
+:root[data-theme=verde]{color-scheme:light;--brand:#15803d;--brand-ink:#fff;--brand-soft:#e1f3e7;--bg:#f3f8f5;--line:#d8e6dd}
+:root[data-theme=grafite]{color-scheme:light;--brand:#374151;--brand-ink:#fff;--brand-soft:#e9ebee;--bg:#f4f5f6;--line:#dfe2e6}
+:root[data-theme=escuro-azul]{--ink:#e6ebef;--muted:#93a1ad;--warn:#fbbf24;--warn-soft:#33270d;--bad:#f87171;--bad-soft:#381815;--ok:#4ade80;--ok-soft:#10301b;--add:#17391f;--del:#42201f;color-scheme:dark;--brand:#60a5fa;--brand-ink:#04152e;--brand-soft:#14253d;--bg:#0c121b;--surface:#151e2b;--line:#243246}
+:root[data-theme=escuro-lilas]{--ink:#e6ebef;--muted:#93a1ad;--warn:#fbbf24;--warn-soft:#33270d;--bad:#f87171;--bad-soft:#381815;--ok:#4ade80;--ok-soft:#10301b;--add:#17391f;--del:#42201f;color-scheme:dark;--brand:#a78bfa;--brand-ink:#150b33;--brand-soft:#251a40;--bg:#110e19;--surface:#1a1626;--line:#2e2842}
 *{box-sizing:border-box}
 html{font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{margin:0;background:var(--bg);color:var(--ink)}
