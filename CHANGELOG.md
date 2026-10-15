@@ -1,6 +1,13 @@
 # Changelog
 Formato SemVer.
 
+## [2.29.0] - 2026-10-15
+### Adicionado
+- Menu **Aprendizado**: novo botão **Manual da LGPD**, abaixo de Manual. Lista os 16 modelos de documentos (DOC-00 a DOC-15) e a planilha de apoio ROPA e Registros (APOIO-01), cada um com botão **Baixar**. Somente leitura, aberto a todos os perfis
+- Os 17 arquivos (.docx e .xlsx, copiados da pasta `modelos-lgpd` do Drive) vão na pasta `manual-lgpd/` com os nomes originais; a lista fica em `assets/manual-lgpd.js`. Se a pasta não estiver publicada, a tela avisa em vez de mostrar links quebrados em silêncio
+### Atenção
+- Sem mudança em `firestore.rules`. Para trocar um modelo, substitua o arquivo em `manual-lgpd/` mantendo o mesmo nome
+
 ## [2.28.1] - 2026-10-14
 ### Adicionado
 - Auditoria e Eventos do sistema: **filtro por coluna** logo abaixo do cabeçalho. Usuário, Contabilidade e Ação têm lista com os valores existentes; Quando, Registro e Detalhe filtram por texto. Os filtros se combinam e valem para os eventos já carregados; a busca geral da Auditoria continua
