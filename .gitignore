@@ -1,0 +1,16 @@
+# Credenciais nunca entram no repositório.
+# O serviço de conta do Firebase chega por secret do GitHub Actions.
+service-account*.json
+*service-account*.json
+*.credentials.json
+.env
+.env.*
+
+# Artefatos de Python
+__pycache__/
+*.pyc
+
+# Logs do Firebase Emulator Suite (testes locais)
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
