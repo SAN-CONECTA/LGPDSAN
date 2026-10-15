@@ -1,6 +1,15 @@
 # Changelog
 Formato SemVer.
 
+## [2.30.0] - 2026-10-15
+### Alterado
+- **Manual da LGPD**: clicar no documento agora o **abre na própria tela**, sem baixar. Os 16 modelos (.docx) aparecem como texto e tabelas; a planilha de apoio (DOC-APOIO-01) aparece com **uma aba por registro** (ROPA, Bases legais, Retenção etc.). Botões **Baixar original**, **Imprimir** e navegação para o documento anterior/seguinte
+- Na planilha, as linhas em branco para preenchimento não aparecem na tela; para preencher, baixe o .xlsx original
+### Adicionado
+- `tools/gerar-manual-lgpd.py`: gera os `.html` de leitura a partir dos `.docx`/`.xlsx` de `manual-lgpd/`. Rode-o ao trocar um modelo (precisa de `pandoc` e `openpyxl`) e suba os `.html` junto com o original
+### Atenção
+- Sem mudança em `firestore.rules`
+
 ## [2.29.0] - 2026-10-15
 ### Adicionado
 - Menu **Aprendizado**: novo botão **Manual da LGPD**, abaixo de Manual. Lista os 16 modelos de documentos (DOC-00 a DOC-15) e a planilha de apoio ROPA e Registros (APOIO-01), cada um com botão **Baixar**. Somente leitura, aberto a todos os perfis
