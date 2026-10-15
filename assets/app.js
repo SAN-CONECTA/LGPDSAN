@@ -4,12 +4,12 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.29.0';
-import { BIBLIO } from './biblioteca.js?v=2.29.0';
-import { MANUAL_LGPD } from './manual-lgpd.js?v=2.29.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.29.0';
+import { firebaseConfig } from './firebase-config.js?v=2.30.0';
+import { BIBLIO } from './biblioteca.js?v=2.30.0';
+import { MANUAL_LGPD } from './manual-lgpd.js?v=2.30.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.30.0';
 
-const VERSION = '2.29.0';
+const VERSION = '2.30.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -240,7 +240,7 @@ const routes = [
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
-// Grupos recolhíveis do menu (v2.29.0). [id, título, itens [hash, rótulo, soAdmin]]
+// Grupos recolhíveis do menu (v2.30.0). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
   ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Contabilidades', true]]],
   ['aprendizado', 'Aprendizado', [['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false], ['#/manual-lgpd', 'Manual da LGPD', false]]],
@@ -260,6 +260,7 @@ async function route() {
   let view, main = h, needs = false, recRoute = null;
   if (h.startsWith('#/registro/')) { const p = h.split('/'); recRoute = { c: p[2], id: p[3] }; main = '#/registros'; needs = true; }
   else if (h.startsWith('#/biblioteca/')) { main = '#/biblioteca'; const slug = h.slice(13); view = () => renderBiblioDoc(slug); }
+  else if (h.startsWith('#/manual-lgpd/')) { main = '#/manual-lgpd'; const cod = decodeURIComponent(h.slice(14)); view = () => renderManualLgpdDoc(cod); }
   else {
     const r = routes.find(x => x[0] === h) || routes[0];
     main = r[0]; needs = !!r[4];
@@ -1145,16 +1146,48 @@ async function renderBiblioDoc(slug) {
     <div class="card doc">${corpo}</div>`;
 }
 
+const htmlDeModelo = d => d.arquivo.replace(/\.(docx|xlsx)$/, '.html');
 async function renderManualLgpd() {
   const base = 'manual-lgpd/';
   let ausente = false;
-  try { const r = await fetch(base + encodeURIComponent(MANUAL_LGPD[0].arquivo) + '?v=' + VERSION, { method: 'HEAD', cache: 'no-cache' }); ausente = !r.ok; } catch (e) { ausente = true; }
-  const tipo = a => a.endsWith('.xlsx') ? 'Planilha (.xlsx)' : 'Word (.docx)';
-  return `<div class="bar"><div><h1>Manual da LGPD</h1><p class="muted">Modelos de documentos para adequação à LGPD. Baixe, adapte ao escritório e registre o resultado em Registros.</p></div></div>
-    ${ausente ? '<div class="card"><p><b>Arquivos ainda não publicados.</b> A pasta <code>manual-lgpd/</code> não foi encontrada no site. Peça ao administrador para enviá-la.</p></div>' : ''}
+  try { const r = await fetch(base + encodeURIComponent(htmlDeModelo(MANUAL_LGPD[0])) + '?v=' + VERSION, { method: 'HEAD', cache: 'no-cache' }); ausente = !r.ok; } catch (e) { ausente = true; }
+  const tipo = a => a.endsWith('.xlsx') ? 'Planilha' : 'Word';
+  return `<div class="bar"><div><h1>Manual da LGPD</h1><p class="muted">Modelos de documentos para adequação à LGPD. Clique no documento para ler na tela; baixe o original para preencher.</p></div></div>
+    ${ausente ? '<div class="card"><p><b>Documentos ainda não publicados.</b> A pasta <code>manual-lgpd/</code> não foi encontrada no site. Peça ao administrador para enviá-la.</p></div>' : ''}
     <div class="card tablewrap"><table><thead><tr><th>Código</th><th>Documento</th><th>Formato</th><th></th></tr></thead><tbody>
-    ${MANUAL_LGPD.map(d => `<tr><td class="small muted">${esc(d.cod)}</td><td><b>${esc(d.titulo)}</b></td><td class="small muted">${tipo(d.arquivo)}</td><td><a class="btn" href="${base}${encodeURIComponent(d.arquivo)}" download>Baixar</a></td></tr>`).join('')}
+    ${MANUAL_LGPD.map(d => `<tr><td class="small muted">${esc(d.cod)}</td><td><a href="#/manual-lgpd/${encodeURIComponent(d.cod)}"><b>${esc(d.titulo)}</b></a></td><td class="small muted">${tipo(d.arquivo)}</td><td><a class="small" href="${base}${encodeURIComponent(d.arquivo)}" download>Baixar original</a></td></tr>`).join('')}
     </tbody></table></div>`;
+}
+async function renderManualLgpdDoc(cod) {
+  const i = MANUAL_LGPD.findIndex(x => x.cod.toLowerCase() === cod.toLowerCase());
+  const d = MANUAL_LGPD[i];
+  if (!d) return `<h1>Documento não encontrado</h1><p><a href="#/manual-lgpd">Voltar ao Manual da LGPD</a></p>`;
+  const planilha = d.arquivo.endsWith('.xlsx');
+  let corpo;
+  try {
+    const r = await fetch(`manual-lgpd/${encodeURIComponent(htmlDeModelo(d))}?v=${VERSION}`, { cache: 'no-cache' });
+    if (!r.ok) throw new Error(String(r.status));
+    corpo = await r.text();
+  } catch (e) { corpo = `<p class="muted">Não foi possível carregar o documento (${esc(e.message)}). Use <b>Baixar original</b>.</p>`; }
+  const ant = MANUAL_LGPD[i - 1], prox = MANUAL_LGPD[i + 1];
+  const nav = x => x ? `#/manual-lgpd/${encodeURIComponent(x.cod)}` : '';
+  bind = () => {
+    const pb = $('#mdprn'); if (pb) pb.onclick = () => window.print();
+    const abas = $$('.doc .aba');
+    if (abas.length) {
+      const bar = document.createElement('div'); bar.className = 'abas no-print'; bar.setAttribute('role', 'tablist');
+      const mostra = n => {
+        abas.forEach((a, k) => { a.hidden = k !== n; });
+        [...bar.children].forEach((b, k) => { b.classList.toggle('on', k === n); b.setAttribute('aria-selected', k === n); });
+      };
+      abas.forEach((a, k) => { const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.textContent = a.dataset.titulo; b.onclick = () => mostra(k); bar.appendChild(b); });
+      abas[0].parentElement.insertBefore(bar, abas[0]); mostra(0);
+    }
+  };
+  return `<div class="bar"><div><p class="small"><a href="#/manual-lgpd">← Manual da LGPD</a></p><h1>${esc(d.titulo)}</h1><p class="muted small">${esc(d.cod)} · Modelo para adaptar ao escritório. Os campos entre colchetes [ ] devem ser preenchidos antes do uso.</p></div>
+    <div class="actions" style="margin:0"><a class="btn" href="manual-lgpd/${encodeURIComponent(d.arquivo)}" download>Baixar original (.${planilha ? 'xlsx' : 'docx'})</a><button id="mdprn">Imprimir</button></div></div>
+    <div class="card doc">${corpo}</div>
+    <div class="actions no-print" style="justify-content:space-between">${ant ? `<a class="btn" href="${nav(ant)}">← ${esc(ant.cod)}</a>` : '<span></span>'}${prox ? `<a class="btn" href="${nav(prox)}">${esc(prox.cod)} →</a>` : '<span></span>'}</div>`;
 }
 
 async function renderManual() {
