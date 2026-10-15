@@ -1,6 +1,13 @@
 # Changelog
 Formato SemVer.
 
+## [2.31.0] - 2026-10-15
+### Alterado
+- Reúne as duas linhas de trabalho do dia, que haviam usado o mesmo número **2.29.0**: a **Central de Atualizações ANPD** (`develop`) e o **Manual da LGPD** com leitura na tela e acesso só para o Administrador (`main`, 2.29.0 a 2.30.2). As entradas antigas seguem abaixo, identificadas pela origem
+- No menu Aprendizado ficam: Atualizações ANPD, Biblioteca, Manual e, só para o Administrador, Manual da LGPD
+### Atenção
+- `firestore.rules` mudou na Central ANPD (coleção `anpd`): publique as regras de novo. O Manual da LGPD não mexe nas regras
+
 ## [2.30.2] - 2026-10-15
 ### Alterado
 - **Manual da LGPD**: os 17 arquivos voltam à pasta `manual-lgpd/` (originais .docx/.xlsx e as versões de leitura .html), exatamente como estavam antes da remoção temporária. Continua visível só para o Administrador
@@ -22,12 +29,24 @@ Formato SemVer.
 ### Atenção
 - Sem mudança em `firestore.rules`
 
-## [2.29.0] - 2026-10-15
+## [2.29.0] - 2026-10-15 (Manual da LGPD, linha main)
 ### Adicionado
 - Menu **Aprendizado**: novo botão **Manual da LGPD**, abaixo de Manual. Lista os 16 modelos de documentos (DOC-00 a DOC-15) e a planilha de apoio ROPA e Registros (APOIO-01), cada um com botão **Baixar**. Somente leitura, aberto a todos os perfis
 - Os 17 arquivos (.docx e .xlsx, copiados da pasta `modelos-lgpd` do Drive) vão na pasta `manual-lgpd/` com os nomes originais; a lista fica em `assets/manual-lgpd.js`. Se a pasta não estiver publicada, a tela avisa em vez de mostrar links quebrados em silêncio
 ### Atenção
 - Sem mudança em `firestore.rules`. Para trocar um modelo, substitua o arquivo em `manual-lgpd/` mantendo o mesmo nome
+
+## [2.29.0] - 2026-10-15 (Central de Atualizações ANPD, linha develop)
+### Adicionado
+- **Central de Atualizações ANPD** (menu Aprendizado): publicações oficiais de gov.br/anpd, sincronizadas a cada 6 horas por GitHub Actions (`scripts/anpd_sync.py`) para o Firestore, sem duplicatas (id do documento = SHA-256 da URL). Pesquisa, filtro "somente não lidas", marcação de lida/não lida individual por usuário e botão "marcar todas como lidas"
+- Contador de não lidas no menu e cartão "Atualizações ANPD" no Painel com as 5 publicações mais recentes
+- Status de leitura por usuário em `users/{uid}/anpdLidas`; as publicações oficiais são imutáveis pelo app
+- Testes automatizados: `scripts/test_anpd_sync.py` (parsing, whitelist de URL, dedupe) e `scripts/test_anpd_js.mjs` (helpers da tela)
+### Alterado
+- `firestore.rules`: nova coleção `anpd` (leitura para usuários ativos; escrita só pelo serviço de sincronização, via Admin SDK, que ignora as regras) e subcoleção `anpdLidas` por usuário. **Publique as regras de novo**
+### Observações
+- O RSS oficial da ANPD (gov.br/anpd/RSS) está em manutenção; a sincronização coleta a página de notícias (frontend Volto com renderização no servidor). Captura as notícias mais recentes a cada execução e acumula o histórico sem apagar nada
+- Push via Firebase Cloud Messaging foi avaliado e adiado: exigiria service worker, chave VAPID e consentimento por usuário (ver docs/FIREBASE.md)
 
 ## [2.28.1] - 2026-10-14
 ### Adicionado

@@ -1,0 +1,40 @@
+name: Sincronizar publicações da ANPD
+
+on:
+  schedule:
+    # A cada 6 horas (UTC). Ver CHANGELOG/docs para o fuso do Brasil.
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: pip install firebase-admin
+
+      - name: Decodificar credencial de serviço do Firebase
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::Secret FIREBASE_SERVICE_ACCOUNT não configurado." >&2
+            exit 1
+          fi
+          echo "$FIREBASE_SERVICE_ACCOUNT" | base64 -d > "$RUNNER_TEMP/service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
+
+      - name: Sincronizar publicações no Firestore
+        run: python3 scripts/anpd_sync.py
+
+      - name: Testes da sincronização (dry-run, sem gravar)
+        run: python3 scripts/anpd_sync.py --dry-run
