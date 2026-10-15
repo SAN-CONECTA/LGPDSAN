@@ -4,11 +4,12 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.28.1';
-import { BIBLIO } from './biblioteca.js?v=2.28.1';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.28.1';
+import { firebaseConfig } from './firebase-config.js?v=2.29.0';
+import { BIBLIO } from './biblioteca.js?v=2.29.0';
+import { MANUAL_LGPD } from './manual-lgpd.js?v=2.29.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.29.0';
 
-const VERSION = '2.28.1';
+const VERSION = '2.29.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -235,14 +236,14 @@ const responsaveis = () => [...new Set([me.nome, ...db.pessoas.map(p => p.nome)]
 /* ---------- roteamento ---------- */
 const app = $('#app');
 const routes = [
-  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/termo', 'Termo de Ciência', renderTermo, null, true], ['#/manual', 'Manual', renderManual],
+  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/termo', 'Termo de Ciência', renderTermo, null, true], ['#/manual', 'Manual', renderManual], ['#/manual-lgpd', 'Manual da LGPD', renderManualLgpd],
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
-// Grupos recolhíveis do menu (v2.28.1). [id, título, itens [hash, rótulo, soAdmin]]
+// Grupos recolhíveis do menu (v2.29.0). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
   ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Contabilidades', true]]],
-  ['aprendizado', 'Aprendizado', [['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false]]],
+  ['aprendizado', 'Aprendizado', [['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false], ['#/manual-lgpd', 'Manual da LGPD', false]]],
   ['config', 'Configurações', [['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]]]
 ];
 const gruposAbertos = new Set();
@@ -1142,6 +1143,18 @@ async function renderBiblioDoc(slug) {
   return `<div class="bar"><div><p class="small"><a href="#/biblioteca">← Biblioteca</a></p><h1>${esc(b.titulo)}</h1><p class="muted small">Documento recebido, somente leitura. Termina em: ${esc(b.fim)}.</p></div>
     <div class="actions" style="margin:0"><a class="btn" href="biblioteca/${b.slug}.docx" download>Baixar original (.docx)</a>${g ? '<button id="bnotas">Notas de revisão</button>' : ''}</div></div>
     <div class="card doc">${corpo}</div>`;
+}
+
+async function renderManualLgpd() {
+  const base = 'manual-lgpd/';
+  let ausente = false;
+  try { const r = await fetch(base + encodeURIComponent(MANUAL_LGPD[0].arquivo) + '?v=' + VERSION, { method: 'HEAD', cache: 'no-cache' }); ausente = !r.ok; } catch (e) { ausente = true; }
+  const tipo = a => a.endsWith('.xlsx') ? 'Planilha (.xlsx)' : 'Word (.docx)';
+  return `<div class="bar"><div><h1>Manual da LGPD</h1><p class="muted">Modelos de documentos para adequação à LGPD. Baixe, adapte ao escritório e registre o resultado em Registros.</p></div></div>
+    ${ausente ? '<div class="card"><p><b>Arquivos ainda não publicados.</b> A pasta <code>manual-lgpd/</code> não foi encontrada no site. Peça ao administrador para enviá-la.</p></div>' : ''}
+    <div class="card tablewrap"><table><thead><tr><th>Código</th><th>Documento</th><th>Formato</th><th></th></tr></thead><tbody>
+    ${MANUAL_LGPD.map(d => `<tr><td class="small muted">${esc(d.cod)}</td><td><b>${esc(d.titulo)}</b></td><td class="small muted">${tipo(d.arquivo)}</td><td><a class="btn" href="${base}${encodeURIComponent(d.arquivo)}" download>Baixar</a></td></tr>`).join('')}
+    </tbody></table></div>`;
 }
 
 async function renderManual() {
