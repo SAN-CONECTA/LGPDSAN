@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 import urllib.request
@@ -143,7 +144,7 @@ def normalize(items: list[dict]) -> tuple[list[dict], int]:
     return lista, dropped
 
 
-def _init_firestore(project_id: str | None):
+def _init_firestore(project_id: str | None, emulator: bool = False):
     try:
         import firebase_admin  # type: ignore
         from firebase_admin import credentials, firestore
@@ -151,11 +152,19 @@ def _init_firestore(project_id: str | None):
         raise RuntimeError(
             "Pacote firebase-admin não instalado. Rode: pip install firebase-admin"
         ) from exc
+    if emulator:
+        os.environ.setdefault("FIRESTORE_EMULATOR_HOST", "localhost:8080")
     try:
         firebase_admin.get_app()
     except ValueError:
-        cred = credentials.ApplicationDefault()
-        options = {"projectId": project_id} if project_id else {}
+        if emulator:
+            from google.auth.credentials import AnonymousCredentials  # type: ignore
+            cred = AnonymousCredentials()
+            # projectId deve bater com assets/firebase-config.js (lgpdsan) para o app enxergar os dados.
+            options = {"projectId": project_id or "lgpdsan"}
+        else:
+            cred = credentials.ApplicationDefault()
+            options = {"projectId": project_id} if project_id else {}
         firebase_admin.initialize_app(cred, options)
     return firestore.client()
 
@@ -219,9 +228,10 @@ def run(args: argparse.Namespace) -> int:
         print(f"\n[DRY-RUN] Nada foi gravado no Firestore. {len(lista)} publicação(ões) prontas para gravar.")
         return 0
 
-    db = _init_firestore(args.project)
+    db = _init_firestore(args.project, args.emulator)
     summary = upsert(db, lista)
-    print(f"Firestore atualizado: {summary['criados']} criado(s), {summary['atualizados']} atualizado(s). Nada foi apagado.")
+    alvo = 'emulador local' if args.emulator else 'Firestore'
+    print(f"{alvo} atualizado: {summary['criados']} criado(s), {summary['atualizados']} atualizado(s). Nada foi apagado.")
     return 0
 
 
@@ -231,6 +241,7 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="Busca e parseia sem gravar no Firestore.")
     parser.add_argument("--max-pages", type=int, default=MAX_PAGES, help="Número de páginas a percorrer (padrão: 1).")
     parser.add_argument("--project", default=None, help="projectId do Firebase (opcional; lido das credenciais se omitido).")
+    parser.add_argument("--emulator", action="store_true", help="Grava no Firestore Emulator local (localhost:8080), sem credenciais reais.")
     args = parser.parse_args()
     try:
         return run(args)

@@ -89,3 +89,37 @@ Observações:
 - Credenciais nunca entram no repositório (ficam no secret do GitHub; o `.gitignore` cobre arquivos de credencial).
 - Push (Firebase Cloud Messaging) foi avaliado e adiado: exigiria service worker, chave VAPID e
   consentimento por usuário. O contador de não lidas no menu e no Painel cobre a necessidade atual.
+
+## Testar localmente com o Emulator Suite (antes de subir para main)
+O `firebase.json` configura os emuladores de **Auth** (9099) e **Firestore** (8080). Assim dá para
+testar a Central ANPD (e o app todo) sem tocar no projeto de produção nem precisar de credenciais.
+
+Pré-requisitos (uma vez):
+```
+npm install -g firebase-tools            # ou: npm install --prefix ~/.local firebase-tools
+python3 -m venv ~/lgpdsan-venv && ~/lgpdsan-venv/bin/pip install firebase-admin pytest
+```
+
+Subir os emuladores (terminal dedicado):
+```
+firebase emulators:start --project lgpdsan --only firestore,auth
+```
+
+Semeia os dados locais (publicações ANPD reais + usuário admin de teste + uma contabilidade):
+```
+~/lgpdsan-venv/bin/python scripts/anpd_sync.py --emulator
+~/lgpdsan-venv/bin/python scripts/dev_seed.py
+```
+
+Servir o app e abrir no navegador:
+```
+python3 -m http.server 8000
+# abrir http://localhost:8000/?emulador=1  →  admin@teste.local / senha123
+```
+
+O parâmetro `?emulador=1` conecta o app aos emuladores (trecho opcional em `assets/app.js`,
+`connectFirestoreEmulator`/`connectAuthEmulator`). Sem ele, o app usa o projeto real. O `firestore.rules`
+é carregado no emulador, então a permissão de leitura da coleção `anpd` e de `anpdLidas` também é testada.
+
+Importante: o projectId dos emuladores deve bater com `assets/firebase-config.js` (`lgpdsan`) — o
+`"singleProjectMode": false` no `firebase.json` evita o conflito caso o emulador seja iniciado com outro projeto.

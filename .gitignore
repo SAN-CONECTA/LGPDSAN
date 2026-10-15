@@ -9,3 +9,8 @@ service-account*.json
 # Artefatos de Python
 __pycache__/
 *.pyc
+
+# Logs do Firebase Emulator Suite (testes locais)
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

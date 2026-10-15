@@ -1,8 +1,8 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndPassword, signOut, onAuthStateChanged,
-  createUserWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
+  createUserWithEmailAndPassword, sendPasswordResetEmail, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
-  serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+  serverTimestamp, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
 import { firebaseConfig } from './firebase-config.js?v=2.29.0';
 import { BIBLIO } from './biblioteca.js?v=2.29.0';
@@ -51,6 +51,12 @@ auth.languageCode = 'pt-BR';
 const fs = getFirestore(fbApp);
 const storage = getStorage(fbApp);
 storage.maxUploadRetryTime = 30000; storage.maxOperationRetryTime = 30000; // falha em ~30 s em vez de tentar por 10 minutos
+// Modo emulador (teste local, sem tocar no projeto de produção): abra com ?emulador=1 na URL.
+// Usa o Firebase Emulator Suite — Firestore na porta 8080 e Auth na 9099 (ver firebase.json).
+if (new URLSearchParams(location.search).has('emulador')) {
+  connectFirestoreEmulator(fs, 'localhost', 8080);
+  connectAuthEmulator(auth, 'http://localhost:9099');
+}
 
 let me = null;
 let cid = null; // contabilidade ativa
