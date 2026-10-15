@@ -4,12 +4,12 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.30.1';
-import { BIBLIO } from './biblioteca.js?v=2.30.1';
-import { MANUAL_LGPD } from './manual-lgpd.js?v=2.30.1';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.30.1';
+import { firebaseConfig } from './firebase-config.js?v=2.30.2';
+import { BIBLIO } from './biblioteca.js?v=2.30.2';
+import { MANUAL_LGPD } from './manual-lgpd.js?v=2.30.2';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.30.2';
 
-const VERSION = '2.30.1';
+const VERSION = '2.30.2';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -240,7 +240,7 @@ const routes = [
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
-// Grupos recolhíveis do menu (v2.30.1). [id, título, itens [hash, rótulo, soAdmin]]
+// Grupos recolhíveis do menu (v2.30.2). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
   ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Contabilidades', true]]],
   ['aprendizado', 'Aprendizado', [['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false], ['#/manual-lgpd', 'Manual da LGPD', true]]],

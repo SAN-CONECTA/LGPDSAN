@@ -1,6 +1,12 @@
 # Changelog
 Formato SemVer.
 
+## [2.30.2] - 2026-10-15
+### Alterado
+- **Manual da LGPD**: os 17 arquivos voltam à pasta `manual-lgpd/` (originais .docx/.xlsx e as versões de leitura .html), exatamente como estavam antes da remoção temporária. Continua visível só para o Administrador
+### Atenção
+- Os modelos trazem dados de teste do escritório (porte, e-mails, plano de ação) e o repositório é público: com dados reais, troque por campos entre colchetes antes de publicar. Sem mudança em `firestore.rules`
+
 ## [2.30.1] - 2026-10-15
 ### Alterado
 - **Manual da LGPD** passa a ser **só para o Administrador**: o botão some do menu para Consulta e Edição, e o endereço direto da lista e de cada documento mostra "Acesso negado". Biblioteca e Manual continuam abertos a todos os perfis
