@@ -1,6 +1,12 @@
 # Changelog
 Formato SemVer.
 
+## [2.30.1] - 2026-10-15
+### Alterado
+- **Manual da LGPD** passa a ser **só para o Administrador**: o botão some do menu para Consulta e Edição, e o endereço direto da lista e de cada documento mostra "Acesso negado". Biblioteca e Manual continuam abertos a todos os perfis
+### Atenção
+- A restrição é da tela. Os arquivos em `manual-lgpd/` são publicados como o resto do site, então quem souber o endereço exato de um arquivo consegue abri-lo mesmo sem o botão. O sistema não tem como impedir isso sem mover os arquivos para o armazenamento protegido do Firebase. Sem mudança em `firestore.rules`
+
 ## [2.30.0] - 2026-10-15
 ### Alterado
 - **Manual da LGPD**: clicar no documento agora o **abre na própria tela**, sem baixar. Os 16 modelos (.docx) aparecem como texto e tabelas; a planilha de apoio (DOC-APOIO-01) aparece com **uma aba por registro** (ROPA, Bases legais, Retenção etc.). Botões **Baixar original**, **Imprimir** e navegação para o documento anterior/seguinte
