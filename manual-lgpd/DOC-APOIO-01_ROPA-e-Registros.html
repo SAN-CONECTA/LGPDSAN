@@ -1,0 +1,150 @@
+<section class="aba" data-titulo="Instruções"><h2>Instruções</h2>
+<p>DOC-APOIO-01 — Planilha operacional do programa de privacidade</p>
+<p>Escritório contábil — duplo papel controlador/operador. Base: Lei nº 13.709/2018 e regulamentos da ANPD.</p>
+<p>Como usar</p>
+<p>Esta planilha concentra os registros que precisam ser mantidos e atualizados. Os documentos .docx do conjunto remetem a ela. O ROPA é a primeira aba a preencher: todas as demais e os avisos de privacidade derivam dele.</p>
+<p>Ordem de preenchimento</p>
+<p>ROPA — uma linha por operação de tratamento, por área. Comece por folha/DP, que concentra dado sensível.</p>
+<p>Bases legais — conferir se cada operação do ROPA tem base compatível; dado sensível só admite art. 11.</p>
+<p>Inventário de acessos — levantar usuários por sistema e cruzar com desligados.</p>
+<p>Operadores — fornecedores e situação contratual.</p>
+<p>Retenção — prazos por documento, confirmados com o jurídico.</p>
+<p>Demais abas — registros que passam a ser alimentados na rotina.</p>
+<p>Regras que evitam retrabalho</p>
+<p>Não escreva 'indeterminado' em prazo de retenção. Se o prazo depende de evento, declare o evento como critério de contagem.</p>
+<p>Legítimo interesse (art. 7º, IX) NÃO se aplica a dado sensível. Para saúde, biometria e demais sensíveis, a base está no art. 11 — tipicamente o inciso II, alínea 'a'.</p>
+<p>Quando o escritório é OPERADOR, a finalidade e o prazo são definidos pelo cliente-controlador: registre a instrução e a referência contratual, não uma decisão própria.</p>
+<p>Toda operação precisa indicar se há transferência internacional. Nuvem, e-mail e backup hospedados fora do Brasil configuram transferência e exigem mecanismo do art. 33.</p>
+<p>Abas desta planilha</p>
+<p>ROPA — registro das operações de tratamento (art. 37)</p>
+<p>Bases legais — matriz finalidade × dado × base × retenção</p>
+<p>Retenção — prazos de guarda e descarte (arts. 15 e 16)</p>
+<p>Direitos titulares — registro de atendimentos (arts. 18 e 19)</p>
+<p>Incidentes — registro de incidentes (art. 48 e Res. 15/2024)</p>
+<p>Inventário de acessos — quem acessa o quê (art. 46)</p>
+<p>Operadores — fornecedores e cláusulas (arts. 39 e 42)</p>
+<p>Consentimentos — obtenção e revogação (art. 8º)</p>
+<p>Treinamento — cobertura por colaborador (art. 41, § 2º, III)</p>
+<p>Plano de ação — lacunas, responsáveis e prazos</p>
+<p>Descarte — execuções de eliminação registradas</p>
+</section>
+<section class="aba" data-titulo="ROPA"><h2>ROPA</h2>
+<p><strong>Registro das Operações de Tratamento de Dados Pessoais (ROPA)</strong></p>
+<p>Art. 37 da Lei nº 13.709/2018 — o controlador e o operador devem manter registro das operações que realizarem</p>
+<p>COMO PREENCHER: uma linha por operação, não por sistema nem por cliente. As sete primeiras linhas são exemplos típicos de escritório contábil — confira, corrija e complete. Onde houver [verificar], a informação precisa ser apurada antes de o registro ser considerado completo. A coluna de papel determina quem decide a finalidade e o prazo.</p>
+<table class="planilha"><thead><tr><th>Cód.</th><th>Área</th><th>Operação / processo</th><th>Finalidade específica</th><th>Papel do escritório</th><th>Categorias de titulares</th><th>Categorias de dados</th><th>Dado sensível? Qual?</th><th>Dados de criança/adolescente?</th><th>Base legal (artigo)</th><th>Fonte dos dados</th><th>Sistemas e repositórios</th><th>Quem acessa (perfil)</th><th>Compartilhamento externo</th><th>Transf. internacional? País e mecanismo</th><th>Prazo de retenção</th><th>Critério de contagem</th><th>Forma de descarte</th><th>Medidas de segurança</th><th>Risco</th><th>Responsável</th><th>Atualizado em</th></tr></thead><tbody>
+<tr><td>DP-001</td><td>Folha / DP</td><td>Processamento de folha de pagamento de clientes PJ</td><td>Apurar remuneração, descontos e encargos dos empregados do cliente, cumprindo obrigações trabalhistas e previdenciárias</td><td>Operador</td><td>Empregados e dependentes dos clientes</td><td>Nome, CPF, matrícula, cargo, remuneração, descontos, dependentes, dados bancários</td><td>Sim — dados de saúde (atestados e afastamentos)</td><td>Sim — dependentes e menor aprendiz</td><td>Instrução do controlador; para o cliente: art. 7º, II, e art. 11, II, 'a'</td><td>Cliente-controlador</td><td>[sistema de folha], servidor de arquivos, backup</td><td>Analistas de DP da carteira; coordenação</td><td>eSocial, FGTS, INSS, bancos, operadoras de benefícios</td><td>[verificar: nuvem do sistema de folha]</td><td>[prazo instruído]</td><td>Competência / término do vínculo</td><td>Exclusão lógica + rotação de backup</td><td>Acesso por função, 2FA, cifragem em trânsito, pasta segregada para atestados</td><td>Alto</td><td>[nome]</td><td></td></tr>
+<tr><td>DP-002</td><td>Folha / DP</td><td>Guarda e processamento de atestados e ASO de empregados de clientes</td><td>Registrar afastamentos e cumprir obrigações de saúde ocupacional</td><td>Operador</td><td>Empregados dos clientes</td><td>Nome, CPF, CID quando consta, período de afastamento, resultado de ASO</td><td>SIM — dado de saúde</td><td>Possível (menor aprendiz)</td><td>Art. 11, II, 'a' — obrigação legal; vedado legítimo interesse</td><td>Cliente-controlador</td><td>[sistema], pasta com acesso restrito</td><td>Somente analistas de DP designados</td><td>eSocial; clínica de medicina do trabalho</td><td>[verificar]</td><td>[prazo instruído]</td><td>Término do vínculo</td><td>Eliminação com registro</td><td>Pasta segregada, acesso nominal, cifragem</td><td>Alto</td><td>[nome]</td><td></td></tr>
+<tr><td>RH-001</td><td>RH interno</td><td>Registro de ponto biométrico dos colaboradores do escritório</td><td>Controle e apuração da jornada de trabalho</td><td>Controlador</td><td>Colaboradores do escritório (18)</td><td>Template biométrico, matrícula, horários de marcação</td><td>SIM — dado biométrico</td><td>Possível (aprendiz)</td><td>DEFINIR: art. 11, II, 'a' OU art. 11, I com alternativa real — registrar em ata</td><td>Coleta direta do titular</td><td>[sistema de ponto]</td><td>RH e coordenação</td><td>Não há</td><td>[verificar hospedagem do sistema]</td><td>Durante o vínculo</td><td>Término do vínculo</td><td>Eliminação do template com registro</td><td>Armazenamento do template cifrado, acesso restrito ao RH</td><td>Alto</td><td>[nome]</td><td></td></tr>
+<tr><td>CT-001</td><td>Contábil</td><td>Escrituração contábil e fiscal de clientes PJ</td><td>Elaborar escrituração e obrigações acessórias conforme contrato e legislação</td><td>Operador</td><td>Sócios, representantes e terceiros identificados nos documentos</td><td>Nome, CPF/CNPJ, dados cadastrais e financeiros</td><td>Não</td><td>Não</td><td>Instrução do controlador; para o cliente: art. 7º, II</td><td>Cliente-controlador</td><td>[sistema contábil], servidor, backup</td><td>Analistas contábeis da carteira</td><td>Receita Federal, prefeitura, conselhos</td><td>[verificar]</td><td>[prazo instruído]</td><td>Exercício</td><td>Devolução ou eliminação ao término</td><td>Acesso por carteira, 2FA, backup testado</td><td>Médio</td><td>[nome]</td><td></td></tr>
+<tr><td>PF-001</td><td>Fiscal PF</td><td>Elaboração de declaração de imposto de renda de pessoa física</td><td>Cumprir a obrigação de declaração anual do cliente PF</td><td>Controlador</td><td>Clientes pessoa física e seus dependentes</td><td>Identificação, rendimentos, bens, dependentes, despesas médicas e de instrução</td><td>SIM — despesas médicas revelam dado de saúde</td><td>Sim — dependentes</td><td>Art. 7º, II, e art. 11, II, 'a'</td><td>Coleta direta do titular</td><td>[sistema], pasta restrita</td><td>Analistas designados</td><td>Receita Federal</td><td>[verificar]</td><td>[prazo fiscal]</td><td>Entrega da declaração</td><td>Eliminação com registro</td><td>Pasta restrita, cifragem, 2FA</td><td>Alto</td><td>[nome]</td><td></td></tr>
+<tr><td>ADM-001</td><td>Administrativo</td><td>Gestão do contrato e faturamento de clientes</td><td>Executar o contrato, emitir nota fiscal e cobrar</td><td>Controlador</td><td>Representantes e contatos dos clientes</td><td>Nome, CPF, cargo, e-mail, telefone, dados de pagamento</td><td>Não</td><td>Não</td><td>Art. 7º, V e II</td><td>Coleta direta</td><td>[ERP/financeiro], e-mail</td><td>Financeiro e sócios</td><td>Instituição financeira, contabilidade própria</td><td>[verificar e-mail e nuvem]</td><td>[prazo]</td><td>Extinção do contrato + prescrição</td><td>Eliminação</td><td>Acesso por função, 2FA</td><td>Médio</td><td>[nome]</td><td></td></tr>
+<tr><td>COM-001</td><td>Comercial</td><td>Envio de boletim informativo a clientes ativos</td><td>Informar alterações normativas que afetam as obrigações do cliente</td><td>Controlador</td><td>Contatos de clientes com contrato vigente</td><td>Nome, e-mail corporativo, segmento</td><td>Não</td><td>Não</td><td>Art. 7º, IX — legítimo interesse, com LIA no DOC-07 e direito de oposição</td><td>Coleta direta</td><td>[ferramenta de e-mail]</td><td>Comercial</td><td>Provedor de envio (operador)</td><td>[verificar — provedores de e-mail marketing normalmente hospedam fora do Brasil]</td><td>Até oposição</td><td>Manifestação do titular</td><td>Exclusão da lista</td><td>Link de descadastramento, acesso restrito</td><td>Baixo</td><td>[nome]</td><td></td></tr>
+</tbody></table>
+<p class="muted small">40 linhas em branco para preenchimento não aparecem aqui. Para preencher, baixe o original (.xlsx).</p>
+</section>
+<section class="aba" data-titulo="Bases legais"><h2>Bases legais</h2>
+<p><strong>Matriz Finalidade × Dado × Base legal × Retenção</strong></p>
+<p>Arts. 7º, 11 e 16 da LGPD — conferência de compatibilidade</p>
+<p>Esta aba é a conferência do ROPA. Regra eliminatória: se a coluna 'Sensível?' for 'Sim', a base legal TEM de estar no art. 11 — legítimo interesse e execução de contrato não servem. Marque 'Compatível? = Não' e corrija no ROPA.</p>
+<table class="planilha"><thead><tr><th>Cód. ROPA</th><th>Finalidade</th><th>Categoria de dado</th><th>Sensível?</th><th>Base legal invocada</th><th>Artigo e inciso</th><th>Compatível?</th><th>LIA necessária? (art. 7º, IX)</th><th>Retenção</th><th>Observação / correção</th></tr></thead><tbody>
+<tr><td>DP-002</td><td>Registro de afastamento por atestado</td><td>Dado de saúde</td><td>Sim</td><td>Obrigação legal</td><td>Art. 11, II, 'a'</td><td>Sim</td><td>Não</td><td>[prazo]</td><td>Se estiver registrado como legítimo interesse, CORRIGIR: art. 11 não admite</td></tr>
+<tr><td>COM-001</td><td>Boletim informativo a cliente ativo</td><td>Contato profissional</td><td>Não</td><td>Legítimo interesse</td><td>Art. 7º, IX</td><td>Sim</td><td>SIM — DOC-07</td><td>Até oposição</td><td>Para contato sem relação prévia a conclusão muda: usar consentimento</td></tr>
+<tr><td>RH-001</td><td>Ponto biométrico</td><td>Dado biométrico</td><td>Sim</td><td>A DEFINIR</td><td>Art. 11, II, 'a' ou art. 11, I</td><td>Pendente</td><td>Não</td><td>Durante o vínculo</td><td>Decidir em ata. Se art. 11, I, é obrigatória alternativa real não biométrica</td></tr>
+</tbody></table>
+<p class="muted small">40 linhas em branco para preenchimento não aparecem aqui. Para preencher, baixe o original (.xlsx).</p>
+</section>
+<section class="aba" data-titulo="Retenção"><h2>Retenção</h2>
+<p><strong>Tabela de Prazos de Guarda e Descarte</strong></p>
+<p>Arts. 15 e 16 da LGPD — eliminação após o término do tratamento</p>
+<p>O prazo não é escolhido: decorre da norma aplicável ou do prazo prescricional. Cite a norma. Nunca registre 'indeterminado'. Quando o escritório é operador, o prazo é o instruído pelo cliente — registre a referência contratual.</p>
+<table class="planilha"><thead><tr><th>Documento / registro</th><th>Papel</th><th>Prazo</th><th>Critério de contagem</th><th>Fundamento (norma ou prescrição)</th><th>Suporte</th><th>Destino</th><th>Responsável</th></tr></thead><tbody>
+<tr><td>Ficha de registro de empregado — colaboradores do escritório</td><td>Controlador</td><td>[prazo]</td><td>Término do vínculo</td><td>[norma trabalhista/previdenciária]</td><td>Digital + papel</td><td>Eliminação</td><td>RH</td></tr>
+<tr><td>Escrituração contábil de cliente PJ</td><td>Operador</td><td>[prazo instruído]</td><td>Conforme instrução do cliente</td><td>Instrução contratual + [norma fiscal]</td><td>Digital</td><td>Devolução ou eliminação</td><td>Contábil</td></tr>
+<tr><td>Gravação de videomonitoramento</td><td>Controlador</td><td>[prazo curto]</td><td>Data da captura</td><td>Necessidade — art. 6º, III</td><td>Digital</td><td>Sobregravação</td><td>TI</td></tr>
+</tbody></table>
+<p class="muted small">40 linhas em branco para preenchimento não aparecem aqui. Para preencher, baixe o original (.xlsx).</p>
+</section>
+<section class="aba" data-titulo="Direitos titulares"><h2>Direitos titulares</h2>
+<p><strong>Registro de Atendimento aos Direitos dos Titulares</strong></p>
+<p>Arts. 18 e 19 da LGPD — prazo de 15 dias; atendimento gratuito</p>
+<p>O prazo conta do PRIMEIRO contato do titular, por qualquer canal — não da chegada ao Encarregado. Registre também pedidos improcedentes e duplicados: o volume total é o que demonstra que o canal funciona.</p>
+<table class="planilha"><thead><tr><th>Nº</th><th>Recebido em</th><th>Canal de entrada</th><th>Titular</th><th>Vínculo</th><th>Direito exercido (inciso)</th><th>Papel do escritório</th><th>Controlador responsável (se operador)</th><th>Identidade confirmada?</th><th>Providência adotada</th><th>Fundamento da negativa (se houver)</th><th>Respondido em</th><th>Dias corridos</th><th>Propagado a terceiros?</th></tr></thead><tbody>
+<tr><td>001</td><td></td><td>privacidade@</td><td></td><td>cliente PF</td><td>Art. 18, II — acesso</td><td>Controlador</td><td>—</td><td>Sim</td><td></td><td></td><td></td><td></td><td>Não aplicável</td></tr>
+<tr><td>002</td><td></td><td>e-mail do analista</td><td></td><td>empregado de cliente</td><td>Art. 18, III — correção</td><td>Operador</td><td>[razão social do cliente]</td><td>—</td><td>Encaminhado ao controlador em [data]; auxílio prestado</td><td>Art. 18, § 4º, I</td><td></td><td></td><td>—</td></tr>
+</tbody></table>
+<p class="muted small">40 linhas em branco para preenchimento não aparecem aqui. Para preencher, baixe o original (.xlsx).</p>
+</section>
+<section class="aba" data-titulo="Incidentes"><h2>Incidentes</h2>
+<p><strong>Registro de Incidentes de Segurança com Dados Pessoais</strong></p>
+<p>Art. 48 da LGPD e Regulamento da Resolução CD/ANPD nº 15/2024 — 3 dias úteis do conhecimento</p>
+<p>O prazo de 3 dias úteis conta da coluna 'Confirmação de afetação de dados pessoais', não da detecção nem da conclusão da investigação. Registre TAMBÉM os incidentes que você decidiu não comunicar, com o fundamento: o art. 10 do Regulamento obriga a manter o registro de TODO incidente, inclusive do não comunicado, por no mínimo 5 anos, e o art. 6º, § 7º, autoriza a ANPD a apurar incidente não comunicado.</p>
+<table class="planilha"><thead><tr><th>Nº</th><th>Detectado em</th><th>Quem detectou</th><th>Descrição</th><th>Causa raiz</th><th>Confirmação de afetação de dados pessoais (MARCO DO PRAZO)</th><th>Categorias de dados</th><th>Sensível?</th><th>Nº de titulares</th><th>Crianças/adolescentes/idosos</th><th>Papel do escritório</th><th>Cliente-controlador notificado em</th><th>Risco relevante? (art. 5º Res. 15/2024)</th><th>Fundamento da decisão</th><th>ANPD comunicada em</th><th>Protocolo</th><th>Titulares comunicados em</th><th>Meio utilizado</th><th>Declaração de comunicação juntada em</th><th>Complementação em</th><th>Encerrado em</th><th>Guardar até (mín. 5 anos)</th></tr></thead><tbody>
+<tr><td>INC-001/2026</td><td></td><td></td><td></td><td></td><td></td><td></td><td>Sim/Não</td><td></td><td></td><td>operador</td><td></td><td>Sim/Não</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</tbody></table>
+<p class="muted small">40 linhas em branco para preenchimento não aparecem aqui. Para preencher, baixe o original (.xlsx).</p>
+</section>
+<section class="aba" data-titulo="Inventário de acessos"><h2>Inventário de acessos</h2>
+<p><strong>Inventário de Acessos a Sistemas e Repositórios</strong></p>
+<p>Art. 46 da LGPD — controle de acesso e privilégio mínimo</p>
+<p>TESTE PRIORITÁRIO: cruze a lista de desligados dos últimos 12 meses com os usuários ativos. É o achado mais rápido e o mais citado em fiscalização. Faça o cruzamento antes de declarar o controle de acesso conforme.</p>
+<table class="planilha"><thead><tr><th>Sistema / repositório</th><th>Usuário</th><th>Função</th><th>Perfil / privilégio</th><th>Acessa dado sensível?</th><th>Justificativa da necessidade</th><th>2FA ativo?</th><th>Concedido em</th><th>Última revisão</th><th>Ativo?</th><th>Revogado em</th></tr></thead><tbody>
+<tr><td>[sistema de folha]</td><td></td><td>Analista de DP</td><td>Operação da carteira X</td><td>Sim</td><td>Processa folha dos clientes da carteira</td><td>Sim</td><td></td><td></td><td>Sim</td><td></td></tr>
+<tr><td>Servidor de arquivos — pasta de atestados</td><td></td><td>Analista de DP</td><td>Leitura e escrita</td><td>Sim</td><td>Registra afastamentos</td><td>n/a</td><td></td><td></td><td>Sim</td><td></td></tr>
+</tbody></table>
+<p class="muted small">40 linhas em branco para preenchimento não aparecem aqui. Para preencher, baixe o original (.xlsx).</p>
+</section>
+<section class="aba" data-titulo="Operadores"><h2>Operadores</h2>
+<p><strong>Inventário de Operadores, Fornecedores e Clientes-Controladores</strong></p>
+<p>Arts. 39, 42 e 44 da LGPD; art. 33 para transferência internacional</p>
+<p>O escritório ocupa as duas pontas: é operador dos 120 clientes e controlador perante seus fornecedores. Liste ambos aqui. A coluna de transferência internacional é a mais negligenciada — e-mail, nuvem e backup hospedados fora do Brasil configuram transferência e exigem mecanismo do art. 33.</p>
+<table class="planilha"><thead><tr><th>Nome</th><th>Tipo</th><th>Serviço prestado / recebido</th><th>Dados envolvidos</th><th>Papel do escritório</th><th>Cláusula LGPD no contrato?</th><th>Due diligence aplicada?</th><th>Prazo contratual de notificação de incidente</th><th>Transf. internacional?</th><th>País e mecanismo (art. 33)</th><th>Subcontratados conhecidos?</th><th>Risco</th><th>Última revisão</th><th>Pendências</th></tr></thead><tbody>
+<tr><td>[provedor de nuvem]</td><td>Fornecedor</td><td>Armazenamento de arquivos e backup</td><td>Todos os dados tratados</td><td>Controlador</td><td>Não</td><td>Não</td><td>—</td><td>[verificar]</td><td>[verificar — se houver, exigir cláusulas-padrão da Res. 19/2024]</td><td>Não</td><td>Alto</td><td></td><td>Aditivo e due diligence pendentes</td></tr>
+<tr><td>[sistema de folha]</td><td>Fornecedor</td><td>Software de folha de pagamento</td><td>Dados de folha e saúde dos empregados dos clientes</td><td>Controlador</td><td>Não</td><td>Não</td><td>—</td><td>[verificar]</td><td>[verificar]</td><td>Não</td><td>Alto</td><td></td><td>Aditivo pendente</td></tr>
+<tr><td>[cliente PJ exemplo]</td><td>Cliente-controlador</td><td>Contabilidade e folha</td><td>Dados de empregados e sócios do cliente</td><td>Operador</td><td>Não</td><td>n/a</td><td>24h (a impor no aditivo)</td><td>Não</td><td>—</td><td>n/a</td><td>Alto</td><td></td><td>Aditivo da Parte A do DOC-14 pendente</td></tr>
+</tbody></table>
+<p class="muted small">40 linhas em branco para preenchimento não aparecem aqui. Para preencher, baixe o original (.xlsx).</p>
+</section>
+<section class="aba" data-titulo="Consentimentos"><h2>Consentimentos</h2>
+<p><strong>Controle de Consentimentos e Revogações</strong></p>
+<p>Art. 8º da LGPD — o ônus da prova de que o consentimento foi obtido em conformidade é do controlador (§ 2º)</p>
+<p>Registre aqui APENAS o tratamento cuja base legal é efetivamente o consentimento. Folha, obrigações acessórias, escrituração e exames ocupacionais se fundam em obrigação legal e não entram nesta aba — registrá-los aqui cria a falsa expectativa de que podem ser revogados.</p>
+<table class="planilha"><thead><tr><th>Nº</th><th>Titular</th><th>Finalidade específica</th><th>Obtido em</th><th>Meio</th><th>Onde está a prova</th><th>Prazo declarado</th><th>Revogado em</th><th>Efetivado em</th><th>Dados eliminados?</th></tr></thead><tbody>
+<tr><td>001</td><td></td><td>Banco de talentos — consideração em processos futuros</td><td></td><td>Termo assinado (DOC-11)</td><td>[pasta/sistema]</td><td>[12 meses]</td><td></td><td></td><td></td></tr>
+<tr><td>002</td><td></td><td>Ponto biométrico — rota do art. 11, I</td><td></td><td>Termo assinado (DOC-11)</td><td>[pasta de RH]</td><td>Durante o vínculo</td><td></td><td></td><td></td></tr>
+</tbody></table>
+<p class="muted small">40 linhas em branco para preenchimento não aparecem aqui. Para preencher, baixe o original (.xlsx).</p>
+</section>
+<section class="aba" data-titulo="Treinamento"><h2>Treinamento</h2>
+<p><strong>Controle de Treinamento por Colaborador</strong></p>
+<p>Art. 41, § 2º, III, da LGPD — orientação a funcionários e contratados</p>
+<p>Preencha com a data de realização em cada coluna de treinamento. Inclua ESTAGIÁRIOS, APRENDIZES e TERCEIROS com acesso a dados — o art. 41, § 2º, III, fala em funcionários e contratados. Total previsto: 18 colaboradores + terceiros.</p>
+<table class="planilha"><thead><tr><th>Nome</th><th>Função / área</th><th>Vínculo</th><th>Fundamentos LGPD</th><th>Dados sensíveis na rotina</th><th>Papel de operador</th><th>Segurança prática</th><th>Resposta a incidentes</th><th>Integração (onboarding)</th><th>Avaliação</th><th>Próxima reciclagem</th></tr></thead><tbody>
+<tr><td></td><td>Sócio / direção</td><td>Sócio</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td></td><td>Analista de DP</td><td>Empregado</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td></td><td>Suporte de TI</td><td>Terceiro</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</tbody></table>
+<p class="muted small">40 linhas em branco para preenchimento não aparecem aqui. Para preencher, baixe o original (.xlsx).</p>
+</section>
+<section class="aba" data-titulo="Plano de ação"><h2>Plano de ação</h2>
+<p><strong>Plano de Ação da Adequação</strong></p>
+<p>Conversão das lacunas da autoavaliação em tarefas com responsável, prazo e evidência</p>
+<p>Ordem recomendada: enquadramento e papéis → encarregado → ROPA → bases legais → retenção → transparência → direitos → incidentes → segurança → contratos → treinamento → comitê. Cada bloco produz o insumo do seguinte.</p>
+<table class="planilha"><thead><tr><th>#</th><th>Controle</th><th>Lacuna identificada</th><th>Ação necessária</th><th>Responsável</th><th>Prazo</th><th>Evidência esperada</th><th>Situação</th><th>Concluído em</th><th>Observação</th></tr></thead><tbody>
+<tr><td>1</td><td>Encarregado</td><td>Nomeado informalmente, sem ato formal nem publicação do contato</td><td>Emitir e assinar DOC-02; publicar contato no site e nos contratos; arquivar documento de vínculo no dossiê do DOC-10</td><td></td><td></td><td>Ato assinado + captura datada da publicação</td><td>não iniciado</td><td></td><td></td></tr>
+<tr><td>2</td><td>ROPA</td><td>Inexistente</td><td>Preencher a aba ROPA por área, começando por folha/DP</td><td></td><td></td><td>Planilha preenchida com data e responsável</td><td>não iniciado</td><td></td><td></td></tr>
+<tr><td>3</td><td>Bases legais</td><td>Legítimo interesse aplicado a dado sensível (saúde e biometria)</td><td>Revisar operação por operação na aba Bases legais; substituir pela base do art. 11; preencher DOC-07 onde o art. 7º, IX, for mantido</td><td></td><td></td><td>Matriz conferida + LIAs concluídas</td><td>não iniciado</td><td></td><td></td></tr>
+<tr><td>4</td><td>Transferência internacional</td><td>Nunca verificada</td><td>Levantar hospedagem de cada sistema (nuvem, e-mail, folha, backup) e documentar o mecanismo do art. 33</td><td></td><td></td><td>Declaração por fornecedor + registro no ROPA</td><td>não iniciado</td><td></td><td></td></tr>
+<tr><td>5</td><td>Contratos de clientes</td><td>120 contratos sem cláusula de proteção de dados</td><td>Emitir aditivo com a Parte A do DOC-14, em lotes, com controle de cobertura</td><td></td><td></td><td>Aditivos assinados + planilha de cobertura</td><td>não iniciado</td><td></td><td></td></tr>
+</tbody></table>
+<p class="muted small">40 linhas em branco para preenchimento não aparecem aqui. Para preencher, baixe o original (.xlsx).</p>
+</section>
+<section class="aba" data-titulo="Descarte"><h2>Descarte</h2>
+<p><strong>Registro de Execução de Descarte e Eliminação</strong></p>
+<p>Art. 16 da LGPD — é este registro, e não a política, que comprova a eliminação</p>
+<p>Registre também a eliminação decorrente de pedido de titular e a devolução ao término de contrato de cliente. Lembre que a exclusão em produção não alcança as cópias de segurança: declare o ciclo de rotação no DOC-08.</p>
+<table class="planilha"><thead><tr><th>Data</th><th>Escopo (sistema / base / arquivo)</th><th>Volume</th><th>Método</th><th>Fundamento (prazo vencido / pedido de titular / instrução de cliente)</th><th>Papel</th><th>Executado por</th><th>Conferido por</th><th>Observação</th></tr></thead><tbody>
+<tr><td></td><td></td><td></td><td>exclusão lógica / fragmentação / destruição certificada</td><td></td><td>controlador/operador</td><td></td><td></td><td></td></tr>
+</tbody></table>
+<p class="muted small">40 linhas em branco para preenchimento não aparecem aqui. Para preencher, baixe o original (.xlsx).</p>
+</section>
