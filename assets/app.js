@@ -4,11 +4,12 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
   serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.28.1';
-import { BIBLIO } from './biblioteca.js?v=2.28.1';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.28.1';
+import { firebaseConfig } from './firebase-config.js?v=2.29.0';
+import { BIBLIO } from './biblioteca.js?v=2.29.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.29.0';
+import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.29.0';
 
-const VERSION = '2.28.1';
+const VERSION = '2.29.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -62,6 +63,10 @@ const rdoc = id => doc(fs, 'contabilidades', cid, 'registros', id);
 const vcol = id => collection(fs, 'contabilidades', cid, 'registros', id, 'versoes');
 const vdoc = (id, n) => doc(fs, 'contabilidades', cid, 'registros', id, 'versoes', String(n));
 const contabNome = id => (db.contabs.find(c => c.id === id) || {}).nome || '(removida)';
+/* Publicações oficiais da ANPD: coleção global `anpd` (sincronizada por scripts/anpd_sync.py) +
+   status de leitura por usuário em users/{uid}/anpdLidas. Nada disso depende de contabilidade. */
+const anpdCol = () => collection(fs, 'anpd');
+const anpdLidasCol = () => collection(fs, 'users', me.id, 'anpdLidas');
 
 /* ---------- permissões ---------- */
 const cur = r => r.snap;
@@ -232,17 +237,40 @@ async function loadSysAudit(n = 200) {
 }
 const responsaveis = () => [...new Set([me.nome, ...db.pessoas.map(p => p.nome)])].sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
+/* ---------- atualizações ANPD (leitura + status de leitura por usuário) ---------- */
+async function loadAnpd() {
+  const [ps, ls] = await Promise.all([getDocs(anpdCol()), getDocs(anpdLidasCol())]);
+  const pubs = ps.docs.map(d => ({ id: d.id, ...d.data() }));
+  db.anpd = anpdOrdena(pubs);
+  db.anpdLidas = anpdLidasSet(ls.docs);
+  db.anpdUnread = pubs.filter(p => !db.anpdLidas.has(p.id)).length;
+  anpdBadgeAt = Date.now();
+  return { pubs: db.anpd, lidas: db.anpdLidas, unread: db.anpdUnread };
+}
+const paintBadge = () => { const b = $('#anpd-badge'); if (b) { b.textContent = db.anpdUnread ? String(db.anpdUnread) : ''; b.hidden = !db.anpdUnread; } };
+let anpdBadgeAt = 0;
+// Atualiza o contador "não lidas" no menu. Cache de 60 s para não reler o Firestore a cada navegação.
+async function refreshAnpdBadge(force) {
+  const now = Date.now();
+  if (!force && db.anpdUnread !== undefined && now - anpdBadgeAt < 60000) { paintBadge(); return; }
+  try { await loadAnpd(); } catch (e) { db.anpdUnread = null; }
+  anpdBadgeAt = now; paintBadge();
+}
+const anpdMarcar = (id, lida) => lida
+  ? setDoc(doc(fs, 'users', me.id, 'anpdLidas', id), { pubId: id, quando: serverTimestamp() })
+  : deleteDoc(doc(fs, 'users', me.id, 'anpdLidas', id));
+
 /* ---------- roteamento ---------- */
 const app = $('#app');
 const routes = [
-  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/termo', 'Termo de Ciência', renderTermo, null, true], ['#/manual', 'Manual', renderManual],
+  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/termo', 'Termo de Ciência', renderTermo, null, true], ['#/manual', 'Manual', renderManual], ['#/anpd', 'Atualizações ANPD', renderAnpd],
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
 // Grupos recolhíveis do menu (v2.28.1). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
   ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Contabilidades', true]]],
-  ['aprendizado', 'Aprendizado', [['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false]]],
+  ['aprendizado', 'Aprendizado', [['#/anpd', 'Atualizações ANPD', false], ['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false]]],
   ['config', 'Configurações', [['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]]]
 ];
 const gruposAbertos = new Set();
@@ -264,7 +292,7 @@ async function route() {
     main = r[0]; needs = !!r[4];
     view = (r[3] === 'admin' && !can.admin()) ? () => `<h1>Acesso negado</h1><p class="muted">Seu perfil não permite acessar esta área.</p>` : r[2];
   }
-  const mk = (hash, rot, cls) => `<a href="${hash}" class="${cls || ''}${hash === main ? ' on' : ''}">${rot}</a>`;
+  const mk = (hash, rot, cls, extra = '') => `<a href="${hash}" class="${cls || ''}${hash === main ? ' on' : ''}">${rot}${extra}</a>`;
   const ordem = ['#/', '#/registros', '#/evidencias', '#/termo'];
   const nav = ordem.map(hh => routes.find(r => r[0] === hh)).map(r => mk(r[0], r[1])).join('') + GRUPOS.map(g => {
     const itens = g[2].filter(x => !x[2] || can.admin());
@@ -272,7 +300,7 @@ async function route() {
     const ativo = itens.some(x => x[0] === main);
     if (ativo) gruposAbertos.add(g[0]);
     const aberto = gruposAbertos.has(g[0]);
-    return `<div class="grp${aberto ? ' open' : ''}${ativo ? ' ativo' : ''}" data-g="${g[0]}"><button type="button" class="grph" aria-expanded="${aberto}">${g[1]}<span class="car" aria-hidden="true"></span></button><div class="subnav">${itens.map(x => mk(x[0], x[1])).join('')}</div></div>`;
+    return `<div class="grp${aberto ? ' open' : ''}${ativo ? ' ativo' : ''}" data-g="${g[0]}"><button type="button" class="grph" aria-expanded="${aberto}">${g[1]}<span class="car" aria-hidden="true"></span></button><div class="subnav">${itens.map(x => mk(x[0], x[1], '', x[0] === '#/anpd' ? '<span class="anpd-badge" id="anpd-badge" hidden></span>' : '')).join('')}</div></div>`;
   }).join('');
   app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><div class="prod">Conformidade LGPD</div>
     <div id="csel" class="csel"></div>
@@ -304,6 +332,7 @@ async function route() {
   if (my !== seq) return;
   $('#main').innerHTML = html;
   if (bind) { const f = bind; bind = null; f(); }
+  refreshAnpdBadge();
 }
 window.addEventListener('hashchange', route);
 
@@ -353,6 +382,14 @@ async function renderDash() {
   const rv = rs.filter(r => revInfo(r)).sort((a, b) => cur(a).revisao.localeCompare(cur(b).revisao)), sa = rs.filter(semAprov);
   const mine = rs.filter(r => cur(r).responsavel === me.nome && cur(r).status !== 'Arquivado');
   const recent = (await loadAudit(8)).slice(0, 6);
+  let anpdCard = '';
+  try {
+    const a = await loadAnpd();
+    const recentA = a.pubs.slice(0, 5);
+    anpdCard = `<div class="card"><h2>Atualizações ANPD</h2>${a.unread ? `<p class="small"><span class="tag brand">${a.unread} nova(s)</span> publicação(ões) ainda não lida(s).</p>` : '<p class="small muted">Tudo lido por enquanto.</p>'}
+    ${recentA.length ? recentA.map(p => `<div class="fieldrow small"><b>${a.lidas.has(p.id) ? '' : '<span class="tag brand">nova</span> '}<a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.titulo)}</a></b> <span class="muted">· ${anpdData(p) ? fmtD(anpdData(p)) : ''}</span></div>`).join('') : '<p class="muted">Nenhuma publicação sincronizada ainda.</p>'}
+    <div class="actions" style="margin-top:.5rem"><a class="btn" href="#/anpd">Ver todas</a></div></div>`;
+  } catch (e) { /* regras do Firestore sem a seção anpd: o cartão simplesmente não aparece */ }
   return `<div class="bar"><div><h1>Painel</h1><p class="muted">${esc(contabNome(cid))} · visão geral da conformidade.</p></div>
     ${can.edit() ? '<a class="btn primary" href="#/registros" id="dnew">+ Novo registro</a>' : ''}</div>
     <div class="grid"><div class="stat"><b>${rs.length}</b>Registros ativos</div>
@@ -365,6 +402,7 @@ async function renderDash() {
     <div class="card"><h2>Revisões vencidas ou nos próximos 30 dias</h2>${rv.length ? `<div class="tablewrap"><table><tr><th>Registro</th><th>Categoria</th><th>Próxima revisão</th><th></th></tr>${rv.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${esc(cur(r).categoria)}</td><td>${fmtD(cur(r).revisao)}</td><td>${revTag(r)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Nenhuma revisão vencida ou próxima do vencimento. Defina a "Próxima revisão" nos registros de políticas, contratos, treinamentos e avaliações.</p>'}</div>
     <div class="card"><h2>Em vigor sem aprovação atual</h2>${sa.length ? miniTable(sa) : '<p class="muted">Todos os registros em vigor têm a versão atual aprovada.</p>'}</div>
     <div class="card"><h2>Atribuídos a mim</h2>${mine.length ? miniTable(mine) : '<p class="muted">Nada atribuído a você.</p>'}</div>
+    ${anpdCard}
     <div class="card"><h2>Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted">Sem atividade.</p>'}</div>`;
 }
 const chkCell = (g, d, recId) => { const p = progresso(g, d), q = pontuacao(g, d, evPorItem(recId));
@@ -1144,6 +1182,46 @@ async function renderBiblioDoc(slug) {
     <div class="card doc">${corpo}</div>`;
 }
 
+/* ---------- atualizações ANPD (somente leitura; conteúdo sincronizado do gov.br) ---------- */
+async function renderAnpd() {
+  let pubs = [], lidas = new Set(), err = null;
+  try { const r = await loadAnpd(); pubs = r.pubs; lidas = r.lidas; }
+  catch (e) { err = errMsg(e); }
+  bind = () => {
+    const draw = () => {
+      const q = $('#aq').value, nl = $('#af').value === 'nl';
+      let lista = anpdFiltra(pubs, q);
+      if (nl) lista = lista.filter(p => !lidas.has(p.id));
+      $('#ainfo').textContent = `${lista.length} publicação(ões)` + (nl ? ' não lida(s)' : '') + (q ? ` com "${q}"` : '');
+      $('#alist').innerHTML = lista.length ? lista.map(p => {
+        const lida = lidas.has(p.id);
+        return `<div class="anpd-item${lida ? '' : ' novo'}"><div class="anpd-t"><a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.titulo)}</a>${lida ? '' : ' <span class="tag brand">nova</span>'}</div>
+          <div class="muted small">${anpdData(p) ? fmtD(anpdData(p)) : '—'} · ${esc(p.fonte || 'ANPD')}</div>
+          ${p.descricao ? `<div class="small" style="margin-top:.3rem">${esc(p.descricao)}</div>` : ''}
+          <div class="actions" style="margin:.5rem 0 0">${lida
+            ? `<button data-nl="${esc(p.id)}">Marcar como não lida</button>`
+            : `<button class="primary" data-l="${esc(p.id)}">Marcar como lida</button>`}</div></div>`;
+      }).join('') : '<p class="muted">Nenhuma publicação' + (q || nl ? ' com esses filtros' : '') + '.</p>';
+      $$('#alist [data-l]').forEach(b => b.onclick = guard(async () => { await anpdMarcar(b.dataset.l, true); lidas.add(b.dataset.l); db.anpdUnread = Math.max(0, (db.anpdUnread || 0) - 1); paintBadge(); draw(); }));
+      $$('#alist [data-nl]').forEach(b => b.onclick = guard(async () => { await anpdMarcar(b.dataset.nl, false); lidas.delete(b.dataset.nl); db.anpdUnread = (db.anpdUnread || 0) + 1; paintBadge(); draw(); }));
+    };
+    $('#aq').oninput = draw; $('#af').onchange = draw; draw();
+    $('#atodas').onclick = guard(async () => {
+      const pend = pubs.filter(p => !lidas.has(p.id));
+      if (!pend.length) return toast('Tudo já está marcado como lido.');
+      const b = writeBatch(fs);
+      pend.forEach(p => b.set(doc(fs, 'users', me.id, 'anpdLidas', p.id), { pubId: p.id, quando: serverTimestamp() }));
+      await b.commit(); pend.forEach(p => lidas.add(p.id)); db.anpdUnread = 0; paintBadge(); toast('Todas as publicações marcadas como lidas.'); draw();
+    });
+  };
+  return `<div class="bar"><div><h1>Atualizações ANPD</h1><p class="muted">Publicações oficiais da Autoridade Nacional de Proteção de Dados, sincronizadas de <a href="${ANPD_URL}" target="_blank" rel="noopener noreferrer">gov.br/anpd</a>. Somente leitura — o conteúdo oficial não pode ser alterado pelo sistema.</p></div>
+    <div class="actions" style="margin:0"><button id="atodas">Marcar todas como lidas</button></div></div>
+    ${err ? `<div class="notice bad">Não foi possível carregar as publicações: ${esc(err)}. Verifique se as regras do Firestore estão publicadas.</div>` : ''}
+    <div class="filters"><div><label for="aq">Pesquisa</label><input id="aq" type="search" placeholder="Palavra-chave…"></div>
+    <div><label for="af">Exibir</label><select id="af"><option value="">Todas</option><option value="nl">Somente não lidas</option></select></div></div>
+    <div class="card"><p class="muted small" id="ainfo" aria-live="polite"></p><div id="alist"></div></div>`;
+}
+
 async function renderManual() {
   let corpo;
   try {
@@ -1204,7 +1282,8 @@ async function renderTermo() {
 function renderAbout() {
   return `<div class="bar"><div><h1>Sobre</h1><p class="muted">LGPDSAN v${VERSION}</p></div></div>
     <div class="card"><h2>Como a segurança funciona</h2><p>Login pelo Firebase Authentication. Permissões, isolamento entre contabilidades e auditoria são <b>aplicados no servidor</b> pelas Regras do Firestore; esconder um botão na tela não é a proteção.</p>
-    <ul><li>Dados no Firestore, região São Paulo.</li><li>Cada contabilidade é isolada: usuários só leem e gravam nas contabilidades a que estão vinculados. Somente o Administrador acessa todas.</li><li>Auditoria somente de criação: nem o administrador altera eventos pelo app.</li><li>Versões de registros são imutáveis; só a exclusão permanente do registro as remove.</li><li>Única consulta externa: ao digitar um CNPJ válido (checklist de Contratos e Operadores, cadastro de Contabilidades e Termo de Ciência), o CNPJ (somente ele) é enviado à BrasilAPI ou, se ela falhar, ao CNPJ.ws, que devolvem dados públicos da Receita Federal.</li></ul></div>
+    <ul><li>Dados no Firestore, região São Paulo.</li><li>Cada contabilidade é isolada: usuários só leem e gravam nas contabilidades a que estão vinculados. Somente o Administrador acessa todas.</li><li>Auditoria somente de criação: nem o administrador altera eventos pelo app.</li><li>Versões de registros são imutáveis; só a exclusão permanente do registro as remove.</li><li>Única consulta externa feita pelo navegador: ao digitar um CNPJ válido (checklist de Contratos e Operadores, cadastro de Contabilidades e Termo de Ciência), o CNPJ (somente ele) é enviado à BrasilAPI ou, se ela falhar, ao CNPJ.ws, que devolvem dados públicos da Receita Federal.</li>
+<li>Atualizações ANPD: as publicações de gov.br/anpd são baixadas por um serviço (GitHub Actions), não pelo navegador. Nenhum dado do usuário sai do sistema.</li></ul></div>
     <div class="card"><h2>Como calculamos a pontuação do checklist</h2>
     <ul><li><b>Declarado</b>: soma ponderada das respostas. Conforme vale 1, Parcial vale 0,5, Não conforme e sem avaliação valem 0. N/A sai do cálculo.</li>
     <li><b>Peso</b>: itens críticos valem 2; os demais, 1. Crítico é o item que, marcado como Não conforme, gera um ponto de atenção no guia.</li>

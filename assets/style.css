@@ -160,3 +160,11 @@ dialog{max-height:92vh;overflow:auto}
 
 /* Auditoria: linha de filtros por coluna (v2.28.1) */
 .audt .filtros th{padding:.25rem .4rem;text-transform:none;font-weight:400;letter-spacing:0}.audt .filtros input,.audt .filtros select{width:100%;min-width:6.5rem;margin:0;padding:.3rem .4rem;font-size:.85em}
+
+/* Central de Atualizações ANPD (v2.29.0) */
+.anpd-badge{display:inline-block;min-width:1.2em;padding:0 .35em;margin-left:.45rem;border-radius:99px;background:var(--brand);color:var(--brand-ink);font-size:.72em;font-weight:700;text-align:center;line-height:1.5;vertical-align:baseline}
+.anpd-item{border-top:1px solid var(--line);padding:.7rem 0}
+.anpd-item:first-child{border-top:0}
+.anpd-item.novo{border-left:3px solid var(--brand);padding-left:.7rem}
+.anpd-t a{font-weight:600;text-decoration:none}
+.anpd-t a:hover{text-decoration:underline}

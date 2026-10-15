@@ -40,6 +40,20 @@ service cloud.firestore {
       allow update: if request.auth != null && request.auth.uid == uid && active()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tema'])
         && request.resource.data.tema in ['auto', 'claro', 'escuro', 'azul', 'lilas', 'rosa', 'laranja', 'verde', 'grafite', 'escuro-azul', 'escuro-lilas'];
+
+      // Status de leitura das atualizações ANPD: cada usuário lê e marca apenas as suas.
+      match /anpdLidas/{pubId} {
+        allow read, create, delete: if active() && request.auth.uid == uid;
+        allow update: if false;
+      }
+    }
+
+    // Publicações oficiais da ANPD, sincronizadas do gov.br pelo GitHub Actions
+    // (scripts/anpd_sync.py) usando a Admin SDK, que ignora as regras. Todos os
+    // usuários ativos leem; ninguém consegue gravar pelo app — o conteúdo oficial é imutável.
+    match /anpd/{pubId} {
+      allow read: if active();
+      allow write: if false;
     }
 
     match /config/{doc} {

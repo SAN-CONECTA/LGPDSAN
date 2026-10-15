@@ -4,6 +4,8 @@
 - `users/{uid}`: nome, email, role (`consulta`|`edicao`|`admin`), ativo, contabilidades [ids], criado
 - `config/app`: lista (categorias, compartilhada)
 - `auditoria/{id}`: eventos do SISTEMA (login, usuários, contabilidades, categorias). Só admin lê.
+- `anpd/{pubId}`: publicações oficiais da ANPD (url, titulo, descricao, data, fonte, criadoEm, atualizadoEm). Só leitura para usuários; escrita pelo serviço de sincronização (Admin SDK).
+  - `users/{uid}/anpdLidas/{pubId}`: status de leitura por usuário (quando). Cada usuário lê e grava apenas o próprio.
 - `contabilidades/{cid}`: nome, criado
   - `pessoas/{uid}`: nome (alimenta o campo Responsável)
   - `registros/{id}`: snap{titulo,categoria,descricao,status,prioridade,responsavel,prazo,evidencias}, versao, deleted, criado, criadoPor, atualizado
@@ -55,3 +57,35 @@ O menu **Evidências** guarda os arquivos no Storage e os dados (categoria, desc
 5. Teste: Administrador envia um PDF, abre e exclui; Edição envia; Consulta só abre; usuário de outra contabilidade não vê.
 
 Tipos aceitos: PDF, TXT, DOCX, JPG, PNG, WEBP, até 10 MB (fotos acima de 2 MB são reduzidas). O backup exportado traz só os dados das evidências; os arquivos continuam no Storage.
+
+## Central de Atualizações ANPD — v2.29.0
+A tela **Atualizações ANPD** mostra publicações oficiais de gov.br/anpd. O conteúdo é sincronizado
+por um GitHub Action a cada 6 horas (`.github/workflows/anpd-sync.yml`), que roda
+`scripts/anpd_sync.py` e grava na coleção `anpd` usando a Admin SDK — que ignora as regras, então
+os usuários do app não conseguem alterar o conteúdo oficial.
+
+1. Publicar o `firestore.rules` atualizado (novas regras `anpd` e `anpdLidas`).
+2. Criar uma conta de serviço para o Action:
+   - console.cloud.google.com → IAM e administração → Contas de serviço → Criar.
+   - Papel: **Cloud Datastore User** (acesso ao Firestore). Nada além disso.
+   - Criar uma chave JSON e baixar.
+3. No GitHub: Settings → Secrets and variables → Actions → New repository secret:
+   - Nome: `FIREBASE_SERVICE_ACCOUNT`
+   - Valor: o conteúdo da chave JSON **codificado em base64** — `base64 -w0 chave.json` no Linux — e colar a saída.
+4. O Action roda a cada 6 horas e também manualmente (aba Actions → "Sincronizar publicações da ANPD" → Run workflow).
+
+Testes locais (sem gravar no Firestore):
+```
+python3 scripts/anpd_sync.py --dry-run
+python3 -m pytest scripts/test_anpd_sync.py -q
+node scripts/test_anpd_js.mjs
+```
+
+Observações:
+- O RSS oficial (gov.br/anpd/RSS) está em manutenção; a sincronização coleta a página de notícias
+  (frontend Volto com renderização no servidor) e captura as mais recentes a cada execução. Nunca
+  apaga: só cria e atualiza. Uma falha de rede encerra com erro antes de qualquer escrita.
+- Só URLs oficiais (host www.gov.br, caminho /anpd/) são gravadas; qualquer outra é descartada.
+- Credenciais nunca entram no repositório (ficam no secret do GitHub; o `.gitignore` cobre arquivos de credencial).
+- Push (Firebase Cloud Messaging) foi avaliado e adiado: exigiria service worker, chave VAPID e
+  consentimento por usuário. O contador de não lidas no menu e no Painel cobre a necessidade atual.
