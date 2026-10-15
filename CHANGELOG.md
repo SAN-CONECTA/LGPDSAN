@@ -1,7 +1,42 @@
 # Changelog
 Formato SemVer.
 
-## [2.29.0] - 2026-10-15
+## [2.31.0] - 2026-10-15
+### Alterado
+- Reúne as duas linhas de trabalho do dia, que haviam usado o mesmo número **2.29.0**: a **Central de Atualizações ANPD** (`develop`) e o **Manual da LGPD** com leitura na tela e acesso só para o Administrador (`main`, 2.29.0 a 2.30.2). As entradas antigas seguem abaixo, identificadas pela origem
+- No menu Aprendizado ficam: Atualizações ANPD, Biblioteca, Manual e, só para o Administrador, Manual da LGPD
+### Atenção
+- `firestore.rules` mudou na Central ANPD (coleção `anpd`): publique as regras de novo. O Manual da LGPD não mexe nas regras
+
+## [2.30.2] - 2026-10-15
+### Alterado
+- **Manual da LGPD**: os 17 arquivos voltam à pasta `manual-lgpd/` (originais .docx/.xlsx e as versões de leitura .html), exatamente como estavam antes da remoção temporária. Continua visível só para o Administrador
+### Atenção
+- Os modelos trazem dados de teste do escritório (porte, e-mails, plano de ação) e o repositório é público: com dados reais, troque por campos entre colchetes antes de publicar. Sem mudança em `firestore.rules`
+
+## [2.30.1] - 2026-10-15
+### Alterado
+- **Manual da LGPD** passa a ser **só para o Administrador**: o botão some do menu para Consulta e Edição, e o endereço direto da lista e de cada documento mostra "Acesso negado". Biblioteca e Manual continuam abertos a todos os perfis
+### Atenção
+- A restrição é da tela. Os arquivos em `manual-lgpd/` são publicados como o resto do site, então quem souber o endereço exato de um arquivo consegue abri-lo mesmo sem o botão. O sistema não tem como impedir isso sem mover os arquivos para o armazenamento protegido do Firebase. Sem mudança em `firestore.rules`
+
+## [2.30.0] - 2026-10-15
+### Alterado
+- **Manual da LGPD**: clicar no documento agora o **abre na própria tela**, sem baixar. Os 16 modelos (.docx) aparecem como texto e tabelas; a planilha de apoio (DOC-APOIO-01) aparece com **uma aba por registro** (ROPA, Bases legais, Retenção etc.). Botões **Baixar original**, **Imprimir** e navegação para o documento anterior/seguinte
+- Na planilha, as linhas em branco para preenchimento não aparecem na tela; para preencher, baixe o .xlsx original
+### Adicionado
+- `tools/gerar-manual-lgpd.py`: gera os `.html` de leitura a partir dos `.docx`/`.xlsx` de `manual-lgpd/`. Rode-o ao trocar um modelo (precisa de `pandoc` e `openpyxl`) e suba os `.html` junto com o original
+### Atenção
+- Sem mudança em `firestore.rules`
+
+## [2.29.0] - 2026-10-15 (Manual da LGPD, linha main)
+### Adicionado
+- Menu **Aprendizado**: novo botão **Manual da LGPD**, abaixo de Manual. Lista os 16 modelos de documentos (DOC-00 a DOC-15) e a planilha de apoio ROPA e Registros (APOIO-01), cada um com botão **Baixar**. Somente leitura, aberto a todos os perfis
+- Os 17 arquivos (.docx e .xlsx, copiados da pasta `modelos-lgpd` do Drive) vão na pasta `manual-lgpd/` com os nomes originais; a lista fica em `assets/manual-lgpd.js`. Se a pasta não estiver publicada, a tela avisa em vez de mostrar links quebrados em silêncio
+### Atenção
+- Sem mudança em `firestore.rules`. Para trocar um modelo, substitua o arquivo em `manual-lgpd/` mantendo o mesmo nome
+
+## [2.29.0] - 2026-10-15 (Central de Atualizações ANPD, linha develop)
 ### Adicionado
 - **Central de Atualizações ANPD** (menu Aprendizado): publicações oficiais de gov.br/anpd, sincronizadas a cada 6 horas por GitHub Actions (`scripts/anpd_sync.py`) para o Firestore, sem duplicatas (id do documento = SHA-256 da URL). Pesquisa, filtro "somente não lidas", marcação de lida/não lida individual por usuário e botão "marcar todas como lidas"
 - Contador de não lidas no menu e cartão "Atualizações ANPD" no Painel com as 5 publicações mais recentes
