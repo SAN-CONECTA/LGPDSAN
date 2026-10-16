@@ -255,7 +255,7 @@ async function loadAnpd() {
   anpdBadgeAt = Date.now();
   return { pubs: db.anpd, lidas: db.anpdLidas, unread: db.anpdUnread };
 }
-const paintBadge = () => { const b = $('#anpd-badge'); if (b) { b.textContent = db.anpdUnread ? String(db.anpdUnread) : ''; b.hidden = !db.anpdUnread; } };
+const paintBadge = () => { const n = db.anpdUnread ? String(db.anpdUnread) : ''; ['#anpd-badge', '#anpd-bell-badge'].forEach(s => { const b = $(s); if (b) { b.textContent = n; b.hidden = !db.anpdUnread; } }); };
 let anpdBadgeAt = 0;
 // Atualiza o contador "não lidas" no menu. Cache de 60 s para não reler o Firestore a cada navegação.
 async function refreshAnpdBadge(force) {
@@ -268,6 +268,56 @@ const anpdMarcar = (id, lida) => lida
   ? setDoc(doc(fs, 'users', me.id, 'anpdLidas', id), { pubId: id, quando: serverTimestamp() })
   : deleteDoc(doc(fs, 'users', me.id, 'anpdLidas', id));
 
+/* ---------- busca global (top bar) ---------- */
+async function buscaGlobal(q) {
+  const t = String(q || '').trim().toLowerCase();
+  if (t.length < 2) return [];
+  const out = [];
+  for (const r of (db.records || [])) {
+    if (r.deleted) continue;
+    const c = cur(r);
+    if ([c.titulo, c.descricao, c.responsavel, c.categoria, c.evidencias].join(' ').toLowerCase().includes(t))
+      out.push({ tipo: 'Registro', t: c.titulo, s: c.categoria, href: recLink(r) });
+  }
+  if (!db.evidOk) { try { await loadEvid(); } catch (e) {} }
+  for (const e of (db.evid || [])) {
+    if ([e.nome, e.descricao, e.autor].join(' ').toLowerCase().includes(t))
+      out.push({ tipo: 'Evidência', t: e.nome, s: e.autor || '', href: '#/evidencias' });
+  }
+  try {
+    const aud = await loadAudit(150);
+    for (const a of aud) {
+      if ([a.acao, a.user, a.recTitulo].join(' ').toLowerCase().includes(t))
+        out.push({ tipo: 'Evento', t: a.acao, s: `${a.user} · ${a.recTitulo || ''}`, href: '#/auditoria' });
+    }
+  } catch (e) {}
+  return out.slice(0, 20);
+}
+let buscaDocLigada = false;
+function ligaBuscaGlobal() {
+  const inp = $('#gsearch'), pop = $('#gsearch-pop');
+  if (!inp || !pop) return;
+  let timer = null, seqB = 0;
+  inp.addEventListener('input', () => {
+    clearTimeout(timer);
+    const my = ++seqB;
+    if (!inp.value.trim()) { pop.hidden = true; return; }
+    timer = setTimeout(async () => {
+      const rs = await buscaGlobal(inp.value);
+      if (my !== seqB) return;
+      pop.innerHTML = rs.length
+        ? rs.map(r => `<a class="grow" href="${r.href}"><span class="gtipo">${esc(r.tipo)}</span><span class="gt">${esc(r.t)}</span><span class="gs">${esc(r.s)}</span></a>`).join('')
+        : '<div class="gempty">Nada encontrado.</div>';
+      pop.hidden = false;
+    }, 300);
+  });
+  inp.addEventListener('keydown', e => { if (e.key === 'Escape') { pop.hidden = true; inp.blur(); } });
+  if (!buscaDocLigada) {
+    buscaDocLigada = true;
+    document.addEventListener('click', e => { const p = $('#gsearch-pop'); if (p && !e.target.closest('.gsearch-box')) p.hidden = true; });
+  }
+}
+
 /* ---------- roteamento ---------- */
 const app = $('#app');
 const routes = [
@@ -277,11 +327,12 @@ const routes = [
 ];
 // Grupos recolhíveis do menu (v2.30.2). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
+  ['contabilidade', 'Contabilidade', [['#/', 'Painel', false], ['#/registros', 'Registros', false], ['#/evidencias', 'Evidências', false], ['#/termo', 'Termo de Ciência', false]]],
   ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Contabilidades', true]]],
   ['aprendizado', 'Aprendizado', [['#/anpd', 'Atualizações ANPD', false], ['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false], ['#/manual-lgpd', 'Manual da LGPD', true]]],
   ['config', 'Configurações', [['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]]]
 ];
-const gruposAbertos = new Set();
+const gruposAbertos = new Set(['contabilidade']);
 let bind = null, seq = 0;
 function contabSelector() {
   if (db.contabs.length > 1) return `<label for="cs" style="margin-top:0">Contabilidade</label><select id="cs">${db.contabs.map(c => `<option value="${esc(c.id)}" ${c.id === cid ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>`;
@@ -310,21 +361,21 @@ async function route() {
     view = (r[3] === 'admin' && !can.admin()) ? () => `<h1>Acesso negado</h1><p class="muted">Seu perfil não permite acessar esta área.</p>` : r[2];
   }
   const mk = (hash, rot, cls, extra = '') => `<a href="${hash}" class="${cls || ''}${hash === main ? ' on' : ''}">${rot}${extra}</a>`;
-  const ordem = ['#/', '#/registros', '#/evidencias', '#/termo'];
-  const nav = ordem.map(hh => routes.find(r => r[0] === hh)).map(r => mk(r[0], r[1])).join('') + GRUPOS.map(g => {
+  const nav = GRUPOS.map(g => {
     const itens = g[2].filter(x => !x[2] || can.admin());
     if (!itens.length) return '';
     const ativo = itens.some(x => x[0] === main);
     if (ativo) gruposAbertos.add(g[0]);
     const aberto = gruposAbertos.has(g[0]);
-    return `<div class="grp${aberto ? ' open' : ''}${ativo ? ' ativo' : ''}" data-g="${g[0]}"><button type="button" class="grph" aria-expanded="${aberto}">${g[1]}<span class="car" aria-hidden="true"></span></button><div class="subnav">${itens.map(x => mk(x[0], x[1], '', x[0] === '#/anpd' ? '<span class="anpd-badge" id="anpd-badge" hidden></span>' : '')).join('')}</div></div>`;
+    const csel = g[0] === 'contabilidade' ? '<div id="csel" class="csel"></div>' : '';
+    return `<div class="grp${aberto ? ' open' : ''}${ativo ? ' ativo' : ''}" data-g="${g[0]}"><button type="button" class="grph" aria-expanded="${aberto}">${g[1]}<span class="car" aria-hidden="true"></span></button><div class="subnav">${csel}${itens.map(x => mk(x[0], x[1], '', x[0] === '#/anpd' ? '<span class="anpd-badge" id="anpd-badge" hidden></span>' : '')).join('')}</div></div>`;
   }).join('');
   const rolagemMenu = (document.querySelector('.side') || {}).scrollTop || 0;
   app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><div class="prod">Conformidade LGPD</div>
-    <div id="csel" class="csel"></div>
     <nav class="nav">${nav}</nav>
     <div class="who small"><b>${esc(me.nome)}</b><br><span class="muted">${ROLES[me.role]} · v${VERSION}</span><div class="themesel"><label for="tema">Tema</label><select id="tema">${Object.entries(TEMAS).map(([k, v]) => `<option value="${k}"${k === me.tema ? ' selected' : ''}>${v}</option>`).join('')}</select></div><button class="link" id="out">Sair</button></div></aside>
-    <main id="main"><p class="muted">Carregando…</p></main></div>`;
+    <div class="content"><header class="topbar"><div class="crumbs" id="crumbs"></div><div class="topbar-right"><div class="gsearch-box"><input id="gsearch" type="search" placeholder="Buscar registros, evidências e eventos…" autocomplete="off" aria-label="Busca global"><div class="gsearch-pop" id="gsearch-pop" hidden></div></div><a class="bell" id="anpd-bell" href="#/anpd" title="Atualizações ANPD" aria-label="Atualizações ANPD">🔔<span class="anpd-badge" id="anpd-bell-badge" hidden></span></a></div></header>
+    <main id="main"><p class="muted">Carregando…</p></main></div></div>`;
   { const sd = document.querySelector('.side'); if (sd) sd.scrollTop = rolagemMenu; mostraNoMenu(document.querySelector('.nav a.on')); }
   document.querySelectorAll('.nav .grph').forEach(bt => bt.onclick = () => {
     const gd = bt.parentElement, id = gd.dataset.g, ab = !gd.classList.contains('open');
@@ -332,6 +383,7 @@ async function route() {
     if (ab) { gruposAbertos.add(id); mostraNoMenu(gd); } else gruposAbertos.delete(id);
   });
   $('#out').onclick = guard(logout);
+  ligaBuscaGlobal();
   $('#tema').onchange = async e => { const t = e.target.value; me.tema = t; applyTheme(t); lsSet('lgpdsan:tema:' + me.id, t); lsSet('lgpdsan:tema', t);
     try { await updateDoc(doc(fs, 'users', me.id), { tema: t }); } catch (err) { /* sem permissão nas regras: a escolha fica só neste navegador */ } };
   let html;
@@ -341,6 +393,8 @@ async function route() {
     await loadCore();
     if (my !== seq) return;
     $('#csel').innerHTML = contabSelector();
+    const rot = routes.find(r => r[0] === main);
+    $('#crumbs').innerHTML = `${esc(contabNome(cid))} / ${esc(rot ? rot[1] : '')}`;
     const cs = $('#cs'); if (cs) cs.onchange = () => { cid = cs.value; try { sessionStorage.setItem('lgpdsan:cid', cid); } catch (e) {} if (recRoute) location.hash = '#/registros'; else route(); };
     if (needs && !cid) html = can.admin()
       ? `<h1>Nenhuma contabilidade cadastrada</h1><p class="muted">Crie a primeira em <a href="#/contabilidades">Contabilidades</a>.</p>`
