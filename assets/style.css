@@ -30,7 +30,7 @@ h1{font-size:1.5rem;margin:0 0 .25rem}h2{font-size:1.15rem;margin:0 0 .75rem}h3{
 a{color:var(--brand)}
 .muted{color:var(--muted)}.small{font-size:.85rem}
 .shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
-.side{background:var(--surface);border-right:1px solid var(--line);padding:1rem;display:flex;flex-direction:column;gap:.25rem;position:sticky;top:0;height:100vh}
+.side{background:var(--surface);border-right:1px solid var(--line);padding:1rem;display:flex;flex-direction:column;gap:.25rem;position:sticky;top:0;height:100vh;height:100dvh;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .brand{display:flex;align-items:center;gap:.6rem;font-weight:700;margin-bottom:1rem}
 .brand i{width:30px;height:30px;border-radius:8px;background:var(--brand);display:grid;place-items:center;color:var(--brand-ink);font-style:normal}
 .nav a{display:block;padding:.55rem .75rem;border-radius:8px;color:var(--ink);text-decoration:none}
@@ -78,7 +78,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 #toast.show{opacity:1;transform:none}
 @media(max-width:800px){
   .shell{grid-template-columns:1fr}
-  .side{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center}
+  .side{position:static;height:auto;overflow:visible;flex-direction:row;flex-wrap:wrap;align-items:center}
   .brand{margin:0 1rem 0 0}.side .who{margin:0;border:0;padding:0;width:100%}
   .filters{grid-template-columns:1fr 1fr}.filters>div:first-child{grid-column:1/-1}
 }
@@ -177,3 +177,8 @@ dialog{max-height:92vh;overflow:auto}
 @media print{.doc .aba[hidden]{display:block!important}.doc table.planilha{min-width:0;font-size:8pt}.doc table.planilha th{position:static}}
 .doc .aviso{background:var(--bg);border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:6px;padding:.7rem .9rem;margin:.8rem 0;font-size:.92rem}
 .doc .aviso p{margin:.3rem 0}
+
+/* Menu lateral com rolagem quando há grupos abertos demais para a tela (v2.31.1) */
+.side{scrollbar-color:var(--line) transparent}
+.side::-webkit-scrollbar{width:8px}.side::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}.side::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+.side>*{flex-shrink:0}
