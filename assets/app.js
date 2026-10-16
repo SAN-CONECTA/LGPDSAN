@@ -4,14 +4,14 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
   serverTimestamp, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.31.1';
-import { BIBLIO } from './biblioteca.js?v=2.31.1';
-import { MANUAL_LGPD } from './manual-lgpd.js?v=2.31.1';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.31.1';
+import { firebaseConfig } from './firebase-config.js?v=2.32.0';
+import { BIBLIO } from './biblioteca.js?v=2.32.0';
+import { MANUAL_LGPD } from './manual-lgpd.js?v=2.32.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.32.0';
 
-import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.31.1';
+import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.32.0';
 
-const VERSION = '2.31.1';
+const VERSION = '2.32.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -332,6 +332,13 @@ const GRUPOS = [
   ['aprendizado', 'Aprendizado', [['#/anpd', 'Atualizações ANPD', false], ['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false], ['#/manual-lgpd', 'Manual da LGPD', true]]],
   ['config', 'Configurações', [['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]]]
 ];
+const NAV_EMOJIS = {
+  'Painel': '📊', 'Registros': '📄', 'Evidências': '📎', 'Termo de Ciência': '✍️',
+  'Auditoria': '🕘', 'Usuários': '👥', 'Contabilidades': '🏢', 'Atualizações ANPD': '🔔',
+  'Biblioteca': '📚', 'Manual': '📖', 'Manual da LGPD': '🛡️', 'Categorias': '⚙️',
+  'Backup': '⬇️', 'Sobre / versão': 'ℹ️'
+};
+const GRUPO_EMOJIS = { contabilidade: '💼', controle: '🛠️', aprendizado: '📚', config: '⚙️' };
 const gruposAbertos = new Set(['contabilidade']);
 let bind = null, seq = 0;
 function contabSelector() {
@@ -360,7 +367,7 @@ async function route() {
     main = r[0]; needs = !!r[4];
     view = (r[3] === 'admin' && !can.admin()) ? () => `<h1>Acesso negado</h1><p class="muted">Seu perfil não permite acessar esta área.</p>` : r[2];
   }
-  const mk = (hash, rot, cls, extra = '') => `<a href="${hash}" class="${cls || ''}${hash === main ? ' on' : ''}">${rot}${extra}</a>`;
+  const mk = (hash, rot, cls, extra = '') => `<a href="${hash}" class="${cls || ''}${hash === main ? ' on' : ''}"><span class="nav-icon" aria-hidden="true">${NAV_EMOJIS[rot] || '•'}</span><span>${esc(rot)}</span>${extra}</a>`;
   const nav = GRUPOS.map(g => {
     const itens = g[2].filter(x => !x[2] || can.admin());
     if (!itens.length) return '';
@@ -368,10 +375,10 @@ async function route() {
     if (ativo) gruposAbertos.add(g[0]);
     const aberto = gruposAbertos.has(g[0]);
     const csel = g[0] === 'contabilidade' ? '<div id="csel" class="csel"></div>' : '';
-    return `<div class="grp${aberto ? ' open' : ''}${ativo ? ' ativo' : ''}" data-g="${g[0]}"><button type="button" class="grph" aria-expanded="${aberto}">${g[1]}<span class="car" aria-hidden="true"></span></button><div class="subnav">${csel}${itens.map(x => mk(x[0], x[1], '', x[0] === '#/anpd' ? '<span class="anpd-badge" id="anpd-badge" hidden></span>' : '')).join('')}</div></div>`;
+    return `<div class="grp${aberto ? ' open' : ''}${ativo ? ' ativo' : ''}" data-g="${g[0]}"><button type="button" class="grph" aria-expanded="${aberto}"><span><span class="group-icon" aria-hidden="true">${GRUPO_EMOJIS[g[0]] || '•'}</span>${esc(g[1])}</span><span class="car" aria-hidden="true"></span></button><div class="subnav">${csel}${itens.map(x => mk(x[0], x[1], '', x[0] === '#/anpd' ? '<span class="anpd-badge" id="anpd-badge" hidden></span>' : '')).join('')}</div></div>`;
   }).join('');
   const rolagemMenu = (document.querySelector('.side') || {}).scrollTop || 0;
-  app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><div class="prod">Conformidade LGPD</div>
+  app.innerHTML = `<div class="shell"><aside class="side"><div class="app-brand"><img src="assets/logo-icon.png" alt=""><span><b>LGPDSAN</b><small>Conformidade LGPD</small></span></div>
     <nav class="nav">${nav}</nav>
     <div class="who small"><b>${esc(me.nome)}</b><br><span class="muted">${ROLES[me.role]} · v${VERSION}</span><div class="themesel"><label for="tema">Tema</label><select id="tema">${Object.entries(TEMAS).map(([k, v]) => `<option value="${k}"${k === me.tema ? ' selected' : ''}>${v}</option>`).join('')}</select></div><button class="link" id="out">Sair</button></div></aside>
     <div class="content"><header class="topbar"><div class="crumbs" id="crumbs"></div><div class="topbar-right"><div class="gsearch-box"><input id="gsearch" type="search" placeholder="Buscar registros, evidências e eventos…" autocomplete="off" aria-label="Busca global"><div class="gsearch-pop" id="gsearch-pop" hidden></div></div><a class="bell" id="anpd-bell" href="#/anpd" title="Atualizações ANPD" aria-label="Atualizações ANPD">🔔<span class="anpd-badge" id="anpd-bell-badge" hidden></span></a></div></header>
@@ -411,13 +418,18 @@ window.addEventListener('hashchange', route);
 
 /* ---------- login ---------- */
 function renderLogin(msg = '') {
-  app.innerHTML = `<div class="login"><div class="card"><div class="logo big"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><h1 class="prod-title">Conformidade LGPD</h1>
+  app.innerHTML = `<div class="login-shell"><section class="login-hero" aria-label="LGPDSAN">
+    <div class="login-brand"><img src="assets/logo-icon.png" alt=""><span><b>LGPDSAN</b><small>SAN Conecta</small></span></div>
+    <div class="login-hero-copy"><h1>Conformidade LGPD do escritório,<br>registrada e auditável.</h1><p>Políticas, contratos, evidências e checklists de cada contabilidade em um só lugar, com histórico de versões e trilha de auditoria.</p>
+      <ul><li>Cada edição gera uma nova versão, com justificativa</li><li>Auditoria só de criação: ninguém altera ou apaga eventos</li><li>Dados de cada contabilidade isolados no servidor</li></ul></div>
+    <p class="login-hero-foot">Dados no Firestore, região São Paulo · ${siteLink()}</p>
+  </section><main class="login-panel"><div class="card login-card"><h1 class="prod-title">Entrar</h1><p class="muted small">Use o e-mail cadastrado pelo administrador.</p>
     <form id="f"><label for="em">E-mail</label><input id="em" type="email" required autocomplete="username">
     <label for="pw">Senha</label><input id="pw" type="password" required autocomplete="current-password">
-    <p id="err" class="small" style="color:var(--bad);min-height:1.2em">${esc(msg)}</p>
+    <p id="err" class="small form-error">${esc(msg)}</p>
     <button class="primary" style="width:100%">Entrar</button></form>
     <p class="small" style="margin-top:.75rem"><button class="link" id="fp" type="button">Esqueci minha senha</button></p>
-    <p class="small muted">Acesso restrito a usuários cadastrados pelo administrador · v${VERSION}<br>${siteLink()}</p></div></div>`;
+    <p class="small muted login-meta">Acesso restrito a usuários cadastrados pelo administrador.<br><span>v${VERSION} · ${siteLink()}</span></p></div></main></div>`;
   const err = $('#err');
   $('#f').onsubmit = async e => {
     e.preventDefault(); err.textContent = '';
@@ -445,7 +457,7 @@ function trilhaHtml(rs) {
     const decl = g && rc.length ? Math.round(rc.reduce((a, r) => a + pontuacao(g, cur(r).dados).declarado, 0) / rc.length) : null;
     return { c, n: rc.length, vig, decl, dica: (TRILHA.find(t => t[0] === c) || [])[1] || 'Categoria acrescentada pelo administrador.' }; });
   const prox = passos.find(p => !p.vig);
-  return `<div class="tablewrap"><table><tr><th>#</th><th>Categoria</th><th>Situação</th><th>Registros</th><th>Declarado</th></tr>${passos.map((p, i) => `<tr${p === prox ? ' style="background:var(--brand-soft, rgba(15,118,110,.08))"' : ''}><td>${i + 1}</td><td><b>${esc(p.c)}</b>${p === prox ? ' <span class="tag brand">próximo passo</span>' : ''}<br><span class="muted small">${esc(p.dica)}</span></td>
+  return `<div class="tablewrap"><table><tr><th>#</th><th>Categoria</th><th>Situação</th><th>Registros</th><th>Declarado</th></tr>${passos.map((p, i) => `<tr${p === prox ? ' class="is-highlight"' : ''}><td>${i + 1}</td><td><b>${esc(p.c)}</b>${p === prox ? ' <span class="tag brand">próximo passo</span>' : ''}<br><span class="muted small">${esc(p.dica)}</span></td>
     <td><span class="tag ${p.vig ? 'ok' : p.n ? 'warn' : ''}">${p.vig ? 'Em vigor' : p.n ? 'Em andamento' : 'Não iniciada'}</span></td><td>${p.n}</td><td>${p.decl === null ? '<span class="muted">—</span>' : p.decl + '%'}</td></tr>`).join('')}</table></div>`;
 }
 async function renderDash() {
@@ -465,18 +477,21 @@ async function renderDash() {
   } catch (e) { /* regras do Firestore sem a seção anpd: o cartão simplesmente não aparece */ }
   return `<div class="bar"><div><h1>Painel</h1><p class="muted">${esc(contabNome(cid))} · visão geral da conformidade.</p></div>
     ${can.edit() ? '<a class="btn primary" href="#/registros" id="dnew">+ Novo registro</a>' : ''}</div>
-    <div class="grid"><div class="stat"><b>${rs.length}</b>Registros ativos</div>
-    <div class="stat"><b>${by('Em vigor')}</b>Em vigor</div><div class="stat"><b>${by('Em revisão')}</b>Em revisão</div>
-    <div class="stat"><b style="color:${od.length ? 'var(--bad)' : 'inherit'}">${od.length}</b>Prazos vencidos</div>
-    <div class="stat"><b style="color:${rv.some(r => revInfo(r).n < 0) ? 'var(--bad)' : rv.length ? 'var(--warn)' : 'inherit'}">${rv.length}</b>Revisões vencidas ou em 30 dias</div>
-    <div class="stat"><b style="color:${sa.length ? 'var(--warn)' : 'inherit'}">${sa.length}</b>Em vigor sem aprovação atual</div></div>
-    <div class="card"><h2>Trilha de adequação</h2><p class="muted small">Ordem sugerida, por dependência entre os temas (não é exigência da LGPD). "Em vigor" = há ao menos um registro em vigor na categoria.</p>${trilhaHtml(rs)}</div>
-    <div class="card"><h2>Prazos vencidos</h2>${od.length ? miniTable(od) : '<p class="muted">Nenhum prazo vencido.</p>'}</div>
-    <div class="card"><h2>Revisões vencidas ou nos próximos 30 dias</h2>${rv.length ? `<div class="tablewrap"><table><tr><th>Registro</th><th>Categoria</th><th>Próxima revisão</th><th></th></tr>${rv.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${esc(cur(r).categoria)}</td><td>${fmtD(cur(r).revisao)}</td><td>${revTag(r)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Nenhuma revisão vencida ou próxima do vencimento. Defina a "Próxima revisão" nos registros de políticas, contratos, treinamentos e avaliações.</p>'}</div>
-    <div class="card"><h2>Em vigor sem aprovação atual</h2>${sa.length ? miniTable(sa) : '<p class="muted">Todos os registros em vigor têm a versão atual aprovada.</p>'}</div>
-    <div class="card"><h2>Atribuídos a mim</h2>${mine.length ? miniTable(mine) : '<p class="muted">Nada atribuído a você.</p>'}</div>
-    ${anpdCard}
-    <div class="card"><h2>Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted">Sem atividade.</p>'}</div>`;
+    <div class="metrics-grid"><div class="stat"><span class="stat-icon" aria-hidden="true">📄</span><b>${rs.length}</b><span>Registros ativos</span></div>
+    <div class="stat"><span class="stat-icon" aria-hidden="true">✅</span><b>${by('Em vigor')}</b><span>Em vigor</span></div><div class="stat"><span class="stat-icon" aria-hidden="true">🔄</span><b>${by('Em revisão')}</b><span>Em revisão</span></div>
+    <div class="stat is-critical"><span class="stat-icon" aria-hidden="true">⚠️</span><b class="${od.length ? 'tone-bad' : ''}">${od.length}</b><span>Prazos vencidos</span></div>
+    <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">🕘</span><b class="${rv.some(r => revInfo(r).n < 0) ? 'tone-bad' : rv.length ? 'tone-warn' : ''}">${rv.length}</b><span>Revisões vencidas ou em 30 dias</span></div>
+    <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">🛡️</span><b class="${sa.length ? 'tone-warn' : ''}">${sa.length}</b><span>Em vigor sem aprovação atual</span></div></div>
+    <div class="dashboard-layout"><div class="dashboard-primary">
+      <div class="card"><h2><span aria-hidden="true">🧭</span> Trilha de adequação</h2><p class="muted small">Ordem sugerida, por dependência entre os temas (não é exigência da LGPD). "Em vigor" = há ao menos um registro em vigor na categoria.</p>${trilhaHtml(rs)}</div>
+      <div class="card"><h2><span aria-hidden="true">⚠️</span> Prazos vencidos</h2>${od.length ? miniTable(od) : '<p class="muted">Nenhum prazo vencido.</p>'}</div>
+      <div class="card"><h2><span aria-hidden="true">🕘</span> Revisões vencidas ou nos próximos 30 dias</h2>${rv.length ? `<div class="tablewrap"><table><tr><th>Registro</th><th>Categoria</th><th>Próxima revisão</th><th></th></tr>${rv.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${esc(cur(r).categoria)}</td><td>${fmtD(cur(r).revisao)}</td><td>${revTag(r)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Nenhuma revisão vencida ou próxima do vencimento. Defina a "Próxima revisão" nos registros de políticas, contratos, treinamentos e avaliações.</p>'}</div>
+    </div><aside class="dashboard-secondary">
+      ${anpdCard}
+      <div class="card"><h2><span aria-hidden="true">🛡️</span> Em vigor sem aprovação atual</h2>${sa.length ? miniTable(sa) : '<p class="muted">Todos os registros em vigor têm a versão atual aprovada.</p>'}</div>
+      <div class="card"><h2><span aria-hidden="true">👤</span> Atribuídos a mim</h2>${mine.length ? miniTable(mine) : '<p class="muted">Nada atribuído a você.</p>'}</div>
+      <div class="card"><h2><span aria-hidden="true">🕘</span> Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted">Sem atividade.</p>'}</div>
+    </aside></div>`;
 }
 const chkCell = (g, d, recId) => { const p = progresso(g, d), q = pontuacao(g, d, evPorItem(recId));
   return `<span class="tag ${p.nao ? 'bad' : p.pend ? 'warn' : 'ok'}" title="Declarado: o que foi respondido (itens críticos pesam 2; Parcial vale metade)">Decl. ${q.declarado}%</span> <span class="tag ${q.comprovado === null ? '' : q.comprovado >= q.declarado && q.declarado ? 'ok' : 'warn'}" title="Comprovado: itens Conforme com evidência anexada (e, nos críticos, estágio Implantado ou Testado)">Comp. ${q.comprovado === null ? '—' : q.comprovado + '%'}</span> <span class="muted small">${p.pend} pend.</span>`; };

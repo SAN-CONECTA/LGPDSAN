@@ -3,7 +3,7 @@
 Registro, versionamento e auditoria de boas práticas de conformidade com a LGPD.
 Publicação: https://lgpd.sanconecta.com/ (endereço antigo: https://san-conecta.github.io/LGPDSAN/, redireciona após configurar o domínio)
 
-**Versão atual: 2.31.1** (Firebase Auth + Firestore, regras no servidor)
+**Versão atual: 2.32.0** (Firebase Auth + Firestore, regras no servidor)
 
 ## O que o sistema faz
 - Perfis: Consulta, Edição, Administrador (matriz da especificação, seção 3.5)
@@ -32,6 +32,9 @@ Cada release = tag `vX.Y.Z` + GitHub Release.
 
 
 Desenvolvido por SAN Conecta — https://www.sanconecta.com
+
+## Design
+Tokens (cores, raios, sombras, medidas) no topo de `assets/style.css`; temas só trocam tokens de cor. Para ver todos os componentes em todos os temas, abra `componentes.html` (não precisa de login).
 
 ## Manual da LGPD
 Modelos em `manual-lgpd/` (.docx e .xlsx originais + .html de leitura). Ao trocar um modelo, rode `python3 tools/gerar-manual-lgpd.py` (requer pandoc e openpyxl) e suba os arquivos gerados. A lista fica em `assets/manual-lgpd.js`.
