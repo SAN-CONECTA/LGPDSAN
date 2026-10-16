@@ -43,14 +43,20 @@ main{padding:1.5rem;max-width:1100px;width:100%;min-width:0}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:.9rem 1rem}
 .stat b{display:block;font-size:1.7rem;line-height:1.1}
 button,.btn{font:inherit;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:.45rem .85rem;border-radius:8px;cursor:pointer;text-decoration:none;display:inline-block}
-button:hover{border-color:var(--brand)}
-button.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
-button.danger{color:var(--bad);border-color:var(--bad)}
+button:hover,.btn:hover{border-color:var(--brand)}
+button.primary,.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+button.primary:hover,.btn.primary:hover{background:#0c6a63;border-color:#0c6a63}
+button.danger,.btn.danger{color:var(--bad);border-color:var(--bad)}
+button.danger:hover,.btn.danger:hover{background:var(--bad-soft)}
+button.ghost,.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+button.ghost:hover,.btn.ghost:hover{background:var(--bg);color:var(--ink);border-color:transparent}
 button:disabled{opacity:.5;cursor:not-allowed}
 button.link{border:0;background:none;color:var(--brand);padding:0}
 :focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 input,select,textarea{font:inherit;width:100%;padding:.5rem .6rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
 textarea{min-height:110px;resize:vertical}
+input[type=text],input[type=email],input[type=password],input[type=search],input[type=number],input[type=date],input[type=url],select{min-height:40px}
+.audt .filtros input,.audt .filtros select{min-height:0}
 label{display:block;font-size:.85rem;font-weight:600;margin:.7rem 0 .25rem}
 .row{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
 .filters{display:grid;gap:.6rem;grid-template-columns:2fr repeat(4,1fr);margin-bottom:1rem}
