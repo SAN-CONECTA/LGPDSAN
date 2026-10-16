@@ -212,3 +212,64 @@ dialog{max-height:92vh;overflow:auto}
 .nav .subnav .csel select{min-height:0;padding:.3rem .45rem;font-size:.85rem}
 .nav .subnav .csel .muted{margin:0}
 @media print{.topbar{display:none!important}}
+
+
+/* LGPDSAN REDESIGN A11Y 2026-10-16 */
+/* Acessibilidade: foco visível em teclado, sem esconder estados de links e botões */
+:where(a, button, .btn, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+:where(button, .btn, a, input, select, textarea):disabled,
+:where(button, .btn, a, input, select, textarea)[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+/* Alvos clicáveis e hierarquia de seleção nas áreas de navegação */
+.nav a, .nav .grph, .bell { min-height: 40px; }
+.nav a, .nav .grph { display:flex; align-items:center; }
+.nav .grph { justify-content:space-between; }
+.grow:focus-visible, .nav a:focus-visible { background: var(--brand-soft); }
+/* Um aviso visual quando a navegação superior perde largura */
+.topbar { min-width:0; }
+.topbar-right { min-width:0; }
+.gsearch-box { min-width:0; }
+.gsearch-box input { max-width:100%; }
+.gsearch-pop { max-width:calc(100vw - 24px); }
+.tablewrap { max-width:100%; scrollbar-width:thin; }
+.card, .stat { min-width:0; }
+/* Responsividade sem depender da largura fixa dos filtros */
+@media(max-width:1000px) {
+  .filters { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .filters > div:first-child { grid-column:1/-1; }
+  .gi .row { grid-template-columns:1fr; }
+}
+@media(max-width:800px) {
+  .content { min-width:0; }
+  .topbar { position:static; flex-wrap:wrap; gap:.5rem; padding:.65rem 1rem; }
+  .crumbs { flex:1 1 100%; }
+  .topbar-right { flex:1 1 100%; width:100%; }
+  .gsearch-box { flex:1 1 auto; }
+  .gsearch-box input { width:100%; }
+  .gsearch-pop { width:min(380px,calc(100vw - 32px)); right:auto; left:0; }
+  main { padding:1rem; }
+  .side { max-width:100%; }
+}
+@media(max-width:480px) {
+  .filters, .row { grid-template-columns:minmax(0,1fr); }
+  .filters > div:first-child { grid-column:auto; }
+  .grid { grid-template-columns:minmax(0,1fr); }
+  .bar { flex-direction:column; align-items:stretch; }
+  .actions { align-items:stretch; }
+  .actions > button, .actions > .btn { max-width:100%; }
+  .card { padding:.85rem; }
+  .gsearch-pop { width:calc(100vw - 32px); }
+}
+/* Acessibilidade de movimento, com respeito à preferência do sistema */
+@media(prefers-reduced-motion:reduce) {
+  *, *::before, *::after {
+    scroll-behavior:auto!important;
+    transition-duration:.01ms!important;
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+  }
+}
