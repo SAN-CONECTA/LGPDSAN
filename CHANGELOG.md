@@ -1,6 +1,13 @@
 # Changelog
 Formato SemVer.
 
+## [2.31.1] - 2026-10-16
+### Corrigido
+- **Menu lateral com barra de rolagem.** Com vários grupos abertos ao mesmo tempo (Controle, Aprendizado, Configurações), o que passava da altura da tela ficava cortado e inalcançável: Configurações, o nome do usuário, o Tema e o Sair. Agora o menu rola com o mouse ou pela barra fina na lateral
+- Ao navegar, o menu **mantém a posição da rolagem** (antes voltava ao topo a cada clique) e deixa o item da tela atual à vista; ao abrir um grupo, ele é trazido para dentro da tela
+### Atenção
+- Só aparência e navegação; sem mudança em `firestore.rules`. No celular o menu continua em linha, sem altura fixa
+
 ## [2.31.0] - 2026-10-15
 ### Alterado
 - Reúne as duas linhas de trabalho do dia, que haviam usado o mesmo número **2.29.0**: a **Central de Atualizações ANPD** (`develop`) e o **Manual da LGPD** com leitura na tela e acesso só para o Administrador (`main`, 2.29.0 a 2.30.2). As entradas antigas seguem abaixo, identificadas pela origem

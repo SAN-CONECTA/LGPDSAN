@@ -4,14 +4,14 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
   serverTimestamp, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.31.0';
-import { BIBLIO } from './biblioteca.js?v=2.31.0';
-import { MANUAL_LGPD } from './manual-lgpd.js?v=2.31.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.31.0';
+import { firebaseConfig } from './firebase-config.js?v=2.31.1';
+import { BIBLIO } from './biblioteca.js?v=2.31.1';
+import { MANUAL_LGPD } from './manual-lgpd.js?v=2.31.1';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.31.1';
 
-import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.31.0';
+import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.31.1';
 
-const VERSION = '2.31.0';
+const VERSION = '2.31.1';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -288,6 +288,14 @@ function contabSelector() {
   if (db.contabs.length === 1) return `<div class="small muted">Contabilidade</div><div><b>${esc(db.contabs[0].nome)}</b></div>`;
   return '<div class="small muted">Nenhuma contabilidade</div>';
 }
+// O menu lateral rola quando há grupos abertos demais para a tela; mantém à vista o elemento indicado.
+function mostraNoMenu(el) {
+  const side = document.querySelector('.side');
+  if (!el || !side || side.scrollHeight <= side.clientHeight) return;
+  const r = el.getBoundingClientRect(), s = side.getBoundingClientRect(), baixo = r.bottom - s.bottom;
+  if (baixo > 0) side.scrollTop += Math.min(baixo + 8, Math.max(r.top - s.top, 0));   // sem esconder o topo do próprio elemento
+  else if (r.top < s.top) side.scrollTop -= s.top - r.top + 8;
+}
 async function route() {
   if (!me) return renderLogin();
   const my = ++seq;
@@ -311,15 +319,17 @@ async function route() {
     const aberto = gruposAbertos.has(g[0]);
     return `<div class="grp${aberto ? ' open' : ''}${ativo ? ' ativo' : ''}" data-g="${g[0]}"><button type="button" class="grph" aria-expanded="${aberto}">${g[1]}<span class="car" aria-hidden="true"></span></button><div class="subnav">${itens.map(x => mk(x[0], x[1], '', x[0] === '#/anpd' ? '<span class="anpd-badge" id="anpd-badge" hidden></span>' : '')).join('')}</div></div>`;
   }).join('');
+  const rolagemMenu = (document.querySelector('.side') || {}).scrollTop || 0;
   app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><div class="prod">Conformidade LGPD</div>
     <div id="csel" class="csel"></div>
     <nav class="nav">${nav}</nav>
     <div class="who small"><b>${esc(me.nome)}</b><br><span class="muted">${ROLES[me.role]} · v${VERSION}</span><div class="themesel"><label for="tema">Tema</label><select id="tema">${Object.entries(TEMAS).map(([k, v]) => `<option value="${k}"${k === me.tema ? ' selected' : ''}>${v}</option>`).join('')}</select></div><button class="link" id="out">Sair</button></div></aside>
     <main id="main"><p class="muted">Carregando…</p></main></div>`;
+  { const sd = document.querySelector('.side'); if (sd) sd.scrollTop = rolagemMenu; mostraNoMenu(document.querySelector('.nav a.on')); }
   document.querySelectorAll('.nav .grph').forEach(bt => bt.onclick = () => {
     const gd = bt.parentElement, id = gd.dataset.g, ab = !gd.classList.contains('open');
     gd.classList.toggle('open', ab); bt.setAttribute('aria-expanded', ab);
-    if (ab) gruposAbertos.add(id); else gruposAbertos.delete(id);
+    if (ab) { gruposAbertos.add(id); mostraNoMenu(gd); } else gruposAbertos.delete(id);
   });
   $('#out').onclick = guard(logout);
   $('#tema').onchange = async e => { const t = e.target.value; me.tema = t; applyTheme(t); lsSet('lgpdsan:tema:' + me.id, t); lsSet('lgpdsan:tema', t);
