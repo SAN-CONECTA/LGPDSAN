@@ -1,6 +1,19 @@
 # Changelog
 Formato SemVer.
 
+## [2.32.0] - 2026-10-16
+### Alterado
+- **Redesign visual:** Login em duas colunas, painel com hierarquia de métricas e colunas de conteúdo, e acabamento consistente para cartões, filtros, tabelas, menu, topo e janelas.
+- A camada visual segue os PDFs do redesign; rotas, autenticação, permissões, operações do Firestore e auditoria permanecem inalteradas.
+- **`style.css` reorganizado para o design:** tokens no topo (cores, tipografia, raios, sombras, medidas), uma seção por componente e todos os ajustes de tela juntos em RESPONSIVO. As camadas sobrepostas (base, topo, acessibilidade, redesign) viraram uma só, sem regras duplicadas ou mortas.
+- **Nova página `componentes.html`:** vitrine de cores, tokens e componentes com seletor de tema, sem login. Usa a mesma folha do app.
+- Cores do painel (números de alerta), da linha "próximo passo" e do erro do login saíram do JavaScript para classes CSS (`.tone-bad`, `.tone-warn`, `.is-highlight`, `.form-error`).
+### Corrigido
+- Tags de destaque ("nova", "próximo passo", "você", "extra") ganhavam uma margem extra de 15px por uma regra antiga do logo; as listas do painel e da ANPD ficam mais compactas.
+- Botão primário ao passar o mouse e herói do login seguem o tema escolhido (antes ficavam verde-azulados em todos os temas; no escuro, o hover deixava texto escuro sobre fundo escuro).
+- Anel de foco dos campos mais visível (antes usava a cor clara da marca, quase invisível no fundo branco).
+- Impressão volta a usar a página sem margem interna.
+
 ## [2.31.1] - 2026-10-16
 ### Corrigido
 - **Menu lateral com barra de rolagem.** Com vários grupos abertos ao mesmo tempo (Controle, Aprendizado, Configurações), o que passava da altura da tela ficava cortado e inalcançável: Configurações, o nome do usuário, o Tema e o Sair. Agora o menu rola com o mouse ou pela barra fina na lateral
