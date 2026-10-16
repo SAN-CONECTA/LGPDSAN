@@ -188,3 +188,27 @@ dialog{max-height:92vh;overflow:auto}
 .side{scrollbar-color:var(--line) transparent}
 .side::-webkit-scrollbar{width:8px}.side::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}.side::-webkit-scrollbar-thumb:hover{background:var(--muted)}
 .side>*{flex-shrink:0}
+
+/* ---------- top bar (redesign: breadcrumb + busca global + sino ANPD) ---------- */
+.content{display:flex;flex-direction:column;min-width:0;min-height:100vh}
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:1rem;padding:.5rem 1.5rem;background:var(--surface);border-bottom:1px solid var(--line)}
+.crumbs{font-size:.88rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.topbar-right{display:flex;align-items:center;gap:.6rem;margin-left:auto;flex-shrink:0}
+.gsearch-box{position:relative}
+.gsearch-box input{width:min(320px,42vw);margin:0}
+.gsearch-pop{position:absolute;top:calc(100% + .45rem);right:0;width:min(380px,88vw);max-height:72vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 32px rgba(0,0,0,.18);z-index:40;padding:.35rem}
+.grow{display:flex;flex-direction:column;gap:.05rem;padding:.5rem .65rem;border-radius:7px;text-decoration:none;color:var(--ink)}
+.grow:hover{background:var(--bg)}
+.gtipo{font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--brand)}
+.gt{font-weight:600;font-size:.9rem}
+.gs{font-size:.78rem;color:var(--muted)}
+.gempty{padding:.6rem .65rem;color:var(--muted);font-size:.85rem}
+.bell{position:relative;display:inline-flex;align-items:center;justify-content:center;font-size:1.1rem;text-decoration:none;color:var(--ink);padding:.3rem .55rem;border-radius:8px;border:1px solid transparent}
+.bell:hover{background:var(--bg)}
+.bell .anpd-badge{position:absolute;top:0;right:0;margin:0;font-size:.62rem;min-width:1.05em;line-height:1.5}
+/* seletor de contabilidade dentro do grupo CONTABILIDADE */
+.nav .subnav .csel{margin:.3rem .75rem .55rem 1.6rem;font-size:.88rem}
+.nav .subnav .csel label{margin:.15rem 0 .2rem}
+.nav .subnav .csel select{min-height:0;padding:.3rem .45rem;font-size:.85rem}
+.nav .subnav .csel .muted{margin:0}
+@media print{.topbar{display:none!important}}
