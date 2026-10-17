@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>LGPDSAN · Componentes</title>
+<link rel="icon" type="image/png" href="assets/logo-icon.png">
+<!-- Vitrine do design system: usa a MESMA folha do app. Mudou um token ou componente em
+     assets/style.css? Recarregue esta página para ver o efeito em todos os temas. Sem login. -->
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  /* estilos só da vitrine (não vão para o app) */
+  .sg main{max-width:1100px;margin-inline:auto}
+  .sg section{margin-bottom:2.5rem}
+  .sg section>h2{padding-bottom:.4rem;border-bottom:1px solid var(--line)}
+  .sg .demo{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin:.5rem 0 1rem}
+  .sg .sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.6rem}
+  .sg .sw div{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--surface);font-size:.78rem}
+  .sg .sw i{display:block;height:48px;border-bottom:1px solid var(--line)}
+  .sg .sw span{display:block;padding:.35rem .5rem}.sg .sw code{color:var(--muted)}
+  .sg .tok td:first-child{font-family:ui-monospace,monospace;font-size:.82rem;white-space:nowrap}
+  .sg .navdemo{width:var(--sidebar-w);border:1px solid var(--line);border-radius:var(--radius-lg);padding:.6rem;background:var(--surface)}
+  .sg .note{font-size:.82rem;color:var(--muted);margin:-.4rem 0 .8rem}
+  .sg-head{position:sticky;top:0;z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:.75rem 1.25rem;padding:.75rem 1.5rem;background:var(--surface);border-bottom:1px solid var(--line)}
+  .sg-head select{width:auto;min-width:12rem}
+  .sg-head label{margin:0}
+</style>
+</head>
+<body class="sg">
+<header class="sg-head">
+  <div class="app-brand"><img src="assets/logo-icon.png" alt=""><span><b>LGPDSAN</b><small>Componentes</small></span></div>
+  <label for="tema">Tema</label>
+  <select id="tema"></select>
+  <span class="small muted">Fonte: <code>assets/style.css</code></span>
+</header>
+<main>
+
+<section>
+  <h2>Cores</h2>
+  <p class="note">Valores lidos ao vivo do tema selecionado. Para trocar, edite os TOKENS ou o bloco do tema em <code>style.css</code>.</p>
+  <div class="sw" id="swatches"></div>
+</section>
+
+<section>
+  <h2>Outros tokens</h2>
+  <div class="card"><div class="tablewrap"><table class="tok"><tbody id="tokens"></tbody></table></div></div>
+</section>
+
+<section>
+  <h2>Tipografia</h2>
+  <div class="card">
+    <h1>Título de página (h1)</h1>
+    <h2>Título de cartão (h2)</h2>
+    <h3>Subtítulo (h3)</h3>
+    <p>Texto padrão do sistema, 15px. <a href="#">Link</a>.</p>
+    <p class="muted">Texto secundário (.muted)</p>
+    <p class="small muted">Texto pequeno (.small .muted)</p>
+  </div>
+</section>
+
+<section>
+  <h2>Botões</h2>
+  <div class="demo">
+    <button class="primary">Primário</button>
+    <button>Padrão</button>
+    <button class="danger">Excluir</button>
+    <button class="ghost">Fantasma</button>
+    <button class="link">Link</button>
+    <button class="primary" disabled>Desabilitado</button>
+    <a class="btn primary" href="#">+ Novo registro (a.btn)</a>
+  </div>
+</section>
+
+<section>
+  <h2>Tags e avisos</h2>
+  <div class="demo">
+    <span class="tag ok">Em vigor</span><span class="tag warn">Em revisão</span><span class="tag bad">Vencido</span>
+    <span class="tag brand">v3</span><span class="tag">Rascunho</span><span class="anpd-badge">19</span>
+  </div>
+  <div class="notice">Esta versão foi alterada depois da aprovação.</div>
+  <div class="notice bad"><b>Pontos de atenção</b><ul><li>Item crítico sem evidência</li></ul></div>
+</section>
+
+<section>
+  <h2>Campos</h2>
+  <div class="card">
+    <div class="row">
+      <div><label for="c1">Título</label><input id="c1" type="text" placeholder="Texto"></div>
+      <div><label for="c2">Status</label><select id="c2"><option>Em vigor</option><option>Em revisão</option></select></div>
+      <div><label for="c3">Prazo</label><input id="c3" type="date"></div>
+    </div>
+    <label for="c4">Justificativa</label><textarea id="c4" placeholder="Área de texto"></textarea>
+    <label class="chk"><input type="checkbox" checked> Opção marcada</label>
+    <p class="small form-error">Mensagem de erro (.form-error)</p>
+  </div>
+  <div class="filters"><div><label for="q">Pesquisa</label><input id="q" type="search" placeholder="Palavra-chave…"></div>
+    <div><label for="f1">Categoria</label><select id="f1"><option>Todas</option></select></div>
+    <div><label for="f2">Status</label><select id="f2"><option>Todos</option></select></div>
+    <div><label for="f3">Prioridade</label><select id="f3"><option>Todas</option></select></div>
+    <div><label for="f4">Responsável</label><select id="f4"><option>Todos</option></select></div></div>
+</section>
+
+<section>
+  <h2>Métricas do painel</h2>
+  <p class="note"><code>.is-critical</code> / <code>.is-attention</code> = faixa no topo; <code>.tone-bad</code> / <code>.tone-warn</code> = cor do número.</p>
+  <div class="metrics-grid">
+    <div class="stat"><span class="stat-icon" aria-hidden="true">📄</span><b>24</b><span>Registros ativos</span></div>
+    <div class="stat"><span class="stat-icon" aria-hidden="true">✅</span><b>18</b><span>Em vigor</span></div>
+    <div class="stat"><span class="stat-icon" aria-hidden="true">🔄</span><b>3</b><span>Em revisão</span></div>
+    <div class="stat is-critical"><span class="stat-icon" aria-hidden="true">⚠️</span><b class="tone-bad">2</b><span>Prazos vencidos</span></div>
+    <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">🕘</span><b class="tone-warn">4</b><span>Revisões vencidas ou em 30 dias</span></div>
+    <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">🛡️</span><b>0</b><span>Em vigor sem aprovação atual</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Cartão com tabela</h2>
+  <div class="card"><h2>Prazos vencidos</h2>
+    <div class="tablewrap"><table><tr><th>Registro</th><th>Status</th><th>Prazo</th><th>Checklist</th></tr>
+      <tr class="is-highlight"><td><a href="#">Política de privacidade</a></td><td><span class="tag warn">Em revisão</span></td><td>10/09/2026</td><td><span class="tag ok">Decl. 80%</span></td></tr>
+      <tr><td><a href="#">Contrato com operador</a></td><td><span class="tag ok">Em vigor</span></td><td>01/10/2026</td><td><span class="tag bad">Decl. 30%</span></td></tr>
+    </table></div>
+    <div class="fieldrow small"><b>Edição</b> · Admin Teste · <span class="muted">16/10/2026 14:20</span><br>Política de privacidade</div>
+    <div class="prog" title="60%"><span style="width:60%"></span></div>
+    <div class="actions"><button class="primary">Salvar</button><button>Cancelar</button></div>
+  </div>
+</section>
+
+<section>
+  <h2>Menu lateral e topo</h2>
+  <div class="demo" style="align-items:flex-start">
+    <nav class="nav navdemo">
+      <div class="grp open ativo"><button type="button" class="grph" aria-expanded="true"><span><span class="group-icon" aria-hidden="true">💼</span>Contabilidade</span><span class="car" aria-hidden="true"></span></button>
+        <div class="subnav"><div class="csel"><label for="cs">Contabilidade</label><select id="cs"><option>Contabilidade 01</option></select></div>
+          <a href="#" class="on"><span class="nav-icon" aria-hidden="true">📊</span><span>Painel</span></a>
+          <a href="#"><span class="nav-icon" aria-hidden="true">📄</span><span>Registros</span></a>
+          <a href="#"><span class="nav-icon" aria-hidden="true">🔔</span><span>Atualizações ANPD</span><span class="anpd-badge">3</span></a></div></div>
+      <div class="grp"><button type="button" class="grph" aria-expanded="false"><span><span class="group-icon" aria-hidden="true">🛠️</span>Controle</span><span class="car" aria-hidden="true"></span></button></div>
+    </nav>
+    <div style="flex:1;min-width:280px">
+      <header class="topbar" style="position:static"><div class="crumbs">Contabilidade 01 / Painel</div><div class="topbar-right"><div class="gsearch-box"><input type="search" placeholder="Buscar registros, evidências e eventos…" aria-label="Busca"></div><a class="bell" href="#" aria-label="Atualizações ANPD">🔔<span class="anpd-badge">19</span></a></div></header>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Janela</h2>
+  <dialog open style="position:static;margin:0"><h2>Nova versão</h2><p class="muted">Conteúdo de uma janela (dialog).</p><div class="actions"><button class="primary">Confirmar</button><button>Cancelar</button></div></dialog>
+</section>
+
+</main>
+<script>
+// Mesma lista de TEMAS de assets/app.js; o atributo data-theme é o que o app aplica.
+const TEMAS = { auto: 'Automático (do sistema)', claro: 'Claro (verde-azulado)', azul: 'Azul', lilas: 'Lilás', rosa: 'Rosa', laranja: 'Laranja', verde: 'Verde', grafite: 'Grafite', escuro: 'Escuro', 'escuro-azul': 'Escuro azulado', 'escuro-lilas': 'Escuro lilás' };
+const ATTR = { claro: 'light', escuro: 'dark' };
+const CORES = ['--bg', '--surface', '--ink', '--muted', '--line', '--brand', '--brand-ink', '--brand-soft', '--brand-hover', '--brand-strong', '--ok', '--ok-soft', '--warn', '--warn-soft', '--bad', '--bad-soft', '--add', '--del'];
+const OUTROS = ['--font', '--font-size', '--h1', '--h2', '--h3', '--text-sm', '--radius-sm', '--radius', '--radius-lg', '--radius-xl', '--radius-pill', '--shadow-soft', '--shadow', '--shadow-pop', '--shadow-dialog', '--focus-ring', '--control-h', '--button-h', '--sidebar-w', '--topbar-h', '--content-max'];
+const sel = document.getElementById('tema'), root = document.documentElement;
+// converte qualquer cor (inclusive color(srgb …) do color-mix) para #hex legível
+const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+function rgb(c) {
+  ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = c; ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+sel.innerHTML = Object.entries(TEMAS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+const inicial = new URLSearchParams(location.search).get('tema');
+if (inicial in TEMAS) sel.value = inicial;
+function render() {
+  const t = sel.value;
+  if (t === 'auto') delete root.dataset.theme; else root.dataset.theme = ATTR[t] || t;
+  history.replaceState(null, '', t === 'auto' ? location.pathname : `?tema=${t}`);
+  const cs = getComputedStyle(root);
+  const box = document.getElementById('swatches');
+  box.innerHTML = CORES.map(n => `<div><i style="background:var(${n})"></i><span><b>${n}</b><br><code></code></span></div>`).join('');
+  // cor já resolvida (color-mix aparece como o valor final, não a fórmula)
+  box.querySelectorAll('div').forEach(d => { d.querySelector('code').textContent = rgb(getComputedStyle(d.querySelector('i')).backgroundColor); });
+  document.getElementById('tokens').innerHTML = OUTROS.map(n => `<tr><td>${n}</td><td>${cs.getPropertyValue(n).trim()}</td></tr>`).join('');
+}
+sel.onchange = render; render();
+</script>
+</body>
+</html>

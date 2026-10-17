@@ -3,11 +3,12 @@
 Registro, versionamento e auditoria de boas práticas de conformidade com a LGPD.
 Publicação: https://lgpd.sanconecta.com/ (endereço antigo: https://san-conecta.github.io/LGPDSAN/, redireciona após configurar o domínio)
 
-**Versão atual: 2.31.1** (Firebase Auth + Firestore, regras no servidor)
+**Versão atual: 2.33.0** (Firebase Auth + Firestore, regras no servidor)
 
 ## O que o sistema faz
 - Perfis: Consulta, Edição, Administrador (matriz da especificação, seção 3.5)
 - Checklist por categoria (hoje: Contratos e Operadores), com % de conformidade e alertas
+- Fluxo "Comece por aqui" para registrar o diagnóstico inicial de porte, volume e risco na Governança
 - Várias contabilidades (escritórios clientes) com isolamento de dados no servidor
 - Registros com categoria, status, prioridade, responsável, prazo e evidências (links)
 - Versionamento automático com justificativa obrigatória, comparação palavra a palavra e restauração (cria nova versão)
@@ -17,7 +18,10 @@ Publicação: https://lgpd.sanconecta.com/ (endereço antigo: https://san-conect
 - Central de Atualizações ANPD: publicações oficiais de gov.br/anpd sincronizadas automaticamente (somente leitura), com status de leitura por usuário e contador de não lidas
 
 ## Segurança
-Login pelo Firebase Authentication; permissões e auditoria aplicadas pelas Regras do Firestore (`firestore.rules`). Setup em `docs/FIREBASE.md`.
+Login pelo Firebase Authentication. O navegador só lê (Regras do Firestore e do Storage); gravações críticas, versões e auditoria passam por Cloud Functions (`functions/`), que conferem perfil, papel e vínculo no servidor. Setup em `docs/FIREBASE.md` e `docs/FUNCTIONS.md`.
+
+## Testes
+`npm ci && npm ci --prefix functions && npm test` (Firebase Emulator Suite; exige Node 22 e Java 21+).
 A v1.0 (localStorage) não deve ser usada com dados reais.
 
 ## Executar localmente
@@ -33,11 +37,14 @@ Cada release = tag `vX.Y.Z` + GitHub Release.
 
 Desenvolvido por SAN Conecta — https://www.sanconecta.com
 
+## Design
+Tokens (cores, raios, sombras, medidas) no topo de `assets/style.css`; temas só trocam tokens de cor. Para ver todos os componentes em todos os temas, abra `componentes.html` (não precisa de login).
+
 ## Manual da LGPD
 Modelos em `manual-lgpd/` (.docx e .xlsx originais + .html de leitura). Ao trocar um modelo, rode `python3 tools/gerar-manual-lgpd.py` (requer pandoc e openpyxl) e suba os arquivos gerados. A lista fica em `assets/manual-lgpd.js`.
 
 ## Publicar uma nova versão
 1. Suba os arquivos (GitHub: Add file → Upload files, arrastando o CONTEÚDO da pasta).
-2. Se mudou `firestore.rules`, publique também no console do Firebase.
+2. Se mudou `functions/`, `firestore.rules`, `storage.rules` ou índices, publique pelo CLI (comandos e ordem em `docs/FUNCTIONS.md`).
 3. Na próxima versão, troque o número em `?v=` (index.html e imports de `assets/app.js`) e em `VERSION`; assim o navegador não usa arquivos antigos.
 4. Confira a versão exibida no rodapé do menu lateral.

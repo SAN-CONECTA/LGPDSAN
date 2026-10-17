@@ -1,0 +1,18 @@
+{
+  "name": "lgpdsan",
+  "private": true,
+  "description": "Ferramentas de teste e publicação do LGPDSAN (o app em si é estático e não usa este package.json).",
+  "scripts": {
+    "emulators": "firebase emulators:start --project lgpdsan --only auth,firestore,storage,functions",
+    "test": "firebase emulators:exec --project demo-lgpdsan --only auth,firestore,storage,functions \"node --test --test-concurrency=1 tests/*.test.mjs\"",
+    "test:functions-lint": "npm --prefix functions run lint",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "firebase": "^11.10.0",
+    "firebase-admin": "^13.10.0",
+    "firebase-tools": "^15.34.0",
+    "@playwright/test": "^1.51.0",
+    "axe-playwright": "^2.0.0"
+  }
+}

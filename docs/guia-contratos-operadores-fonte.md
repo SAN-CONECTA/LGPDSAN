@@ -142,21 +142,25 @@ Especifique que tipo de operação o operador realiza com os dados:
 
 A LGPD exige clareza sobre **onde os dados serão armazenados e processados**:
 
-  ---------------------------------------------- ---------------------------------------------------- ---------------------------------------------------------------------------------------------------------------------------
-  Localização                                    Conformidade LGPD                                    Ação Requerida
-
-  **Brasil (Servidor Local)**                    ✅ Conforme --- sem restrição                        Apenas registre no contrato
-
-  **Nuvem Brasil (AWS/Azure/GCP - região BR)**   ✅ Conforme --- dados fisicamente no Brasil          Apenas registre no contrato
-
-  **Nuvem Internacional (US, EU, etc.)**         ⚠️ Permitida, mas exige autorização expressa         Mencione no termo de consentimento ao cliente; contrato com operador deve incluir cláusula de transferência internacional
-
-  **Múltiplas Regiões (Replicação Global)**      ⚠️ Risco maior --- dados duplicados fora do Brasil   Documento explícito de autorização; auditoria regular do operador
-  ---------------------------------------------- ---------------------------------------------------- ---------------------------------------------------------------------------------------------------------------------------
+| Localização | Conformidade LGPD | Ação Requerida |
+|---|---|---|
+| **Brasil (Servidor Local)** | ✅ Conforme --- sem restrição | Apenas registre no contrato |
+| **Nuvem Brasil (AWS/Azure/GCP - região BR)** | ✅ Em regra sem transferência internacional --- confirme que não há réplica, backup, suporte remoto ou subprocessador fora do Brasil | Registre no contrato a região, onde ficam backups e réplicas, de onde vem o suporte e quem são os subprocessadores |
+| **Nuvem Internacional (US, EU, etc.)** | ⚠️ Permitida quando houver hipótese legal e mecanismo válido de transferência (LGPD, art. 33; Res. CD/ANPD nº 19/2024) | Documente a hipótese legal e o mecanismo (ex.: cláusulas-padrão contratuais da ANPD); informe o titular de forma clara; avalie localização, replicação, suporte remoto e subprocessadores |
+| **Múltiplas Regiões (Replicação Global)** | ⚠️ Risco maior --- dados duplicados em vários países | Mesmos requisitos da nuvem internacional para cada destino; mapeie os países de réplica e os subprocessadores; auditoria regular do operador |
 
 **⚠️ Atenção:**
 
-Se usar operador com servidores no exterior, o contrato DEVE incluir cláusula explicando este fato aos clientes finais (título/clientes da contabilidade) e obter consentimento deles para transferência internacional de dados.
+Usar operador com servidores, réplicas, backup, suporte remoto ou subprocessadores no exterior pode configurar **transferência internacional de dados**. Ela é permitida, mas exige, em conjunto:
+
+- **Hipótese legal aplicável** ao tratamento (art. 7º ou, para dados sensíveis, art. 11 da LGPD);
+- **Mecanismo válido de transferência** previsto no art. 33 da LGPD e regulamentado pela Resolução CD/ANPD nº 19/2024 --- por exemplo, as **cláusulas-padrão contratuais** aprovadas pela ANPD incorporadas ao contrato com o operador, ou outro mecanismo aplicável (país ou organismo reconhecido como adequado, cláusulas específicas ou normas corporativas globais aprovadas, entre outros);
+- **Transparência adequada ao titular**: informar de forma clara que há transferência, para onde e com que finalidade (por exemplo, no aviso de privacidade);
+- **Avaliação** da localização dos dados, da replicação e dos backups, do suporte remoto prestado de fora do país e dos subprocessadores do operador.
+
+**Consentimento não é requisito universal.** O consentimento específico e destacado do titular (art. 33, VIII) é apenas uma das hipóteses e só deve ser usado quando for a base adequada ao caso --- ele pode ser revogado a qualquer momento e costuma ser frágil para serviços que o contrato ou a lei já exigem. Na maior parte das operações de um escritório contábil, o caminho usual é o mecanismo contratual (cláusulas-padrão) somado à hipótese legal que já fundamenta o tratamento.
+
+*Este texto é orientação geral e não substitui parecer jurídico. Valide com assessoria jurídica a hipótese legal e o mecanismo de transferência de cada operação concreta (fornecedor, tipo de dado e países envolvidos).*
 
 2.5 Prazos de Retenção de Dados
 
