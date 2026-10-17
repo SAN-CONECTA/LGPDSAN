@@ -1,22 +1,20 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndPassword, signOut, onAuthStateChanged,
-  sendPasswordResetEmail, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
+  createUserWithEmailAndPassword, sendPasswordResetEmail, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
   serverTimestamp, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, connectStorageEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js';
-import { firebaseConfig } from './firebase-config.js?v=2.33.0';
-import { BIBLIO } from './biblioteca.js?v=2.33.0';
-import { MANUAL_LGPD } from './manual-lgpd.js?v=2.33.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.33.0';
-import { resultadoEnq } from './diagnostico.mjs?v=2.33.0';
+import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
+import { firebaseConfig } from './firebase-config.js?v=2.31.1';
+import { BIBLIO } from './biblioteca.js?v=2.31.1';
+import { MANUAL_LGPD } from './manual-lgpd.js?v=2.31.1';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.31.1';
 
-import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.33.0';
+import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.31.1';
 
-const VERSION = '2.33.0';
+const VERSION = '2.31.1';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
-const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin_local: 'Administrador local', admin: 'Administrador' };
+const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
 const STATUS = ['Rascunho', 'Em vigor', 'Em revisão', 'Arquivado'];
 const PRIOR = ['Baixa', 'Média', 'Alta'];
 const DEFAULT_CATS = ['Governança e Políticas', 'Direitos dos Titulares', 'Contratos e Operadores', 'Segurança da Informação',
@@ -38,6 +36,7 @@ const FIELDS = [['titulo', 'Título'], ['categoria', 'Categoria'], ['descricao',
 // campos comparáveis de um registro: os fixos + os itens do checklist da categoria
 const fieldList = cat => { const g = guiaDe(cat); return g ? FIELDS.concat(itensDe(g).filter(i => i.tipo !== 'resultado').flatMap(i => i.tipo === 'sn' ? [['d:' + i.id, i.label], ['d:' + i.id + '#o', 'Observação: ' + i.label], ['d:' + i.id + '#e', 'Estágio: ' + i.label]] : [['d:' + i.id, i.label]])) : FIELDS; };
 const fval = (snap, k) => k.startsWith('d:') ? fmtVal((snap.dados || {})[k.slice(2)]) : (snap[k] ?? '');
+const FIRM_ACTS = new Set(['Exportação CSV', 'Backup exportado (contabilidade)', 'Evidência enviada', 'Evidência excluída']);
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -48,24 +47,17 @@ const fmtD = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '�
 const today = () => new Date().toISOString().slice(0, 10);
 const byName = (a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true });
 
-const emulatorProject = new URLSearchParams(location.search).get('projeto');
-const fbApp = initializeApp(emulatorProject ? { ...firebaseConfig, projectId: emulatorProject, authDomain: `${emulatorProject}.firebaseapp.com`, storageBucket: `${emulatorProject}.appspot.com` } : firebaseConfig);
+const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 auth.languageCode = 'pt-BR';
 const fs = getFirestore(fbApp);
 const storage = getStorage(fbApp);
 storage.maxUploadRetryTime = 30000; storage.maxOperationRetryTime = 30000; // falha em ~30 s em vez de tentar por 10 minutos
-// Gravações críticas (registros, versões, aprovação, evidências, auditoria, administração) passam pelas
-// Cloud Functions (functions/), que validam perfil, papel e vínculo no servidor. Ver docs/FUNCTIONS.md.
-const fns = getFunctions(fbApp, 'southamerica-east1');
-const call = async (nome, dados) => (await httpsCallable(fns, nome, { timeout: 60000 })(dados)).data;
 // Modo emulador (teste local, sem tocar no projeto de produção): abra com ?emulador=1 na URL.
-// Usa o Firebase Emulator Suite — Firestore 8080, Auth 9099, Storage 9199 e Functions 5001 (ver firebase.json).
+// Usa o Firebase Emulator Suite — Firestore na porta 8080 e Auth na 9099 (ver firebase.json).
 if (new URLSearchParams(location.search).has('emulador')) {
   connectFirestoreEmulator(fs, 'localhost', 8080);
   connectAuthEmulator(auth, 'http://localhost:9099');
-  connectStorageEmulator(storage, 'localhost', 9199);
-  connectFunctionsEmulator(fns, 'localhost', 5001);
 }
 
 let me = null;
@@ -77,6 +69,7 @@ let justSignedIn = false;
 const rcol = () => collection(fs, 'contabilidades', cid, 'registros');
 const rdoc = id => doc(fs, 'contabilidades', cid, 'registros', id);
 const vcol = id => collection(fs, 'contabilidades', cid, 'registros', id, 'versoes');
+const vdoc = (id, n) => doc(fs, 'contabilidades', cid, 'registros', id, 'versoes', String(n));
 const contabNome = id => (db.contabs.find(c => c.id === id) || {}).nome || '(removida)';
 /* Publicações oficiais da ANPD: coleção global `anpd` (sincronizada por scripts/anpd_sync.py) +
    status de leitura por usuário em users/{uid}/anpdLidas. Nada disso depende de contabilidade. */
@@ -88,16 +81,20 @@ const cur = r => r.snap;
 const can = {
   edit: () => me && me.role !== 'consulta',
   admin: () => me && me.role === 'admin',
-  configAdmin: () => me && (me.role === 'admin' || me.role === 'admin_local'),
   export: () => me && me.role !== 'consulta',
   editRec: r => me && (me.role === 'admin' || (me.role === 'edicao' && cur(r).status !== 'Arquivado' && !r.deleted))
 };
 const catList = () => db.categorias.slice().sort((a, b) => trilhaPos(a) - trilhaPos(b) || a.localeCompare(b, 'pt-BR'));
 
-/* ---------- auditoria (produzida pelo servidor) ----------
-   As operações auditadas gravam o evento dentro da própria Function. O navegador só pede os poucos
-   eventos que acontecem nele (login, logout, exportações), por uma lista fechada que o servidor confere. */
-const logEvent = (acao, dados = {}) => call('logEvent', { acao, ...dados });
+/* ---------- auditoria (gravada no servidor, só criação) ---------- */
+const isSys = (acao, rec) => !rec && !FIRM_ACTS.has(acao);
+const aCol = sys => sys ? collection(fs, 'auditoria') : collection(fs, 'contabilidades', cid, 'auditoria');
+function auditData(acao, rec, detalhe, sys) {
+  return { ts: serverTimestamp(), userId: me.id, user: me.nome, role: me.role, acao, recId: rec ? rec.id : null,
+    recTitulo: rec ? cur(rec).titulo : '', detalhe: detalhe || '', escopo: sys ? 'sistema' : 'registro', contabId: sys ? null : cid };
+}
+const auditOp = (batch, acao, rec, detalhe) => { const s = isSys(acao, rec); batch.set(doc(aCol(s)), auditData(acao, rec, detalhe, s)); };
+const auditNow = (acao, rec, detalhe) => { const s = isSys(acao, rec); return setDoc(doc(aCol(s)), auditData(acao, rec, detalhe, s)); };
 
 /* ---------- UI utilitários ---------- */
 let toastT;
@@ -111,10 +108,6 @@ function errMsg(e) {
   if (c === 'unavailable') return 'Sem conexão com o servidor. Tente novamente.';
   if (c === 'auth/email-already-in-use') return 'Este e-mail já existe no Authentication. Desbloqueie o usuário existente ou remova a conta no console do Firebase.';
   if (c === 'auth/weak-password') return 'Senha fraca.';
-  // Erros das Functions já chegam com a mensagem em português; "internal" não traz detalhe de propósito.
-  if (c === 'functions/unavailable' || c === 'functions/deadline-exceeded') return 'O servidor não respondeu a tempo. Verifique a conexão e tente novamente.';
-  if (c === 'functions/not-found' && /^not[- ]found$/i.test(e.message || '')) return 'Função do servidor não encontrada. Confira se as Cloud Functions foram publicadas.';
-  if (c.startsWith('functions/') && c !== 'functions/internal') return e.message;
   return 'Erro: ' + (e && e.message || e);
 }
 /* ---------- logo do escritório (guardada como imagem pequena no documento da contabilidade) ---------- */
@@ -219,14 +212,16 @@ async function loadCore() {
   try { if (cid) sessionStorage.setItem('lgpdsan:cid', cid); } catch (e) {}
 
   const c = await getDoc(doc(fs, 'config', 'app'));
-  db.categorias = c.exists() ? (c.data().lista || []) : [];
-  // Lista inexistente (cria a padrão) ou categorias com guia faltando: o admin completa pelo servidor, que audita.
-  if (can.admin() && (!c.exists() || Object.keys(GUIAS).some(k => !db.categorias.includes(k)))) {
-    try { db.categorias = (await call('adminCategorias', { op: 'ensure', nomes: Object.keys(GUIAS) })).lista; }
-    catch (e) { console.error(e); if (!c.exists()) db.categorias = DEFAULT_CATS.slice(); }
+  if (c.exists()) db.categorias = c.data().lista || [];
+  else if (can.admin()) { await setDoc(doc(fs, 'config', 'app'), { lista: DEFAULT_CATS }); db.categorias = DEFAULT_CATS.slice(); }
+  else db.categorias = [];
+  // Categorias com guia: o admin ganha automaticamente as que ainda não existem na lista.
+  if (can.admin() && c.exists()) {
+    const faltam = Object.keys(GUIAS).filter(k => !db.categorias.includes(k));
+    if (faltam.length) { db.categorias = [...db.categorias, ...faltam]; await setDoc(doc(fs, 'config', 'app'), { lista: db.categorias }); }
   }
 
-  db.users = can.configAdmin() ? (await call('adminListUsers', {})).users : [me];
+  db.users = can.admin() ? (await getDocs(collection(fs, 'users'))).docs.map(d => ({ id: d.id, ...d.data() })) : [me];
   if (cid) {
     db.pessoas = (await getDocs(collection(fs, 'contabilidades', cid, 'pessoas'))).docs.map(d => ({ id: d.id, ...d.data() }));
     const q = can.admin() ? rcol() : query(rcol(), where('deleted', '==', false));
@@ -326,24 +321,17 @@ function ligaBuscaGlobal() {
 /* ---------- roteamento ---------- */
 const app = $('#app');
 const routes = [
-  ['#/', 'Painel', renderDash, null, true], ['#/comece', 'Comece por aqui', renderComece, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/termo', 'Termo de Ciência', renderTermo, null, true], ['#/manual', 'Manual', renderManual], ['#/anpd', 'Atualizações ANPD', renderAnpd], ['#/diagnostico-config', 'Configuração do diagnóstico', renderDiagConfig, 'configAdmin'], ['#/manual-lgpd', 'Manual da LGPD', renderManualLgpd, 'admin'],
+  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/termo', 'Termo de Ciência', renderTermo, null, true], ['#/manual', 'Manual', renderManual], ['#/anpd', 'Atualizações ANPD', renderAnpd], ['#/manual-lgpd', 'Manual da LGPD', renderManualLgpd, 'admin'],
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
 // Grupos recolhíveis do menu (v2.30.2). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
-  ['contabilidade', 'Contabilidade', [['#/', 'Painel', false], ['#/comece', 'Comece por aqui', false], ['#/registros', 'Registros', false], ['#/evidencias', 'Evidências', false], ['#/termo', 'Termo de Ciência', false]]],
-  ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', 'configAdmin'], ['#/contabilidades', 'Contabilidades', true]]],
+  ['contabilidade', 'Contabilidade', [['#/', 'Painel', false], ['#/registros', 'Registros', false], ['#/evidencias', 'Evidências', false], ['#/termo', 'Termo de Ciência', false]]],
+  ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Contabilidades', true]]],
   ['aprendizado', 'Aprendizado', [['#/anpd', 'Atualizações ANPD', false], ['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false], ['#/manual-lgpd', 'Manual da LGPD', true]]],
-  ['config', 'Configurações', [['#/diagnostico-config', 'Configuração do diagnóstico', 'configAdmin'], ['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]]]
+  ['config', 'Configurações', [['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]]]
 ];
-const NAV_EMOJIS = {
-  'Painel': '📊', 'Comece por aqui': '🧭', 'Configuração do diagnóstico': '🧩', 'Registros': '📄', 'Evidências': '📎', 'Termo de Ciência': '✍️',
-  'Auditoria': '🕘', 'Usuários': '👥', 'Contabilidades': '🏢', 'Atualizações ANPD': '🔔',
-  'Biblioteca': '📚', 'Manual': '📖', 'Manual da LGPD': '🛡️', 'Categorias': '⚙️',
-  'Backup': '⬇️', 'Sobre / versão': 'ℹ️'
-};
-const GRUPO_EMOJIS = { contabilidade: '💼', controle: '🛠️', aprendizado: '📚', config: '⚙️' };
 const gruposAbertos = new Set(['contabilidade']);
 let bind = null, seq = 0;
 function contabSelector() {
@@ -370,20 +358,20 @@ async function route() {
   else {
     const r = routes.find(x => x[0] === h) || routes[0];
     main = r[0]; needs = !!r[4];
-    view = ((r[3] === 'admin' && !can.admin()) || (r[3] === 'configAdmin' && !can.configAdmin())) ? () => `<h1>Acesso negado</h1><p class="muted">Seu perfil não permite acessar esta área.</p>` : r[2];
+    view = (r[3] === 'admin' && !can.admin()) ? () => `<h1>Acesso negado</h1><p class="muted">Seu perfil não permite acessar esta área.</p>` : r[2];
   }
-  const mk = (hash, rot, cls, extra = '') => `<a href="${hash}" class="${cls || ''}${hash === main ? ' on' : ''}"><span class="nav-icon" aria-hidden="true">${NAV_EMOJIS[rot] || '•'}</span><span>${esc(rot)}</span>${extra}</a>`;
+  const mk = (hash, rot, cls, extra = '') => `<a href="${hash}" class="${cls || ''}${hash === main ? ' on' : ''}">${rot}${extra}</a>`;
   const nav = GRUPOS.map(g => {
-    const itens = g[2].filter(x => !x[2] || x[2] === true && can.admin() || x[2] === 'configAdmin' && can.configAdmin());
+    const itens = g[2].filter(x => !x[2] || can.admin());
     if (!itens.length) return '';
     const ativo = itens.some(x => x[0] === main);
     if (ativo) gruposAbertos.add(g[0]);
     const aberto = gruposAbertos.has(g[0]);
     const csel = g[0] === 'contabilidade' ? '<div id="csel" class="csel"></div>' : '';
-    return `<div class="grp${aberto ? ' open' : ''}${ativo ? ' ativo' : ''}" data-g="${g[0]}"><button type="button" class="grph" aria-expanded="${aberto}"><span><span class="group-icon" aria-hidden="true">${GRUPO_EMOJIS[g[0]] || '•'}</span>${esc(g[1])}</span><span class="car" aria-hidden="true"></span></button><div class="subnav">${csel}${itens.map(x => mk(x[0], x[1], '', x[0] === '#/anpd' ? '<span class="anpd-badge" id="anpd-badge" hidden></span>' : '')).join('')}</div></div>`;
+    return `<div class="grp${aberto ? ' open' : ''}${ativo ? ' ativo' : ''}" data-g="${g[0]}"><button type="button" class="grph" aria-expanded="${aberto}">${g[1]}<span class="car" aria-hidden="true"></span></button><div class="subnav">${csel}${itens.map(x => mk(x[0], x[1], '', x[0] === '#/anpd' ? '<span class="anpd-badge" id="anpd-badge" hidden></span>' : '')).join('')}</div></div>`;
   }).join('');
   const rolagemMenu = (document.querySelector('.side') || {}).scrollTop || 0;
-  app.innerHTML = `<div class="shell"><aside class="side" aria-label="Navegação principal"><div class="app-brand"><img src="assets/logo-icon.png" alt=""><span><b>LGPDSAN</b><small>Conformidade LGPD</small></span></div>
+  app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><div class="prod">Conformidade LGPD</div>
     <nav class="nav">${nav}</nav>
     <div class="who small"><b>${esc(me.nome)}</b><br><span class="muted">${ROLES[me.role]} · v${VERSION}</span><div class="themesel"><label for="tema">Tema</label><select id="tema">${Object.entries(TEMAS).map(([k, v]) => `<option value="${k}"${k === me.tema ? ' selected' : ''}>${v}</option>`).join('')}</select></div><button class="link" id="out">Sair</button></div></aside>
     <div class="content"><header class="topbar"><div class="crumbs" id="crumbs"></div><div class="topbar-right"><div class="gsearch-box"><input id="gsearch" type="search" placeholder="Buscar registros, evidências e eventos…" autocomplete="off" aria-label="Busca global"><div class="gsearch-pop" id="gsearch-pop" hidden></div></div><a class="bell" id="anpd-bell" href="#/anpd" title="Atualizações ANPD" aria-label="Atualizações ANPD">🔔<span class="anpd-badge" id="anpd-bell-badge" hidden></span></a></div></header>
@@ -423,18 +411,13 @@ window.addEventListener('hashchange', route);
 
 /* ---------- login ---------- */
 function renderLogin(msg = '') {
-  app.innerHTML = `<div class="login-shell"><section class="login-hero" aria-label="LGPDSAN">
-    <div class="login-brand"><img src="assets/logo-icon.png" alt=""><span><b>LGPDSAN</b><small>SAN Conecta</small></span></div>
-    <div class="login-hero-copy"><h1>Conformidade LGPD do escritório,<br>registrada e auditável.</h1><p>Políticas, contratos, evidências e checklists de cada contabilidade em um só lugar, com histórico de versões e trilha de auditoria.</p>
-      <ul><li>Cada edição gera uma nova versão, com justificativa</li><li>Auditoria só de criação: ninguém altera ou apaga eventos</li><li>Dados de cada contabilidade isolados no servidor</li></ul></div>
-    <p class="login-hero-foot">Dados no Firestore, região São Paulo · ${siteLink()}</p>
-  </section><main class="login-panel"><div class="card login-card"><h1 class="prod-title">Entrar</h1><p class="muted small">Use o e-mail cadastrado pelo administrador.</p>
+  app.innerHTML = `<div class="login"><div class="card"><div class="logo big"><img src="assets/logo.png" alt="SAN Conecta — Conectando Empresas a Soluções"></div><h1 class="prod-title">Conformidade LGPD</h1>
     <form id="f"><label for="em">E-mail</label><input id="em" type="email" required autocomplete="username">
     <label for="pw">Senha</label><input id="pw" type="password" required autocomplete="current-password">
-    <p id="err" class="small form-error">${esc(msg)}</p>
+    <p id="err" class="small" style="color:var(--bad);min-height:1.2em">${esc(msg)}</p>
     <button class="primary" style="width:100%">Entrar</button></form>
     <p class="small" style="margin-top:.75rem"><button class="link" id="fp" type="button">Esqueci minha senha</button></p>
-    <p class="small muted login-meta">Acesso restrito a usuários cadastrados pelo administrador.<br><span>v${VERSION} · ${siteLink()}</span></p></div></main></div>`;
+    <p class="small muted">Acesso restrito a usuários cadastrados pelo administrador · v${VERSION}<br>${siteLink()}</p></div></div>`;
   const err = $('#err');
   $('#f').onsubmit = async e => {
     e.preventDefault(); err.textContent = '';
@@ -453,7 +436,7 @@ function renderLogin(msg = '') {
     err.style.color = 'var(--ok)'; err.textContent = 'Se o e-mail estiver cadastrado, você receberá um link de redefinição.';
   };
 }
-async function logout() { try { await logEvent('Logout'); } catch (e) {} me = null; cid = null; try { sessionStorage.removeItem('lgpdsan:cid'); } catch (e) {} await signOut(auth); location.hash = '#/'; }
+async function logout() { try { await auditNow('Logout'); } catch (e) {} me = null; cid = null; try { sessionStorage.removeItem('lgpdsan:cid'); } catch (e) {} await signOut(auth); location.hash = '#/'; }
 
 /* ---------- painel ---------- */
 const recLink = r => `#/registro/${cid}/${r.id}`;
@@ -462,7 +445,7 @@ function trilhaHtml(rs) {
     const decl = g && rc.length ? Math.round(rc.reduce((a, r) => a + pontuacao(g, cur(r).dados).declarado, 0) / rc.length) : null;
     return { c, n: rc.length, vig, decl, dica: (TRILHA.find(t => t[0] === c) || [])[1] || 'Categoria acrescentada pelo administrador.' }; });
   const prox = passos.find(p => !p.vig);
-  return `<div class="tablewrap"><table><tr><th>#</th><th>Categoria</th><th>Situação</th><th>Registros</th><th>Declarado</th></tr>${passos.map((p, i) => `<tr${p === prox ? ' class="is-highlight"' : ''}><td>${i + 1}</td><td><b>${esc(p.c)}</b>${p === prox ? ' <span class="tag brand">próximo passo</span>' : ''}<br><span class="muted small">${esc(p.dica)}</span></td>
+  return `<div class="tablewrap"><table><tr><th>#</th><th>Categoria</th><th>Situação</th><th>Registros</th><th>Declarado</th></tr>${passos.map((p, i) => `<tr${p === prox ? ' style="background:var(--brand-soft, rgba(15,118,110,.08))"' : ''}><td>${i + 1}</td><td><b>${esc(p.c)}</b>${p === prox ? ' <span class="tag brand">próximo passo</span>' : ''}<br><span class="muted small">${esc(p.dica)}</span></td>
     <td><span class="tag ${p.vig ? 'ok' : p.n ? 'warn' : ''}">${p.vig ? 'Em vigor' : p.n ? 'Em andamento' : 'Não iniciada'}</span></td><td>${p.n}</td><td>${p.decl === null ? '<span class="muted">—</span>' : p.decl + '%'}</td></tr>`).join('')}</table></div>`;
 }
 async function renderDash() {
@@ -482,147 +465,18 @@ async function renderDash() {
   } catch (e) { /* regras do Firestore sem a seção anpd: o cartão simplesmente não aparece */ }
   return `<div class="bar"><div><h1>Painel</h1><p class="muted">${esc(contabNome(cid))} · visão geral da conformidade.</p></div>
     ${can.edit() ? '<a class="btn primary" href="#/registros" id="dnew">+ Novo registro</a>' : ''}</div>
-    <div class="metrics-grid"><div class="stat"><span class="stat-icon" aria-hidden="true">📄</span><b>${rs.length}</b><span>Registros ativos</span></div>
-    <div class="stat"><span class="stat-icon" aria-hidden="true">✅</span><b>${by('Em vigor')}</b><span>Em vigor</span></div><div class="stat"><span class="stat-icon" aria-hidden="true">🔄</span><b>${by('Em revisão')}</b><span>Em revisão</span></div>
-    <div class="stat is-critical"><span class="stat-icon" aria-hidden="true">⚠️</span><b class="${od.length ? 'tone-bad' : ''}">${od.length}</b><span>Prazos vencidos</span></div>
-    <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">🕘</span><b class="${rv.some(r => revInfo(r).n < 0) ? 'tone-bad' : rv.length ? 'tone-warn' : ''}">${rv.length}</b><span>Revisões vencidas ou em 30 dias</span></div>
-    <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">🛡️</span><b class="${sa.length ? 'tone-warn' : ''}">${sa.length}</b><span>Em vigor sem aprovação atual</span></div></div>
-    <div class="dashboard-layout"><div class="dashboard-primary">
-      <div class="card"><h2><span aria-hidden="true">🧭</span> Trilha de adequação</h2><p class="muted small">Ordem sugerida, por dependência entre os temas (não é exigência da LGPD). "Em vigor" = há ao menos um registro em vigor na categoria.</p>${trilhaHtml(rs)}</div>
-      <div class="card"><h2><span aria-hidden="true">⚠️</span> Prazos vencidos</h2>${od.length ? miniTable(od) : '<p class="muted">Nenhum prazo vencido.</p>'}</div>
-      <div class="card"><h2><span aria-hidden="true">🕘</span> Revisões vencidas ou nos próximos 30 dias</h2>${rv.length ? `<div class="tablewrap"><table><tr><th>Registro</th><th>Categoria</th><th>Próxima revisão</th><th></th></tr>${rv.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${esc(cur(r).categoria)}</td><td>${fmtD(cur(r).revisao)}</td><td>${revTag(r)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Nenhuma revisão vencida ou próxima do vencimento. Defina a "Próxima revisão" nos registros de políticas, contratos, treinamentos e avaliações.</p>'}</div>
-    </div><aside class="dashboard-secondary">
-      ${anpdCard}
-      <div class="card"><h2><span aria-hidden="true">🛡️</span> Em vigor sem aprovação atual</h2>${sa.length ? miniTable(sa) : '<p class="muted">Todos os registros em vigor têm a versão atual aprovada.</p>'}</div>
-      <div class="card"><h2><span aria-hidden="true">👤</span> Atribuídos a mim</h2>${mine.length ? miniTable(mine) : '<p class="muted">Nada atribuído a você.</p>'}</div>
-      <div class="card"><h2><span aria-hidden="true">🕘</span> Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted">Sem atividade.</p>'}</div>
-    </aside></div>`;
-}
-
-function renderComece() {
-  const fields = [
-    ['dgPorte', 'Porte na Receita Federal', ['Microempresa (ME)', 'Empresa de pequeno porte (EPP)', 'MEI', 'Demais', 'Não consultado']],
-    ['dgLimite', 'Receita dentro do limite de pequeno porte?', ['Sim', 'Não', 'Não sei']],
-    ['dgGrupo', 'Integra grupo econômico acima do limite?', ['Não', 'Sim', 'Não sei']],
-    ['dgTitulares', 'Quantidade estimada de titulares', ['Até 500', 'De 500 a 5.000', 'Acima de 5.000', 'Não sei']],
-    ['dgSaude', 'Trata dados de saúde?', ['Sim', 'Não', 'Não sei']],
-    ['dgSind', 'Trata filiação sindical?', ['Sim', 'Não', 'Não sei']],
-    ['dgBio', 'Trata biometria ou dados de menores?', ['Sim', 'Não', 'Não sei']],
-    ['dgIA', 'Usa IA ou tecnologia nova sobre dados?', ['Sim', 'Não', 'Não sei']],
-    ['dgMonit', 'Há monitoramento sistemático?', ['Sim', 'Não', 'Não sei']],
-    ['dgDecis', 'Há decisões automatizadas relevantes?', ['Sim', 'Não', 'Não sei']],
-    ['dgExigiu', 'Algum cliente exigiu encarregado em contrato?', ['Não', 'Sim']]
-  ];
-  const value = k => $(`#dg_${k}`)?.value || '';
-  const draw = () => {
-    const r = resultadoEnq(Object.fromEntries(fields.map(([k]) => [k, value(k)])));
-    const classe = { alto: 'bad', cinza: 'warn', nomear: 'warn', dispensa: 'ok', incompleto: '' }[r.nivel] || '';
-    const box = $('#dg-result');
-    if (box) box.innerHTML = `<div class="callout ${classe}"><b>${esc(r.titulo)}</b><ul>${r.linhas.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="small muted">${esc(r.aviso)}</p></div>`;
-  };
-  bind = () => {
-    fields.forEach(([k]) => $(`#dg_${k}`).onchange = draw);
-    $('#dg-form').onsubmit = guard(async e => {
-      e.preventDefault();
-      const dados = Object.fromEntries(fields.map(([k]) => [k, value(k)]).filter(([, v]) => v));
-      const r = resultadoEnq(dados);
-      const snap = {
-        titulo: 'Diagnóstico inicial de enquadramento LGPD',
-        categoria: 'Governança e Políticas',
-        descricao: 'Diagnóstico guiado inicial do porte, volume de titulares e critérios de risco. Validar com responsável e assessoria jurídica.',
-        status: 'Em revisão', prioridade: r.nivel === 'alto' ? 'Alta' : 'Média', responsavel: me.nome, prazo: '', revisao: maisMeses(3), evidencias: '', dados
-      };
-      const out = await call('saveRecord', { cid, snap, just: 'Diagnóstico guiado inicial' });
-      await call('refreshActionPlan', { cid, recordId: out.id });
-      toast('Diagnóstico salvo como registro de Governança.'); location.hash = `#/registro/${cid}/${out.id}`;
-    });
-    draw();
-  };
-  return `<div class="bar"><div><h1>Comece por aqui</h1><p class="muted">${esc(contabNome(cid))} · diagnóstico inicial guiado para organizar a primeira decisão.</p></div></div>
-    <div class="card"><h2>1. Entenda o enquadramento</h2><p>Responda o que já sabe. O resultado é uma sugestão interna, não uma decisão jurídica nem uma conclusão de conformidade.</p>
-    <form id="dg-form"><div class="row">${fields.map(([k, label, options]) => `<div><label for="dg_${k}">${esc(label)}</label><select id="dg_${k}"><option value="">— ainda não sei —</option>${options.map(o => `<option>${esc(o)}</option>`).join('')}</select></div>`).join('')}</div>
-    <div id="dg-result" aria-live="polite"></div><div class="actions"><button class="primary">Salvar diagnóstico e continuar</button><a class="btn" href="#/registros">Ver registros</a></div></form></div>
-    <div class="card"><h2>Próximos passos</h2><ol><li>Valide os dados com o cliente e o responsável pelo tratamento.</li><li>Inclua evidências e documentos no registro criado.</li><li>Continue pelo checklist de Governança e pelos temas da trilha de adequação.</li></ol></div>`;
-}
-
-async function renderDiagConfig() {
-  let cfg;
-  try {
-    const r = await call('getDiagnosticConfig', { cid });
-    cfg = r.local || r.global;
-  } catch (e) {
-    return `<h1>Configuração indisponível</h1><p class="muted">${esc(errMsg(e))}</p>`;
-  }
-  const obrigatorias = ['dgPorte', 'dgLimite', 'dgGrupo', 'dgTitulares'];
-  const questionCard = q => `<fieldset class="card dc-question" data-question="${esc(q.id)}">
-    <legend><b>${esc(q.id)}</b></legend>
-    <div class="row"><div><label>Identificador</label><input aria-label="Identificador da pergunta" data-q="id" value="${esc(q.id)}" maxlength="64" ${obrigatorias.includes(q.id) ? 'readonly' : ''}></div>
-    <div><label>Etapa</label><input aria-label="Etapa da pergunta" data-q="stage" type="number" min="1" value="${q.stage}"></div>
-    <div><label>Ordem</label><input aria-label="Ordem da pergunta" data-q="order" type="number" min="0" value="${q.order}"></div>
-    <div><label>Tipo</label><select aria-label="Tipo da pergunta" data-q="type">${['select', 'text', 'textarea'].map(x => `<option ${x === q.type ? 'selected' : ''}>${x}</option>`).join('')}</select></div></div>
-    <label>Pergunta</label><input aria-label="Texto da pergunta" data-q="label" value="${esc(q.label)}" maxlength="300" required>
-    <label>Explicação</label><textarea aria-label="Explicação da pergunta" data-q="explanation" maxlength="1000">${esc(q.explanation || '')}</textarea>
-    <label>Exemplo</label><input aria-label="Exemplo da pergunta" data-q="example" value="${esc(q.example || '')}" maxlength="500">
-    <label class="checkline"><input aria-label="Resposta obrigatória" data-q="required" type="checkbox" ${q.required ? 'checked' : ''}> Resposta obrigatória</label>
-    <label>Condição de exibição</label><div class="row"><select aria-label="Pergunta da condição" data-q="condition-question"><option value="">Sempre exibir</option>${cfg.questions.filter(x => x.id !== q.id).map(x => `<option value="${esc(x.id)}" ${q.condition?.questionId === x.id ? 'selected' : ''}>${esc(x.id)} · ${esc(x.label)}</option>`).join('')}</select><input aria-label="Resposta da condição" data-q="condition-equals" placeholder="Mostrar quando a resposta for…" value="${esc(q.condition?.equals || '')}" maxlength="200"></div>
-    <label>Opções do seletor <span class="muted small">(uma por linha)</span></label><textarea aria-label="Opções do seletor" data-q="options" ${q.type !== 'select' ? 'disabled' : ''}>${esc((q.options || []).join('\\n'))}</textarea>
-    <div class="actions"><button type="button" data-q-up>Subir</button><button type="button" data-q-down>Descer</button>${obrigatorias.includes(q.id) ? '<span class="muted small">Controle global obrigatório</span>' : '<button type="button" class="danger" data-q-remove>Remover</button>'}</div></fieldset>`;
-  const actionRow = a => `<fieldset class="card dc-action" data-action="${esc(a.id)}"><legend><b>Regra de tarefa</b></legend>
-    <div class="row"><div><label>Identificador</label><input aria-label="Identificador da regra" data-a="id" value="${esc(a.id)}" maxlength="64"></div><div><label>Pergunta gatilho</label><select aria-label="Pergunta gatilho" data-a="questionId">${cfg.questions.map(q => `<option value="${esc(q.id)}" ${q.id === a.questionId ? 'selected' : ''}>${esc(q.id)}</option>`).join('')}</select></div><div><label>Prioridade</label><select aria-label="Prioridade da regra" data-a="priority">${['baixa', 'média', 'alta'].map(x => `<option ${x === a.priority ? 'selected' : ''}>${x}</option>`).join('')}</select></div></div>
-    <label>Respostas que geram a tarefa <span class="muted small">(uma por linha)</span></label><textarea aria-label="Respostas que geram a tarefa" data-a="when">${esc((a.when || []).join('\\n'))}</textarea>
-    <label>Tarefa</label><input aria-label="Título da tarefa" data-a="title" value="${esc(a.title)}" maxlength="300" required><label>Requisito</label><input aria-label="Requisito da tarefa" data-a="requirement" value="${esc(a.requirement)}" maxlength="300" required><label>Responsável</label><input aria-label="Responsável pela tarefa" data-a="responsible" value="${esc(a.responsible)}" maxlength="100" required>
-    <div class="actions"><button type="button" class="danger" data-a-remove>Remover regra</button></div></fieldset>`;
-  bind = () => {
-    const draw = () => {
-      $$('.dc-question').forEach(card => {
-        const type = $('[data-q="type"]', card), options = $('[data-q="options"]', card);
-        options.disabled = type.value !== 'select';
-        type.onchange = draw;
-        $('[data-q-up]', card).onclick = () => { const prev = card.previousElementSibling; if (prev) card.parentNode.insertBefore(card, prev); };
-        $('[data-q-down]', card).onclick = () => { const next = card.nextElementSibling; if (next) card.parentNode.insertBefore(next, card); };
-        const remove = $('[data-q-remove]', card); if (remove) remove.onclick = () => card.remove();
-      });
-      $$('.dc-action').forEach(card => { const remove = $('[data-a-remove]', card); if (remove) remove.onclick = () => card.remove(); });
-    };
-    const collect = () => {
-      const questions = $$('.dc-question').map(card => {
-        const get = k => $(`[data-q="${k}"]`, card);
-        const conditionQuestion = $('[data-q="condition-question"]', card).value;
-        const q = { id: get('id').value.trim(), stage: Number(get('stage').value), order: Number(get('order').value), type: get('type').value,
-          label: get('label').value.trim(), explanation: get('explanation').value, example: get('example').value, required: get('required').checked };
-        if (q.type === 'select') q.options = get('options').value.split(/\n/).map(x => x.trim()).filter(Boolean);
-        if (conditionQuestion) q.condition = { questionId: conditionQuestion, equals: $('[data-q="condition-equals"]', card).value.trim() };
-        return q;
-      });
-      const actions = $$('.dc-action').map(card => {
-        const get = k => $(`[data-a="${k}"]`, card);
-        return { id: get('id').value.trim(), questionId: get('questionId').value, when: get('when').value.split(/\n/).map(x => x.trim()).filter(Boolean),
-          requirement: get('requirement').value.trim(), title: get('title').value.trim(), priority: get('priority').value, responsible: get('responsible').value.trim() };
-      });
-      return { schema: 1, questions, actions };
-    };
-    $('#dc-add-question').onclick = () => { $('#dc-questions').insertAdjacentHTML('beforeend', questionCard({ id: `pergunta_${Date.now()}`, stage: 1, order: 100, type: 'select', label: '', explanation: '', example: '', required: false, options: ['Sim', 'Não'] })); draw(); };
-    $('#dc-add-action').onclick = () => { $('#dc-actions').insertAdjacentHTML('beforeend', actionRow({ id: `tarefa_${Date.now()}`, questionId: cfg.questions[0]?.id || '', when: ['Sim'], requirement: '', title: '', priority: 'média', responsible: '' })); draw(); };
-    $('#dc-preview').onclick = () => {
-      const sample = collect().questions.filter(q => q.label).sort((a, b) => a.stage - b.stage || a.order - b.order);
-      $('#dc-preview-box').innerHTML = `<h3>Prévia</h3>${sample.map(q => `<div class="fieldrow"><b>${esc(q.label)}</b><br><span class="muted small">${esc(q.explanation || q.example || '')}</span></div>`).join('') || '<p class="muted">Adicione uma pergunta.</p>'}`;
-    };
-    $('#dcf').onsubmit = guard(async e => {
-      e.preventDefault();
-      const next = collect();
-      $('#dcs').disabled = true;
-      try {
-        const out = await call('saveDiagnosticConfig', { cid, config: next });
-        toast(`Configuração ${out.escopo === 'global' ? 'global' : 'da contabilidade'} salva na versão ${out.versao}.`);
-        route();
-      } finally { $('#dcs').disabled = false; }
-    });
-  };
-  return `<div class="bar"><div><h1>Configuração do diagnóstico</h1><p class="muted">${esc(contabNome(cid))} · editor visual de perguntas, condições e tarefas.</p></div></div>
-    <div class="card"><h2>Configuração permitida</h2><p class="small">Controles globais obrigatórios não podem ser removidos ou alterados. O servidor valida tipos, limites, condições e referências antes de publicar. A classificação continua sendo apenas uma sugestão.</p>
-    <form id="dcf"><h3>Perguntas</h3><div id="dc-questions">${cfg.questions.map(questionCard).join('')}</div><div class="actions"><button type="button" id="dc-add-question">Adicionar pergunta</button><button type="button" id="dc-preview">Prévia</button></div><div id="dc-preview-box" class="notice" aria-live="polite"></div>
-    <h3>Regras de geração de tarefas</h3><div id="dc-actions">${(cfg.actions || []).map(actionRow).join('')}</div><div class="actions"><button type="button" id="dc-add-action">Adicionar regra</button></div>
-    <div class="actions"><button class="primary" id="dcs">Publicar nova versão</button><a class="btn" href="#/comece">Voltar ao diagnóstico</a></div></form></div>`;
+    <div class="grid"><div class="stat"><b>${rs.length}</b>Registros ativos</div>
+    <div class="stat"><b>${by('Em vigor')}</b>Em vigor</div><div class="stat"><b>${by('Em revisão')}</b>Em revisão</div>
+    <div class="stat"><b style="color:${od.length ? 'var(--bad)' : 'inherit'}">${od.length}</b>Prazos vencidos</div>
+    <div class="stat"><b style="color:${rv.some(r => revInfo(r).n < 0) ? 'var(--bad)' : rv.length ? 'var(--warn)' : 'inherit'}">${rv.length}</b>Revisões vencidas ou em 30 dias</div>
+    <div class="stat"><b style="color:${sa.length ? 'var(--warn)' : 'inherit'}">${sa.length}</b>Em vigor sem aprovação atual</div></div>
+    <div class="card"><h2>Trilha de adequação</h2><p class="muted small">Ordem sugerida, por dependência entre os temas (não é exigência da LGPD). "Em vigor" = há ao menos um registro em vigor na categoria.</p>${trilhaHtml(rs)}</div>
+    <div class="card"><h2>Prazos vencidos</h2>${od.length ? miniTable(od) : '<p class="muted">Nenhum prazo vencido.</p>'}</div>
+    <div class="card"><h2>Revisões vencidas ou nos próximos 30 dias</h2>${rv.length ? `<div class="tablewrap"><table><tr><th>Registro</th><th>Categoria</th><th>Próxima revisão</th><th></th></tr>${rv.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${esc(cur(r).categoria)}</td><td>${fmtD(cur(r).revisao)}</td><td>${revTag(r)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Nenhuma revisão vencida ou próxima do vencimento. Defina a "Próxima revisão" nos registros de políticas, contratos, treinamentos e avaliações.</p>'}</div>
+    <div class="card"><h2>Em vigor sem aprovação atual</h2>${sa.length ? miniTable(sa) : '<p class="muted">Todos os registros em vigor têm a versão atual aprovada.</p>'}</div>
+    <div class="card"><h2>Atribuídos a mim</h2>${mine.length ? miniTable(mine) : '<p class="muted">Nada atribuído a você.</p>'}</div>
+    ${anpdCard}
+    <div class="card"><h2>Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted">Sem atividade.</p>'}</div>`;
 }
 const chkCell = (g, d, recId) => { const p = progresso(g, d), q = pontuacao(g, d, evPorItem(recId));
   return `<span class="tag ${p.nao ? 'bad' : p.pend ? 'warn' : 'ok'}" title="Declarado: o que foi respondido (itens críticos pesam 2; Parcial vale metade)">Decl. ${q.declarado}%</span> <span class="tag ${q.comprovado === null ? '' : q.comprovado >= q.declarado && q.declarado ? 'ok' : 'warn'}" title="Comprovado: itens Conforme com evidência anexada (e, nos críticos, estágio Implantado ou Testado)">Comp. ${q.comprovado === null ? '—' : q.comprovado + '%'}</span> <span class="muted small">${p.pend} pend.</span>`; };
@@ -671,7 +525,7 @@ async function exportCSV(rs) {
   const lines = [head.map(q).join(';')].concat(rs.map(r => { const c = cur(r);
     return [contabNome(cid), c.titulo, c.categoria, c.status, c.prioridade, c.responsavel, c.prazo, c.revisao || '', r.versao, r.aprovacao ? `v${r.aprovacao.versao} por ${r.aprovacao.por}${aprovada(r) ? '' : ' (desatualizada)'}` : 'não aprovada', c.descricao, c.evidencias].map(q).join(';'); }));
   download('lgpdsan-registros-' + today() + '.csv', '﻿' + lines.join('\r\n'), 'text/csv;charset=utf-8');
-  await logEvent('Exportação CSV', { cid, quantidade: rs.length });
+  await auditNow('Exportação CSV', null, `${contabNome(cid)} · ${rs.length} registro(s)`);
 }
 function download(name, text, type) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name;
@@ -895,20 +749,24 @@ function recordForm(rec) {
         if (guiaDe(snap.categoria)) snap.dados = collectDados($('#gx', d));
         const just = $('#j', d).value.trim();
         $('#sv', d).disabled = true;
+        const batch = writeBatch(fs);
         let id;
-        // O servidor (saveRecord) lê a versão atual, grava registro + próxima versão + auditoria numa transação.
         try {
           if (rec) {
             if (!can.editRec(rec)) { $('#sv', d).disabled = false; return toast('Sem permissão para editar este registro.'); }
-            const before = cur(rec), changed = fieldUnion(before.categoria, snap.categoria).filter(([k]) => String(fval(before, k)) !== String(fval(snap, k)));
+            const before = cur(rec), changed = fieldUnion(before.categoria, snap.categoria).filter(([k]) => String(fval(before, k)) !== String(fval(snap, k))).map(([, l]) => l);
             if (!changed.length) { d.close(); return toast('Nenhuma alteração.'); }
-            const r = await call('saveRecord', { cid, id: rec.id, versaoBase: rec.versao, snap, just }); id = r.id;
-            if (snap.categoria === 'Governança e Políticas') await call('refreshActionPlan', { cid, recordId: id });
-            toast(r.semAlteracao ? 'Nenhuma alteração.' : 'Nova versão v' + r.versao + ' criada.');
+            const n = rec.versao + 1; id = rec.id;
+            batch.update(rdoc(id), { snap, versao: n, atualizado: serverTimestamp() });
+            batch.set(vdoc(id, n), { n, snap, autor: me.nome, autorId: me.id, quando: serverTimestamp(), just });
+            auditOp(batch, 'Edição', { id, snap }, `v${n} · ${changed.join(', ')} · ${just}`);
+            await batch.commit(); toast('Nova versão v' + n + ' criada.');
           } else {
-            id = (await call('saveRecord', { cid, snap, just })).id;
-            if (snap.categoria === 'Governança e Políticas') await call('refreshActionPlan', { cid, recordId: id });
-            toast('Registro criado.');
+            id = doc(rcol()).id;
+            batch.set(rdoc(id), { snap, versao: 1, deleted: false, criado: serverTimestamp(), criadoPor: me.id });
+            batch.set(vdoc(id, 1), { n: 1, snap, autor: me.nome, autorId: me.id, quando: serverTimestamp(), just });
+            auditOp(batch, 'Criação', { id, snap }, just);
+            await batch.commit(); toast('Registro criado.');
           }
         } catch (x) { $('#sv', d).disabled = false; throw x; }
         d.close(); const h = `#/registro/${cid}/${id}`; if (location.hash === h) route(); else location.hash = h;
@@ -926,38 +784,32 @@ async function renderRecord(id) {
   const vs = (await getDocs(vcol(id))).docs.map(d => d.data()).sort((a, b) => a.n - b.n);
   const au = (await getDocs(query(collection(fs, 'contabilidades', cid, 'auditoria'), where('recId', '==', id)))).docs
     .map(d => d.data()).sort((a, b) => tms(b.ts) - tms(a.ts));
-  const c = cur(rec);
   await loadEvid();
-  let plan = { tarefas: [] };
-  if (c.categoria === 'Governança e Políticas') {
-    try { plan = await call('getActionPlan', { cid, recordId: id }); } catch (e) { console.warn('[plano de ação]', e); }
-  }
+  const c = cur(rec);
   bind = () => {
     const reload = () => route();
     $$('[data-evopen]').forEach(b => b.onclick = guard(() => abrirEvidencia(db.evid.find(x => x.id === b.dataset.evopen))));
     $$('[data-anexar]').forEach(b => b.onclick = () => anexarModal(rec, b.dataset.anexar));
     const e = $('#edit'); if (e) e.onclick = () => recordForm(rec);
-    $$('[data-task-status]').forEach(b => b.onclick = guard(async () => {
-      await call('completeActionTask', { cid, recordId: id, taskId: b.dataset.taskId, status: b.dataset.taskStatus });
-      route();
-    }));
-    $$('[data-task-evidence]').forEach(b => {
-      const task = plan.tarefas.find(t => t.id === b.dataset.taskEvidence);
-      if (task) b.onclick = () => anexarTarefaModal(rec, task);
-    });
-    // Aprovação, exclusões e restaurações: todas pelo servidor (nome, horário e versão vêm de lá).
     const ap = $('#aprov'); if (ap) ap.onclick = () => confirmBox(`Aprovar formalmente a v${rec.versao} deste registro? Ficam registrados seu nome, a data e a versão. Qualquer edição posterior exigirá nova aprovação.`, 'Aprovar', async () => {
-      await call('approveRecord', { cid, id, versao: rec.versao }); toast('Versão aprovada.'); reload(); }, false);
+      const b = writeBatch(fs); b.update(rdoc(id), { aprovacao: { versao: rec.versao, porId: me.id, por: me.nome, em: serverTimestamp() } });
+      auditOp(b, 'Versão aprovada', rec, 'v' + rec.versao); await b.commit(); toast('Versão aprovada.'); reload(); }, false);
     const dl = $('#del'); if (dl) dl.onclick = () => confirmBox('Excluir logicamente este registro? Ele sai das listas, mas pode ser restaurado.', 'Excluir', async () => {
-      await call('softDeleteRecord', { cid, id }); reload(); });
+      const b = writeBatch(fs); b.update(rdoc(id), { deleted: true }); auditOp(b, 'Exclusão lógica', rec); await b.commit(); reload(); });
     const rs = $('#rest'); if (rs) rs.onclick = guard(async () => {
-      await call('softDeleteRecord', { cid, id, restaurar: true }); reload(); });
+      const b = writeBatch(fs); b.update(rdoc(id), { deleted: false }); auditOp(b, 'Registro restaurado', rec); await b.commit(); reload(); });
     const hd = $('#hard'); if (hd) hd.onclick = () => confirmBox('Excluir DEFINITIVAMENTE, com todo o histórico de versões? Não pode ser desfeito. A auditoria é mantida.', 'Excluir definitivamente', async () => {
-      await call('hardDeleteRecord', { cid, id }); location.hash = '#/registros'; });
+      const b = writeBatch(fs);
+      (await getDocs(vcol(id))).docs.forEach(d => b.delete(d.ref));
+      b.delete(rdoc(id)); auditOp(b, 'Exclusão permanente', rec); await b.commit(); location.hash = '#/registros'; });
     document.querySelectorAll('[data-restore]').forEach(btn => btn.onclick = () => {
-      const v = vs.find(x => x.n === +btn.dataset.restore);
+      const v = vs[+btn.dataset.restore - 1];
       confirmBox(`Restaurar o conteúdo da v${v.n}? Será criada uma nova versão (o histórico não é apagado).`, 'Restaurar', async () => {
-        await call('restoreRecordVersion', { cid, id, n: v.n, versaoBase: rec.versao }); reload(); }, false);
+        const n = rec.versao + 1, st = (me.role !== 'admin' && v.snap.status === 'Arquivado') ? 'Em revisão' : v.snap.status;
+        const snap = { ...v.snap, status: st }, b = writeBatch(fs);
+        b.update(rdoc(id), { snap, versao: n, atualizado: serverTimestamp() });
+        b.set(vdoc(id, n), { n, snap, autor: me.nome, autorId: me.id, quando: serverTimestamp(), just: `Restauração da v${v.n}` });
+        auditOp(b, 'Restauração de versão', rec, `v${v.n} → v${n}`); await b.commit(); reload(); }, false);
     });
     const cmp = () => {
       const a = vs[+$('#va').value - 1].snap, b = vs[+$('#vb').value - 1].snap;
@@ -984,9 +836,6 @@ async function renderRecord(id) {
     <h3 style="margin-top:1rem">Descrição / procedimento</h3><div class="pre">${esc(c.descricao) || '<span class="muted">—</span>'}</div>
     <h3 style="margin-top:1rem">Evidências</h3><div class="pre">${esc(c.evidencias) || '<span class="muted">—</span>'}</div></div>
     ${guiaDe(c.categoria) ? checklistView(guiaDe(c.categoria), c.dados, rec) : ''}
-    ${plan.tarefas.length ? `<div class="card"><h2>Plano de ação</h2><p class="muted small">Próximo passo recomendado: ${esc(plan.tarefas.find(t => t.status === 'pendente')?.titulo || 'nenhum; revise as ações concluídas.')}</p>
-      <div class="tablewrap"><table><tr><th>Tarefa</th><th>Requisito</th><th>Prioridade</th><th>Responsável</th><th>Status</th><th></th></tr>
-      ${plan.tarefas.filter(t => t.status !== 'obsoleta').map(t => `<tr><td>${esc(t.titulo)}</td><td>${esc(t.requisito)}</td><td>${esc(t.prioridade)}</td><td>${esc(t.responsavel)}</td><td><span class="tag ${t.status === 'concluida' ? 'ok' : 'warn'}">${esc(t.status)}</span></td><td>${can.edit() ? `<button data-task-id="${esc(t.id)}" data-task-status="${t.status === 'concluida' ? 'pendente' : 'concluida'}">${t.status === 'concluida' ? 'Reabrir' : 'Concluir'}</button> <button data-task-evidence="${esc(t.id)}">Evidência</button>` : ''}</td></tr>`).join('')}</table></div></div>` : ''}
     <div class="card"><h2>Histórico de versões</h2><div class="tablewrap"><table><tr><th>Versão</th><th>Quando</th><th>Autor</th><th>Justificativa</th><th></th></tr>
     ${vs.slice().reverse().map(v => `<tr><td>v${v.n}${v.n === last ? ' <span class="tag ok">atual</span>' : ''}</td><td>${fmt(v.quando)}</td><td>${esc(v.autor)}</td><td>${esc(v.just)}</td>
     <td>${can.editRec(rec) && v.n !== last ? `<button data-restore="${v.n}">Restaurar</button>` : ''}</td></tr>`).join('')}</table></div></div>
@@ -1002,6 +851,7 @@ const EV_TIPOS = { pdf: 'application/pdf', txt: 'text/plain', docx: 'application
 const evExt = n => (String(n).includes('.') ? String(n).split('.').pop() : '').toLowerCase();
 const fmtTam = b => b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 const evCol = () => collection(fs, 'contabilidades', cid, 'evidencias');
+const evDoc = id => doc(fs, 'contabilidades', cid, 'evidencias', id);
 // confere os primeiros bytes: o arquivo precisa ser mesmo do tipo que a extensão diz
 async function evAssinaturaOk(file, ext) {
   if (ext === 'txt') return true;
@@ -1032,15 +882,16 @@ async function enviarEvidencia(file, categoria, descricao, onProg, vinculo) {
   if (mime.startsWith('image/') && file.size > 2 * 1024 * 1024) { blob = await evReduzFoto(file); mime = 'image/jpeg'; nome = nome.replace(/\.[^.]+$/, '') + '.jpg'; }
   if (blob.size > EV_MAX) throw new Error('Arquivo muito grande (máximo 10 MB).');
   if (blob.size === 0) throw new Error('O arquivo está vazio.');
-  // 1) o servidor reserva o envio (id, caminho, autor, tamanho e tipo); sem reserva o Storage recusa o upload
-  const rv = await call('reserveEvidence', { cid, categoria, descricao, nome: nome.slice(0, 200), contentType: mime, tamanho: blob.size,
-    ...(vinculo ? { registroId: vinculo.registroId, itemId: vinculo.itemId, itemRot: String(vinculo.itemRot || '').slice(0, 200) } : {}) });
-  // 2) upload para o caminho reservado; 3) o servidor confere o arquivo, marca como pronto e audita
+  const id = doc(evCol()).id, seguro = nome.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.\-]+/g, '_').slice(-100) || 'arquivo';
+  const path = `evidencias/${cid}/${id}/${seguro}`, r = sRef(storage, path);
+  await new Promise((ok, no) => { const t = uploadBytesResumable(r, blob, { contentType: mime });
+    t.on('state_changed', sn => onProg && onProg(Math.round(100 * sn.bytesTransferred / Math.max(1, sn.totalBytes))), no, ok); });
   try {
-    await new Promise((ok, no) => { const t = uploadBytesResumable(sRef(storage, rv.path), blob, { contentType: mime });
-      t.on('state_changed', sn => onProg && onProg(Math.round(100 * sn.bytesTransferred / Math.max(1, sn.totalBytes))), no, ok); });
-  } catch (e) { try { await call('cancelEvidenceReservation', { cid, evidenceId: rv.evidenceId }); } catch (e2) { /* a limpeza agendada remove a reserva */ } throw e; }
-  await call('finalizeEvidence', { cid, evidenceId: rv.evidenceId });
+    await setDoc(evDoc(id), { categoria, descricao, nome: nome.slice(0, 200), tipo: ext, tamanho: blob.size, path, contabId: cid,
+      autorId: me.id, autor: me.nome, ts: serverTimestamp(),
+      ...(vinculo ? { registroId: vinculo.registroId, itemId: vinculo.itemId, itemRot: String(vinculo.itemRot || '').slice(0, 200) } : {}) });
+  } catch (e) { try { await deleteObject(r); } catch (e2) { /* sem arquivo órfão se der */ } throw e; }
+  await auditNow('Evidência enviada', null, categoria + ' · ' + nome + ' (' + fmtTam(blob.size) + ')' + (vinculo ? ' · item ' + vinculo.itemId : ''));
 }
 async function abrirEvidencia(e) {
   if (!e) return;
@@ -1058,30 +909,16 @@ function anexarModal(rec, itemId) {
     <div class="actions"><button class="primary" id="axs">Enviar</button><button type="button" id="axc">Cancelar</button><span class="muted small" id="axst"></span></div></form>`,
   d => { $('#axc', d).onclick = () => d.close();
     const ru = $('#axru', d); if (ru) ru.onclick = guard(async () => { const o = existentes.find(x => x.id === $('#axre', d).value); if (!o) return toast('Escolha o arquivo.');
-      await call('reuseEvidence', { cid, evidenciaId: o.id, registroId: rec.id, itemId, itemRot: String(item.label).slice(0, 200) });
+      const id = doc(evCol()).id;
+      await setDoc(evDoc(id), { categoria: cur(rec).categoria, descricao: o.descricao, nome: o.nome, tipo: o.tipo, tamanho: o.tamanho, path: o.path, contabId: cid, reuso: true,
+        autorId: me.id, autor: me.nome, ts: serverTimestamp(), registroId: rec.id, itemId, itemRot: String(item.label).slice(0, 200) });
+      await auditNow('Evidência enviada', null, o.categoria + ' · ' + o.nome + ' (reaproveitada) · item ' + itemId);
       d.close(); toast('Arquivo reaproveitado neste item.'); route(); });
     $('#axf', d).onsubmit = guard(async ev => { ev.preventDefault(); const btn = $('#axs', d); btn.disabled = true;
       try { await enviarEvidencia($('#axfile', d).files[0], cur(rec).categoria, $('#axd', d).value.trim(), p => { $('#axst', d).textContent = 'Enviando… ' + p + '%'; },
           { registroId: rec.id, itemId, itemRot: item.label });
         d.close(); toast('Evidência anexada ao item.'); route(); }
       catch (e) { $('#axst', d).textContent = ''; btn.disabled = false; throw e; } }); });
-}
-function anexarTarefaModal(rec, task) {
-  modal(`<h3>Anexar evidência à tarefa</h3><p class="small muted">${esc(task.titulo)}</p>
-    <form id="ptf"><label for="ptfile">Arquivo *</label><input id="ptfile" type="file" required accept=".pdf,.txt,.docx,.jpg,.jpeg,.png,.webp">
-    <label for="ptd">Descrição *</label><input id="ptd" required maxlength="300" placeholder="O que comprova a conclusão?">
-    <div class="actions"><button class="primary" id="pts">Enviar</button><button type="button" id="ptc">Cancelar</button><span class="muted small" id="ptst"></span></div></form>`,
-  d => {
-    $('#ptc', d).onclick = () => d.close();
-    $('#ptf', d).onsubmit = guard(async e => {
-      e.preventDefault(); $('#pts', d).disabled = true;
-      try {
-        await enviarEvidencia($('#ptfile', d).files[0], 'Governança e Políticas', $('#ptd', d).value.trim(),
-          p => { $('#ptst', d).textContent = 'Enviando… ' + p + '%'; }, { registroId: rec.id, itemId: task.id, itemRot: task.titulo });
-        d.close(); toast('Evidência anexada à tarefa.'); route();
-      } catch (x) { $('#pts', d).disabled = false; throw x; }
-    });
-  });
 }
 async function renderEvid() {
   const lista = (await getDocs(evCol())).docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => tms(b.ts) - tms(a.ts));
@@ -1097,8 +934,8 @@ async function renderEvid() {
       $$('[data-open]', $('#evl')).forEach(b => b.onclick = guard(() => abrirEvidencia(lista.find(x => x.id === b.dataset.open))));
       $$('[data-del]', $('#evl')).forEach(b => b.onclick = () => { const e = lista.find(x => x.id === b.dataset.del); if (!e) return;
         confirmBox(`Excluir a evidência "${e.nome}"? O arquivo será apagado do servidor e não poderá ser recuperado.`, 'Excluir', async () => {
-          // O servidor apaga metadado, arquivo (se nenhum outro item o usa) e audita.
-          await call('deleteEvidence', { cid, id: e.id }); toast('Evidência excluída.'); route(); }); }); };
+          if (!lista.some(x => x.id !== e.id && x.path === e.path)) { try { await deleteObject(sRef(storage, e.path)); } catch (er) { if (!(er && er.code === 'storage/object-not-found')) throw er; } }
+          await deleteDoc(evDoc(e.id)); await auditNow('Evidência excluída', null, e.categoria + ' · ' + e.nome); toast('Evidência excluída.'); route(); }); }); };
     $('#evf').onchange = draw; draw();
     const f = $('#evup'); if (f) f.onsubmit = guard(async ev => { ev.preventDefault();
       const file = $('#evfile').files[0], btn = $('#evsend'), st = $('#evst'); if (!file) return toast('Escolha um arquivo.');
@@ -1174,28 +1011,31 @@ async function renderAudit() {
 }
 
 /* ---------- usuários (admin) ---------- */
-// Perfis, vínculos e nomes em pessoas/ são gravados pelas Functions adminSaveUser/adminSetUserActive/adminRemoveUser (com auditoria).
 const activeAdmins = () => db.users.filter(u => u.ativo && u.role === 'admin');
+function syncPessoas(b, uid, nome, role, ativo, ids, prevIds = []) {
+  const target = (role !== 'admin' && ativo) ? ids : [];
+  prevIds.filter(x => !target.includes(x)).forEach(c => b.delete(doc(fs, 'contabilidades', c, 'pessoas', uid)));
+  target.forEach(c => b.set(doc(fs, 'contabilidades', c, 'pessoas', uid), { nome }));
+}
 function renderUsers() {
   bind = () => {
     $('#nu').onclick = () => userForm();
     document.querySelectorAll('[data-u]').forEach(b => b.onclick = guard(() => userAction(b.dataset.a, db.users.find(u => u.id === b.dataset.u))));
   };
   const firms = u => u.role === 'admin' ? '<span class="muted">todas</span>' : ((u.contabilidades || []).map(contabNome).map(esc).join(', ') || '<span class="tag bad">nenhuma</span>');
-  const local = me.role === 'admin_local';
-  const roleOptions = Object.entries(ROLES).filter(([k]) => !local || ['consulta', 'edicao'].includes(k));
-  return `<div class="bar"><div><h1>Usuários</h1><p class="muted">${local ? 'Você administra apenas usuários comuns vinculados a esta contabilidade.' : 'O novo usuário recebe um e-mail para definir a própria senha; ninguém, nem o administrador, vê senhas. Administrador enxerga todas as contabilidades.'}</p></div><button class="primary" id="nu">+ Novo usuário</button></div>
+  return `<div class="bar"><div><h1>Usuários</h1><p class="muted">O novo usuário recebe um e-mail para definir a própria senha; ninguém, nem o administrador, vê senhas. Administrador enxerga todas as contabilidades; Consulta e Edição só as vinculadas.</p></div><button class="primary" id="nu">+ Novo usuário</button></div>
     <div class="card tablewrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Contabilidades</th><th>Situação</th><th></th></tr>
     ${db.users.slice().sort(byName).map(u => `<tr><td>${esc(u.nome)}${u.id === me.id ? ' <span class="tag brand">você</span>' : ''}</td><td>${esc(u.email)}</td><td>${ROLES[u.role] || esc(u.role)}</td><td>${firms(u)}</td>
     <td>${u.ativo ? '<span class="tag ok">ativo</span>' : '<span class="tag bad">bloqueado</span>'}</td>
-    <td class="actions" style="margin:0"><button data-u="${u.id}" data-a="edit">Editar</button>${!local ? '<button data-u="' + u.id + '" data-a="pw">Enviar redefinição de senha</button>' : ''}
+    <td class="actions" style="margin:0"><button data-u="${u.id}" data-a="edit">Editar</button><button data-u="${u.id}" data-a="pw">Enviar redefinição de senha</button>
     <button data-u="${u.id}" data-a="toggle">${u.ativo ? 'Bloquear' : 'Desbloquear'}</button><button class="danger" data-u="${u.id}" data-a="rm">Remover acesso</button></td></tr>`).join('')}</table></div>`;
 }
+const genPw = () => { const ch = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%'; return [...crypto.getRandomValues(new Uint8Array(24))].map(b => ch[b % ch.length]).join(''); };
 function userForm(u) {
   const have = new Set(u?.contabilidades || []);
   modal(`<h3>${u ? 'Editar usuário' : 'Novo usuário'}</h3><form id="uf"><label for="n">Nome *</label><input id="n" required maxlength="100" value="${esc(u?.nome)}">
     <label for="m">E-mail *</label><input id="m" type="email" required value="${esc(u?.email)}" ${u ? 'disabled' : ''}>
-    <label for="r">Perfil</label><select id="r">${roleOptions.map(([k, v]) => `<option value="${k}" ${u?.role === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    <label for="r">Perfil</label><select id="r">${Object.entries(ROLES).map(([k, v]) => `<option value="${k}" ${u?.role === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
     <div id="fw"><label>Contabilidades com acesso *</label>${db.contabs.length ? db.contabs.map(c => `<label style="font-weight:400;margin:.2rem 0"><input type="checkbox" style="width:auto" name="cb" value="${esc(c.id)}" ${have.has(c.id) ? 'checked' : ''}> ${esc(c.nome)}</label>`).join('') : '<p class="muted small">Cadastre contabilidades primeiro.</p>'}</div>
     <p class="muted small" id="adm" hidden>Administrador acessa todas as contabilidades.</p>
     <div class="actions"><button class="primary" id="sv">Salvar</button><button type="button" id="x">Cancelar</button></div></form>`, d => {
@@ -1211,11 +1051,17 @@ function userForm(u) {
       try {
         if (u) {
           if (u.role === 'admin' && role !== 'admin' && activeAdmins().length === 1) throw { message: 'Mantenha ao menos um administrador ativo.' };
-          await call('adminSaveUser', { uid: u.id, nome, role, contabilidades: ids });
+          const b = writeBatch(fs); b.update(doc(fs, 'users', u.id), { nome, role, contabilidades: ids });
+          syncPessoas(b, u.id, nome, role, u.ativo, ids, u.contabilidades || []);
+          auditOp(b, 'Usuário editado', null, `${u.email} · ${ROLES[u.role]} → ${ROLES[role]} · ${ids.map(contabNome).join(', ') || 'todas'}`); await b.commit();
         } else {
           const email = $('#m', d).value.toLowerCase().trim();
-          // A conta é criada no servidor (Admin SDK) com senha aleatória; o usuário define a dele pelo e-mail.
-          await call('adminSaveUser', { nome, email, role, contabilidades: ids });
+          const sec = initializeApp(firebaseConfig, 'sec' + Date.now()), sa = getAuth(sec);
+          const cred = await createUserWithEmailAndPassword(sa, email, genPw());
+          await signOut(sa);
+          const b = writeBatch(fs); b.set(doc(fs, 'users', cred.user.uid), { nome, email, role, ativo: true, contabilidades: ids, criado: serverTimestamp() });
+          syncPessoas(b, cred.user.uid, nome, role, true, ids, []);
+          auditOp(b, 'Usuário criado', null, `${email} · ${ROLES[role]} · ${ids.map(contabNome).join(', ') || 'todas'}`); await b.commit();
           await sendPasswordResetEmail(auth, email);
           toast('Usuário criado. Um e-mail para definir a senha foi enviado.');
         }
@@ -1226,17 +1072,20 @@ function userForm(u) {
 }
 async function userAction(a, u) {
   if (a === 'edit') return userForm(u);
-  if (a === 'pw') { await sendPasswordResetEmail(auth, u.email); await logEvent('Redefinição de senha enviada', { uid: u.id }); return toast('E-mail de redefinição enviado.'); }
+  if (a === 'pw') { await sendPasswordResetEmail(auth, u.email); await auditNow('Redefinição de senha enviada', null, u.email); return toast('E-mail de redefinição enviado.'); }
   if (a === 'toggle') {
     if (u.ativo && u.role === 'admin' && activeAdmins().length === 1) return toast('Mantenha ao menos um administrador ativo.');
     if (u.id === me.id) return toast('Você não pode bloquear a si mesmo.');
-    await call('adminSetUserActive', { uid: u.id, ativo: !u.ativo }); return route();
+    const b = writeBatch(fs); b.update(doc(fs, 'users', u.id), { ativo: !u.ativo });
+    syncPessoas(b, u.id, u.nome, u.role, !u.ativo, u.contabilidades || [], u.contabilidades || []);
+    auditOp(b, u.ativo ? 'Usuário bloqueado' : 'Usuário desbloqueado', null, u.email); await b.commit(); return route();
   }
   if (a === 'rm') {
     if (u.id === me.id) return toast('Você não pode remover a si mesmo.');
     if (u.ativo && u.role === 'admin' && activeAdmins().length === 1) return toast('Mantenha ao menos um administrador ativo.');
     confirmBox(`Remover o acesso de ${u.nome}? A conta de login continua existindo no Firebase (apague-a no console se necessário). Para uso temporário, prefira Bloquear.`, 'Remover acesso', async () => {
-      await call('adminRemoveUser', { uid: u.id }); route(); });
+      const b = writeBatch(fs); b.delete(doc(fs, 'users', u.id)); syncPessoas(b, u.id, u.nome, u.role, false, [], u.contabilidades || []);
+      auditOp(b, 'Acesso de usuário removido', null, u.email); await b.commit(); route(); });
   }
 }
 
@@ -1250,8 +1099,9 @@ function renderContabs() {
     const create = guard(async nome => {
       nome = nome.trim(); if (!nome) return toast('Informe o nome.');
       if ((db.contabsAll || db.contabs).some(c => c.nome.toLowerCase() === nome.toLowerCase())) return toast('Já existe uma contabilidade com este nome.');
-      await call('adminSaveContabilidade', { nome });
-      toast(nome + ' criada.'); await loadCore(); route();
+      const ref = doc(collection(fs, 'contabilidades')), b = writeBatch(fs);
+      b.set(ref, { nome, criado: serverTimestamp() }); auditOp(b, 'Contabilidade criada', null, nome); await b.commit();
+      toast(nome + ' criada.'); route();
     });
     $('#cf').onsubmit = e => { e.preventDefault(); create($('#cn').value); };
     $('#cnext').onclick = () => create(nextName());
@@ -1289,7 +1139,11 @@ function renderContabs() {
           const mudouCad = Object.keys(cad).some(k => (c[k] || '') !== cad[k]);
           const upd = { nome, ...cad }; if (novaLogo !== null) upd.logo = novaLogo;
           if (nome === c.nome && novaLogo === null && !mudouCad) return d.close();
-          await call('adminSaveContabilidade', { id: c.id, ...upd }); d.close(); await loadCore(); route(); });
+          const b = writeBatch(fs); b.update(doc(fs, 'contabilidades', c.id), upd);
+          if (nome !== c.nome) auditOp(b, 'Contabilidade renomeada', null, `${c.nome} → ${nome}`);
+          if (mudouCad) auditOp(b, 'Dados cadastrais da contabilidade alterados', null, nome);
+          if (novaLogo !== null) auditOp(b, novaLogo ? 'Logo da contabilidade alterada' : 'Logo da contabilidade removida', null, nome);
+          await b.commit(); d.close(); await loadCore(); route(); });
       });
     });
     document.querySelectorAll('[data-del]').forEach(btn => btn.onclick = () => {
@@ -1302,12 +1156,17 @@ function renderContabs() {
         $('#x', d).onclick = () => d.close();
         $('#dn', d).oninput = () => { $('#dok', d).disabled = $('#dn', d).value.trim() !== c.nome; };
         $('#dl', d).onsubmit = guard(async e => { e.preventDefault(); if ($('#dn', d).value.trim() !== c.nome) return;
-          await call('adminDeleteContabilidade', { id: c.id, confirmaNome: c.nome }); d.close(); toast(c.nome + ' excluída.'); await loadCore(); route(); });
+          const b = writeBatch(fs);
+          b.update(doc(fs, 'contabilidades', c.id), { excluida: true, excluidaEm: serverTimestamp() });
+          vinc.forEach(u => { b.update(doc(fs, 'users', u.id), { contabilidades: (u.contabilidades || []).filter(x => x !== c.id) }); b.delete(doc(fs, 'contabilidades', c.id, 'pessoas', u.id)); });
+          auditOp(b, 'Contabilidade excluída', null, c.nome + (vinc.length ? ` (acesso removido de: ${vinc.map(u => u.nome).join(', ')})` : ''));
+          await b.commit(); d.close(); toast(c.nome + ' excluída.'); await loadCore(); route(); });
       });
     });
     document.querySelectorAll('[data-res]').forEach(btn => btn.onclick = guard(async () => {
-      const c = db.contabsAll.find(x => x.id === btn.dataset.res);
-      await call('adminRestoreContabilidade', { id: c.id }); toast(c.nome + ' restaurada. Vincule os usuários novamente em Usuários.'); await loadCore(); route();
+      const c = db.contabsAll.find(x => x.id === btn.dataset.res); const b = writeBatch(fs);
+      b.update(doc(fs, 'contabilidades', c.id), { excluida: false });
+      auditOp(b, 'Contabilidade restaurada', null, c.nome); await b.commit(); toast(c.nome + ' restaurada. Vincule os usuários novamente em Usuários.'); await loadCore(); route();
     }));
   };
   return `<div class="bar"><div><h1>Contabilidades</h1><p class="muted">Cada contabilidade tem registros, versões e auditoria próprios, isolados no servidor. Vincule usuários em <a href="#/usuarios">Usuários</a>.</p></div></div>
@@ -1324,12 +1183,11 @@ function renderCats() {
   bind = () => {
     $('#cf').onsubmit = guard(async e => { e.preventDefault(); const v = $('#cn').value.trim();
       if (!v || db.categorias.includes(v)) return toast('Informe um nome novo.');
-      db.categorias = (await call('adminCategorias', { op: 'add', nome: v })).lista; route(); });
+      const b = writeBatch(fs); b.set(doc(fs, 'config', 'app'), { lista: [...db.categorias, v] }); auditOp(b, 'Categoria criada', null, v); await b.commit(); route(); });
     document.querySelectorAll('[data-rc]').forEach(btn => btn.onclick = guard(async () => {
       const n = btn.dataset.rc;
-      if (db.records.some(r => cur(r).categoria === n)) return toast('Categoria em uso por registros da contabilidade selecionada; não pode ser removida.');
-      // O servidor confere o uso em todas as contabilidades antes de remover.
-      db.categorias = (await call('adminCategorias', { op: 'remove', nome: n })).lista; route(); }));
+      if (db.records.some(r => cur(r).categoria === n)) return toast('Categoria em uso por registros da contabilidade selecionada; não pode ser removida. (Registros de outras contabilidades não são verificados.)');
+      const b = writeBatch(fs); b.set(doc(fs, 'config', 'app'), { lista: db.categorias.filter(x => x !== n) }); auditOp(b, 'Categoria removida', null, n); await b.commit(); route(); }));
   };
   return `<div class="bar"><div><h1>Categorias</h1><p class="muted">Lista única, compartilhada por todas as contabilidades.</p></div></div><div class="card"><form id="cf" class="row" style="align-items:end"><div><label for="cn" style="margin-top:0">Nova categoria</label><input id="cn" maxlength="80"></div><div><button class="primary">Adicionar</button></div></form></div>
     <div class="card tablewrap"><table>${catList().map(c => `<tr><td>${esc(c)}</td><td style="text-align:right"><button class="danger" data-rc="${esc(c)}">Remover</button></td></tr>`).join('')}</table></div>`;
@@ -1355,7 +1213,7 @@ function renderBackup() {
       try {
         const out = { versao_app: VERSION, gerado: new Date().toISOString(), categorias: db.categorias, contabilidade: await exportFirm(cid) };
         download(`lgpdsan-backup-${contabNome(cid).replace(/\W+/g, '-')}-${today()}.json`, toJson(out), 'application/json');
-        await logEvent('Backup exportado (contabilidade)', { cid });
+        await auditNow('Backup exportado (contabilidade)', null, contabNome(cid));
       } finally { $('#bk').disabled = false; }
     });
     $('#bka').onclick = guard(async () => {
@@ -1365,26 +1223,13 @@ function renderBackup() {
         for (const c of (db.contabsAll || db.contabs)) out.contabilidades.push(await exportFirm(c.id));
         out.auditoria_sistema = await loadSysAudit(5000);
         download('lgpdsan-backup-completo-' + today() + '.json', toJson(out), 'application/json');
-        await logEvent('Backup completo exportado');
+        await auditNow('Backup completo exportado', null, (db.contabsAll || db.contabs).length + ' contabilidade(s)');
       } finally { $('#bka').disabled = false; }
-    });
-    $('#mig').onclick = guard(async () => {
-      $('#mig').disabled = true;
-      try { const r = await call('adminMigrateLegacy', {});
-        $('#migst').textContent = `${r.evidencias} arquivo(s) de evidência registrados. ${r.registrosSemVersaoAtual.length ? r.registrosSemVersaoAtual.length + ' registro(s) sem a versão atual no histórico: ' + r.registrosSemVersaoAtual.join(', ') : 'Todos os registros têm a versão atual no histórico.'}`; }
-      finally { $('#mig').disabled = false; }
-    });
-    $('#limp').onclick = guard(async () => {
-      $('#limp').disabled = true;
-      try { const r = await call('adminCleanupEvidence', {}); $('#migst').textContent = `${r.reservas} reserva(s) vencida(s) e ${r.orfaos} arquivo(s) órfão(s) removidos.`; }
-      finally { $('#limp').disabled = false; }
     });
   };
   return `<div class="bar"><div><h1>Backup</h1></div></div>
     <div class="card"><h2>Contabilidade selecionada: ${esc(contabNome(cid))}</h2><p class="muted">Registros com todas as versões e a auditoria desta contabilidade. Trate o arquivo como dado sensível.</p><button class="primary" id="bk">Exportar esta contabilidade</button></div>
-    <div class="card"><h2>Todas as contabilidades</h2><p class="muted">Inclui usuários, categorias e auditoria do sistema. Importação automática e política de retenção ficam para versões futuras.</p><button id="bka">Exportar tudo</button></div>
-    <div class="card"><h2>Manutenção do servidor</h2><p class="muted">Migrar dados legados: registra no servidor as evidências enviadas antes da v2.33.0 (sem isso elas não abrem) e lista registros cuja versão atual não está no histórico. Pode ser executada mais de uma vez. A limpeza de envios pendentes também roda sozinha a cada hora.</p>
-      <div class="actions"><button id="mig">Migrar dados legados</button><button id="limp">Limpar envios pendentes</button></div><p class="small" id="migst" aria-live="polite"></p></div>`;
+    <div class="card"><h2>Todas as contabilidades</h2><p class="muted">Inclui usuários, categorias e auditoria do sistema. Importação automática e política de retenção ficam para versões futuras.</p><button id="bka">Exportar tudo</button></div>`;
 }
 
 /* ---------- sobre ---------- */
@@ -1553,8 +1398,8 @@ async function renderTermo() {
 
 function renderAbout() {
   return `<div class="bar"><div><h1>Sobre</h1><p class="muted">LGPDSAN v${VERSION}</p></div></div>
-    <div class="card"><h2>Como a segurança funciona</h2><p>Login pelo Firebase Authentication. Permissões, isolamento entre contabilidades e auditoria são <b>aplicados no servidor</b>: o navegador só lê pelas Regras do Firestore, e toda gravação importante (registros, versões, aprovação, evidências, usuários, contabilidades) passa por Cloud Functions, que conferem perfil, papel e vínculo. Esconder um botão na tela não é a proteção.</p>
-    <ul><li>Dados no Firestore, região São Paulo.</li><li>Cada contabilidade é isolada: usuários só leem e gravam nas contabilidades a que estão vinculados. Somente o Administrador acessa todas.</li><li>Auditoria gerada pelo servidor, com lista fechada de ações: o navegador não grava eventos, e ninguém altera ou apaga eventos pelo app.</li><li>Cada edição cria a próxima versão na mesma operação; versões são imutáveis e só a exclusão permanente do registro as remove.</li><li>Evidências: o servidor reserva cada envio, confere o arquivo depois do upload e só então o libera para leitura; envios abandonados são limpos automaticamente.</li><li>Única consulta externa feita pelo navegador: ao digitar um CNPJ válido (checklist de Contratos e Operadores, cadastro de Contabilidades e Termo de Ciência), o CNPJ (somente ele) é enviado à BrasilAPI ou, se ela falhar, ao CNPJ.ws, que devolvem dados públicos da Receita Federal.</li>
+    <div class="card"><h2>Como a segurança funciona</h2><p>Login pelo Firebase Authentication. Permissões, isolamento entre contabilidades e auditoria são <b>aplicados no servidor</b> pelas Regras do Firestore; esconder um botão na tela não é a proteção.</p>
+    <ul><li>Dados no Firestore, região São Paulo.</li><li>Cada contabilidade é isolada: usuários só leem e gravam nas contabilidades a que estão vinculados. Somente o Administrador acessa todas.</li><li>Auditoria somente de criação: nem o administrador altera eventos pelo app.</li><li>Versões de registros são imutáveis; só a exclusão permanente do registro as remove.</li><li>Única consulta externa feita pelo navegador: ao digitar um CNPJ válido (checklist de Contratos e Operadores, cadastro de Contabilidades e Termo de Ciência), o CNPJ (somente ele) é enviado à BrasilAPI ou, se ela falhar, ao CNPJ.ws, que devolvem dados públicos da Receita Federal.</li>
 <li>Atualizações ANPD: as publicações de gov.br/anpd são baixadas por um serviço (GitHub Actions), não pelo navegador. Nenhum dado do usuário sai do sistema.</li></ul></div>
     <div class="card"><h2>Como calculamos a pontuação do checklist</h2>
     <ul><li><b>Declarado</b>: soma ponderada das respostas. Conforme vale 1, Parcial vale 0,5, Não conforme e sem avaliação valem 0. N/A sai do cálculo.</li>
@@ -1581,7 +1426,7 @@ onAuthStateChanged(auth, async u => {
     if (!s.exists() || !s.data().ativo) { me = null; await signOut(auth); return renderLogin('Conta sem acesso ao sistema. Procure o administrador.'); }
     me = { id: u.uid, ...s.data() };
     me.tema = temaDe(me); applyTheme(me.tema); lsSet('lgpdsan:tema', me.tema);
-    if (justSignedIn) { justSignedIn = false; try { await logEvent('Login'); } catch (e) { console.error(e); } }
+    if (justSignedIn) { justSignedIn = false; try { await auditNow('Login'); } catch (e) { console.error(e); } }
     route();
   } catch (e) { console.error(e); me = null; await signOut(auth); renderLogin('Não foi possível validar o acesso: ' + errMsg(e)); }
 });
