@@ -16,6 +16,8 @@
 - [ ] Upload seguro de anexos com classificação de acesso
 - [ ] Retenção e backup automáticos
 ## v2.1+
+- [x] Diagnóstico guiado inicial ("Comece por aqui") reaproveitando o backend de registros, versionamento e auditoria
+- [x] Configuração versionada do diagnóstico, administração local e plano de ação condicional
 - [ ] Notificações por e-mail (prazos, atribuições)
 - [ ] Links de compartilhamento temporários
 - [ ] Exportação PDF/XLSX nativa e relatórios executivos

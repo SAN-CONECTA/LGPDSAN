@@ -5,6 +5,8 @@ service-account*.json
 *.credentials.json
 .env
 .env.*
+# Exceção: nome do bucket das Functions por projeto (configuração pública, não é segredo).
+!functions/.env.lgpdsan
 
 # Artefatos de Python
 __pycache__/
@@ -14,3 +16,12 @@ __pycache__/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+database-debug.log
+pubsub-debug.log
+storage-debug.log
+firebase-export-*/
+
+# Dependências (Functions e ferramentas de teste)
+node_modules/
+test-results/
+playwright-report/

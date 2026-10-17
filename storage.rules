@@ -1,23 +1,36 @@
 rules_version = '2';
-// Regras do Firebase Storage (Build > Storage > Regras). Consultam o Firestore para saber o perfil e as contabilidades do usuário.
+// Regras do Firebase Storage. Consultam o Firestore: o perfil do usuário e o documento do arquivo
+// (contabilidades/{cid}/evidenciasArquivos/{evidenceId}), criado só pela Function reserveEvidence.
 service firebase.storage {
   match /b/{bucket}/o {
     function perfil() { return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
-    // Sem firestore.exists(): se o perfil não existir, firestore.get falha e o acesso é negado do mesmo jeito.
+    // Sem firestore.exists(): se o documento não existir, firestore.get falha e o acesso é negado do mesmo jeito.
     function ativo() { return request.auth != null && perfil().ativo == true; }
     function vinculado(cid) { return cid in perfil().get('contabilidades', []); }
     function podeLer(cid) { return ativo() && (perfil().role == 'admin' || vinculado(cid)); }
     function podeEnviar(cid) { return ativo() && (perfil().role == 'admin' || (perfil().role == 'edicao' && vinculado(cid))); }
+    function arquivo(cid, evId) { return firestore.get(/databases/(default)/documents/contabilidades/$(cid)/evidenciasArquivos/$(evId)).data; }
 
-    // Evidências: evidencias/{contabilidade}/{id da evidência}/{arquivo}
+    // Evidências: evidencias/{contabilidade}/{evidenceId}/{arquivo}
     match /evidencias/{cid}/{evId}/{nome} {
-      allow read: if podeLer(cid);
+      // Leitura: só arquivo pronto (finalizado pelo servidor), no caminho exato registrado, para quem tem acesso à contabilidade.
+      allow read: if podeLer(cid)
+        && arquivo(cid, evId).status == 'ready'
+        && arquivo(cid, evId).path == 'evidencias/' + cid + '/' + evId + '/' + nome;
+      // Upload: só com reserva pendente e válida do próprio usuário, no caminho, tamanho e tipo reservados.
       allow create: if podeEnviar(cid)
+        && arquivo(cid, evId).status == 'pending'
+        && arquivo(cid, evId).autorId == request.auth.uid
+        && arquivo(cid, evId).contabId == cid
+        && arquivo(cid, evId).path == 'evidencias/' + cid + '/' + evId + '/' + nome
+        && request.time < arquivo(cid, evId).expiraEm
+        && request.resource.size == arquivo(cid, evId).tamanho
+        && request.resource.contentType == arquivo(cid, evId).contentType
         && request.resource.size > 0 && request.resource.size <= 10 * 1024 * 1024
         && request.resource.contentType in ['application/pdf', 'text/plain', 'image/jpeg', 'image/png', 'image/webp',
              'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-      allow update: if false;
-      allow delete: if ativo() && perfil().role == 'admin';
+      // Sobrescrever e excluir: nunca pelo app. A exclusão é feita pela Function deleteEvidence (com auditoria).
+      allow update, delete: if false;
     }
   }
 }

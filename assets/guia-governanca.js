@@ -6,30 +6,8 @@ const G = (id, label, ajuda, extra = false) => ({ id, tipo: 'sn', label, ajuda, 
 
 const nom = d => /^Nomeado/.test((d || {}).encSit || '');
 const disp = d => /^Dispensado/.test((d || {}).encSit || '');
-const PORTE_OK = ['Microempresa (ME)', 'Empresa de pequeno porte (EPP)', 'MEI'];
-// Resultado sugerido do diagnóstico (não é decisão: as faixas de volume são convenção interna; validar com advogado).
-export function resultadoEnq(d) {
-  d = d || {};
-  const porte = (d.dgLimite === 'Não' || d.dgGrupo === 'Sim' || d.dgPorte === 'Demais') ? 'fora'
-    : (PORTE_OK.includes(d.dgPorte) && d.dgLimite === 'Sim' && d.dgGrupo === 'Não') ? 'ok' : 'indef';
-  const f = d.dgTitulares, geral = f === 'Acima de 5.000' ? 'sim' : f === 'De 500 a 5.000' ? 'talvez' : f === 'Até 500' ? 'nao' : 'indef';
-  const esp = ['dgSaude', 'dgSind', 'dgBio', 'dgIA', 'dgMonit', 'dgDecis'].map(k => d[k]);
-  const especifico = esp.some(v => v === 'Sim') ? 'sim' : esp.some(v => !v || v === 'Não sei') ? 'indef' : 'nao';
-  const risco = geral === 'sim' && especifico === 'sim' ? 'alto' : geral === 'talvez' && especifico === 'sim' ? 'cinza'
-    : (geral === 'nao' || especifico === 'nao') ? 'baixo' : 'indef';
-  let nivel, titulo;
-  if (risco === 'alto') { nivel = 'alto'; titulo = 'Indício de alto risco: a dispensa não vale. Nomear encarregado tende a ser obrigatório.'; }
-  else if (risco === 'cinza') { nivel = 'cinza'; titulo = 'Zona cinza: dado sensível com volume intermediário. Nomear é a opção mais segura; decidir com apoio jurídico.'; }
-  else if (risco === 'baixo' && porte === 'ok') { nivel = 'dispensa'; titulo = 'Dispensa possível: pequeno porte e sem indício de alto risco. Recomenda-se designar um responsável pelo canal de atendimento.'; }
-  else if (risco === 'baixo' && porte === 'fora') { nivel = 'nomear'; titulo = 'Fora do regime de pequeno porte: a dispensa não vale. Nomear encarregado.'; }
-  else { nivel = 'incompleto'; titulo = 'Diagnóstico incompleto: responda os itens em branco ou com "Não sei".'; }
-  const linhas = [];
-  linhas.push('Porte: ' + (porte === 'ok' ? 'pequeno porte confirmado (porte, limite de receita e grupo econômico).' : porte === 'fora' ? 'fora do regime de pequeno porte.' : 'não confirmado.'));
-  linhas.push('Volume (larga escala): ' + (geral === 'sim' ? 'alto.' : geral === 'talvez' ? 'intermediário.' : geral === 'nao' ? 'baixo.' : 'não informado.'));
-  linhas.push('Critério específico (dado sensível, tecnologia nova, vigilância, decisão automatizada): ' + (especifico === 'sim' ? 'presente.' : especifico === 'nao' ? 'ausente.' : 'não confirmado.'));
-  if (d.dgExigiu === 'Sim') linhas.push('Cliente já exigiu encarregado em contrato: pode valer mesmo com a dispensa legal.');
-  return { nivel, titulo, linhas, aviso: 'Sugestão calculada das respostas, com faixas internas (não são da lei). Se o escritório é operador dos dados dos clientes, a obrigação do art. 41 é do controlador: validar com advogado.' };
-}
+import { resultadoEnq } from './diagnostico.mjs';
+export { resultadoEnq };
 
 export const GUIA_GOVERNANCA = {
   titulo: 'Governança e Políticas',

@@ -9,33 +9,13 @@ service cloud.firestore {
     function myContabs() { return get(uPath()).data.get('contabilidades', []); }
     // Acesso a uma contabilidade: Administrador (todas) ou usuário vinculado a ela.
     function hasContab(cid) { return isAdmin() || (active() && cid in myContabs()); }
-    // Escrita em uma contabilidade: Administrador ou usuário de Edição vinculado.
-    function canEditIn(cid) { return isAdmin() || (active() && role() == 'edicao' && cid in myContabs()); }
 
-    // Aprovação formal: só o administrador altera, e só para a versão que está gravando, com o próprio nome e a hora do servidor.
-    function aprovOk() {
-      return request.resource.data.get('aprovacao', null) == resource.data.get('aprovacao', null)
-        || (isAdmin() && request.resource.data.aprovacao.porId == request.auth.uid
-            && request.resource.data.aprovacao.versao == request.resource.data.versao
-            && request.resource.data.aprovacao.em == request.time);
-    }
-
-    function validSnap(s) {
-      return s.titulo is string && s.titulo.size() > 0 && s.titulo.size() <= 200
-        && s.descricao is string && s.descricao.size() <= 20000
-        && s.evidencias is string && s.evidencias.size() <= 5000
-        && s.status in ['Rascunho', 'Em vigor', 'Em revisão', 'Arquivado']
-        && s.prioridade in ['Baixa', 'Média', 'Alta']
-        && s.categoria is string && s.responsavel is string && s.prazo is string
-        && s.get('revisao', '') is string && s.get('revisao', '').size() <= 10
-        && s.get('dados', {}) is map && s.get('dados', {}).size() <= 250;
-    }
-
-    // Perfis. Cada usuário lê o próprio; só o administrador lista e altera.
+    // Perfis. Cada usuário lê o próprio; só o administrador lista. Alterações pelas Functions (exceto o tema).
     match /users/{uid} {
       allow get: if request.auth != null && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
-      allow create, update, delete: if isAdmin();
+      // Criação, edição, bloqueio e remoção de perfis: só pelas Functions (adminSaveUser etc.), que auditam.
+      allow create, delete: if false;
       // Cada usuário pode alterar apenas a própria preferência de tema (auto, claro, escuro e temas de cor).
       allow update: if request.auth != null && request.auth.uid == uid && active()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tema'])
@@ -56,103 +36,86 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Categorias: alteradas só pela Function adminCategorias (com auditoria).
     match /config/{doc} {
       allow read: if active();
-      allow write: if isAdmin() && request.resource.data.lista is list;
+      allow write: if false;
+      match /versoes/{n} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
     }
 
-    // Auditoria do SISTEMA (login, usuários, contabilidades, categorias): só o administrador lê; ninguém edita ou apaga.
+    // Auditoria do SISTEMA (login, usuários, contabilidades, categorias): só o administrador lê.
+    // Gravada exclusivamente pelas Cloud Functions (Admin SDK), com lista fechada de ações. Ninguém grava, edita ou apaga pelo app.
     match /auditoria/{id} {
       allow read: if isAdmin();
-      allow create: if active()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.ts == request.time
-        && request.resource.data.user == get(uPath()).data.nome
-        && request.resource.data.role == role()
-        && request.resource.data.escopo == 'sistema'
-        && request.resource.data.acao is string;
-      allow update, delete: if false;
+      allow write: if false;
     }
 
     // Tudo de uma contabilidade fica sob contabilidades/{cid}; o isolamento vem do caminho.
     match /contabilidades/{cid} {
       allow get: if hasContab(cid);
       allow list: if isAdmin();
-      allow create, update: if isAdmin() && request.resource.data.nome is string
-        && request.resource.data.nome.size() > 0 && request.resource.data.nome.size() <= 100
-        && (!('logo' in request.resource.data) || (request.resource.data.logo is string && request.resource.data.logo.size() <= 300000))
-        && (!('razaoSocial' in request.resource.data) || (request.resource.data.razaoSocial is string && request.resource.data.razaoSocial.size() <= 200))
-        && (!('cnpj' in request.resource.data) || (request.resource.data.cnpj is string && request.resource.data.cnpj.size() <= 18))
-        && (!('endereco' in request.resource.data) || (request.resource.data.endereco is string && request.resource.data.endereco.size() <= 300))
-        && (!('canalPrivacidade' in request.resource.data) || (request.resource.data.canalPrivacidade is string && request.resource.data.canalPrivacidade.size() <= 200));
+      // Criação, edição, exclusão lógica e restauração: só pelas Functions (adminSaveContabilidade etc.).
+      allow create, update: if false;
       allow delete: if false;
 
       // Nomes das pessoas da contabilidade (campo Responsável). Mantido pelo administrador.
       match /pessoas/{uid} {
         allow read: if hasContab(cid);
-        allow write: if isAdmin();
+        allow write: if false; // mantido pelas Functions de usuários
       }
 
+      // Registros e versões: o navegador só lê. Criar, editar, restaurar versão, aprovar e excluir passam
+      // pelas Functions (saveRecord, restoreRecordVersion, approveRecord, softDeleteRecord, hardDeleteRecord),
+      // que gravam registro + próxima versão + auditoria na mesma transação.
       match /registros/{id} {
         allow read: if hasContab(cid) && (resource.data.deleted == false || isAdmin());
-        allow create: if canEditIn(cid)
-          && validSnap(request.resource.data.snap)
-          && request.resource.data.versao == 1
-          && request.resource.data.deleted == false
-          && !('aprovacao' in request.resource.data)
-          && (isAdmin() || request.resource.data.snap.status != 'Arquivado');
-        allow update: if (isAdmin() && validSnap(request.resource.data.snap) && aprovOk())
-          || (canEditIn(cid) && role() == 'edicao'
-              && resource.data.deleted == false && request.resource.data.deleted == false
-              && resource.data.snap.status != 'Arquivado' && request.resource.data.snap.status != 'Arquivado'
-              && validSnap(request.resource.data.snap)
-              && request.resource.data.get('aprovacao', null) == resource.data.get('aprovacao', null)
-              && request.resource.data.versao == resource.data.versao + 1);
-        allow delete: if isAdmin();
+        allow write: if false;
 
-        // Versões são imutáveis; só o administrador apaga (exclusão permanente do registro).
+        // Versões são imutáveis e só o servidor as cria.
         match /versoes/{n} {
           allow read: if hasContab(cid)
             && (get(/databases/$(database)/documents/contabilidades/$(cid)/registros/$(id)).data.deleted == false || isAdmin());
-          allow create: if canEditIn(cid) && request.resource.data.autorId == request.auth.uid
-            && validSnap(request.resource.data.snap);
-          allow update: if false;
-          allow delete: if isAdmin();
+          allow write: if false;
         }
       }
 
-      // Evidências (metadados; o arquivo fica no Firebase Storage, ver storage.rules).
-      // Edição/admin enviam; ninguém altera; só o administrador exclui.
+      // Evidências (metadados listados na tela). Criadas na finalização do upload e apagadas pela Function deleteEvidence.
       match /evidencias/{id} {
         allow read: if hasContab(cid);
-        allow create: if canEditIn(cid)
-          && request.resource.data.autorId == request.auth.uid
-          && request.resource.data.contabId == cid
-          && request.resource.data.ts == request.time
-          && request.resource.data.categoria is string && request.resource.data.categoria.size() <= 100
-          && request.resource.data.descricao is string && request.resource.data.descricao.size() > 0 && request.resource.data.descricao.size() <= 300
-          && request.resource.data.nome is string && request.resource.data.nome.size() <= 200
-          && request.resource.data.tamanho is int && request.resource.data.tamanho > 0 && request.resource.data.tamanho <= 10485760
-          && (!('registroId' in request.resource.data) || (request.resource.data.registroId is string && request.resource.data.registroId.size() <= 100
-              && request.resource.data.itemId is string && request.resource.data.itemId.size() <= 100
-              && request.resource.data.itemRot is string && request.resource.data.itemRot.size() <= 200))
-          && request.resource.data.path is string && request.resource.data.path.matches('evidencias/' + cid + '/.*');
-        allow update: if false;
-        allow delete: if isAdmin();
+        allow write: if false;
       }
 
-      // Auditoria da contabilidade: quem tem acesso lê; edição/admin criam; ninguém edita ou apaga.
+      // Reservas/arquivos de evidência (pending → ready). Só o servidor lê e grava; o storage.rules consulta este
+      // documento para aceitar o upload (reserva pendente do próprio usuário) e para servir o arquivo (pronto).
+      match /evidenciasArquivos/{id} {
+        allow read, write: if false;
+      }
+
+      // Auditoria da contabilidade: quem tem acesso lê; só as Functions gravam; ninguém edita ou apaga.
       match /auditoria/{id} {
         allow read: if hasContab(cid);
-        allow create: if canEditIn(cid)
-          && request.resource.data.userId == request.auth.uid
-          && request.resource.data.ts == request.time
-          && request.resource.data.user == get(uPath()).data.nome
-          && request.resource.data.role == role()
-          && request.resource.data.escopo == 'registro'
-          && request.resource.data.contabId == cid
-          && request.resource.data.acao is string;
-        allow update, delete: if false;
+        allow write: if false;
+      }
+
+      match /configDiagnostico/{doc} {
+        allow read: if hasContab(cid);
+        allow write: if false;
+        match /versoes/{n} {
+          allow read: if hasContab(cid);
+          allow write: if false;
+        }
+      }
+
+      match /planosAcao/{recordId} {
+        allow read: if hasContab(cid);
+        allow write: if false;
+        match /versoes/{n} {
+          allow read: if hasContab(cid);
+          allow write: if false;
+        }
       }
     }
   }

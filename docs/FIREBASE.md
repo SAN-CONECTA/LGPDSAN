@@ -1,21 +1,25 @@
 # Configuração do Firebase (projeto `lgpdsan`)
 
 ## Modelo de dados (Firestore, região southamerica-east1)
+> Desde a v2.33.0 o navegador só lê as coleções abaixo (exceto o próprio `tema` e `anpdLidas`); as gravações passam pelas Cloud Functions. Ver `docs/FUNCTIONS.md`.
+
 - `users/{uid}`: nome, email, role (`consulta`|`edicao`|`admin`), ativo, contabilidades [ids], criado
 - `config/app`: lista (categorias, compartilhada)
-- `auditoria/{id}`: eventos do SISTEMA (login, usuários, contabilidades, categorias). Só admin lê.
+- `auditoria/{id}`: eventos do SISTEMA (login, usuários, contabilidades, categorias). Só admin lê; só as Functions gravam.
 - `anpd/{pubId}`: publicações oficiais da ANPD (url, titulo, descricao, data, fonte, criadoEm, atualizadoEm). Só leitura para usuários; escrita pelo serviço de sincronização (Admin SDK).
   - `users/{uid}/anpdLidas/{pubId}`: status de leitura por usuário (quando). Cada usuário lê e grava apenas o próprio.
 - `contabilidades/{cid}`: nome, criado
   - `pessoas/{uid}`: nome (alimenta o campo Responsável)
   - `registros/{id}`: snap{titulo,categoria,descricao,status,prioridade,responsavel,prazo,evidencias}, versao, deleted, criado, criadoPor, atualizado
     - `versoes/{n}`: n, snap, autor, autorId, quando, just (imutável)
-  - `auditoria/{id}`: ts, userId, user, role, acao, recId, recTitulo, detalhe, escopo=`registro`, contabId (só criação)
+  - `evidencias/{id}`: metadados das evidências (categoria, descricao, nome, tipo, tamanho, path, arquivoId, autor, ts, registroId/itemId)
+  - `evidenciasArquivos/{evidenceId}`: reserva/arquivo (pending → ready). Só o servidor lê e grava; o storage.rules consulta
+  - `auditoria/{id}`: ts, userId, user, role, acao, recId, recTitulo, detalhe, escopo=`registro`, contabId, fonte (gravada só pelas Functions)
 
 Isolamento: o caminho `contabilidades/{cid}/...` + `cid in users/{uid}.contabilidades` nas regras. Administrador acessa todas.
 
 ## Checklist de ativação
-1. Firestore → Regras → colar o conteúdo de `firestore.rules` → Publicar.
+1. Publicar Functions, índices e regras pelo CLI, na ordem de `docs/FUNCTIONS.md` (`npx firebase deploy --project lgpdsan --only ...`).
 2. Authentication → Modelos (Templates) → Redefinição de senha → idioma Português (Brasil).
 3. Restringir a chave de API: console.cloud.google.com → APIs e serviços → Credenciais → "Browser key" →
    Restrições de aplicativo: Sites (referenciadores HTTP) → `https://lgpd.sanconecta.com/*` e `https://san-conecta.github.io/*` (e `http://localhost:*` se testar local).
@@ -31,16 +35,20 @@ Isolamento: o caminho `contabilidades/{cid}/...` + `cid in users/{uid}.contabili
 | usuário da Contabilidade 01 | get contabilidades/<id da 02>/registros/x | negado |
 | usuário da Contabilidade 01 | create em contabilidades/<id da 02>/registros/x | negado |
 | edicao | list users | negado |
-| edicao | update registro com versao != atual+1 | negado |
+| edicao | update registro (qualquer) | negado (só pela Function saveRecord) |
+| edicao | create versoes/n | negado |
+| qualquer | create em auditoria | negado (só Functions) |
 | edicao | update registro Arquivado | negado |
 | edicao | delete registros/x | negado |
 | qualquer | update/delete em qualquer auditoria | negado |
-| admin | delete registros/x | permitido |
+| admin | delete registros/x | negado (só pela Function hardDeleteRecord) |
+
+Os mesmos casos, e outros, estão automatizados em `tests/` (`npm test`).
 
 ## Observações
 - A chave `apiKey` do app web é pública por desenho; a proteção é feita pelas regras e pela restrição de domínio.
 - Remover acesso de um usuário apaga só `users/{uid}`; a conta de login continua no Authentication.
-- Sem Cloud Functions. O menu Evidências usa o Firebase Storage (seção abaixo), que exige o plano Blaze.
+- Cloud Functions desde a v2.33.0 (`functions/`, ver `docs/FUNCTIONS.md`). O menu Evidências usa o Firebase Storage (seção abaixo); ambos exigem o plano Blaze.
 
 ## Domínio próprio (lgpd.sanconecta.com)
 1. DNS de `sanconecta.com`: registro **CNAME**, nome `lgpd`, valor `san-conecta.github.io`.
@@ -52,7 +60,7 @@ Isolamento: o caminho `contabilidades/{cid}/...` + `cid in users/{uid}.contabili
 O menu **Evidências** guarda os arquivos no Storage e os dados (categoria, descrição, autor, data) no Firestore.
 1. Firebase Console → **Upgrade** para o plano **Blaze** (exige cartão; há cota gratuita mensal). Em seguida, em Orçamentos e alertas (Google Cloud → Faturamento), crie um alerta de valor baixo (ex.: R$ 20) para ser avisado se algo sair do esperado.
 2. Build → **Storage** → Começar. Escolha o local `southamerica-east1` (São Paulo) e o modo de produção. O bucket deve ser o de `storageBucket` em `assets/firebase-config.js`.
-3. Storage → aba **Regras** → colar o conteúdo de `storage.rules` → **Publicar**. Se pedir permissão para o Storage consultar o Firestore, aceite: as regras usam o perfil do usuário.
+3. Publicar `storage.rules` (desde a v2.33.0, pelo CLI: `npx firebase deploy --project lgpdsan --only storage`). Se pedir permissão para o Storage consultar o Firestore, aceite: as regras usam o perfil do usuário.
 4. Firestore → **Regras** → colar o `firestore.rules` atualizado (nova seção `evidencias`) → Publicar.
 5. Teste: Administrador envia um PDF, abre e exclui; Edição envia; Consulta só abre; usuário de outra contabilidade não vê.
 
