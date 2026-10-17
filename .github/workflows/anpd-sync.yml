@@ -10,7 +10,12 @@ permissions:
   contents: read
 
 jobs:
+  # Nada é gravado em produção sem os testes passarem.
+  testes:
+    uses: ./.github/workflows/testes.yml
+
   sync:
+    needs: testes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,8 +38,8 @@ jobs:
           echo "$FIREBASE_SERVICE_ACCOUNT" | base64 -d > "$RUNNER_TEMP/service-account.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
 
-      - name: Sincronizar publicações no Firestore
-        run: python3 scripts/anpd_sync.py
-
       - name: Testes da sincronização (dry-run, sem gravar)
         run: python3 scripts/anpd_sync.py --dry-run
+
+      - name: Sincronizar publicações no Firestore
+        run: python3 scripts/anpd_sync.py
