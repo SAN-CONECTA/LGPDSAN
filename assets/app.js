@@ -11,7 +11,7 @@ import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ap
 
 import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.40.0';
+const VERSION = '2.41.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -495,6 +495,12 @@ async function renderDash() {
   const od = rs.filter(overdue);
   const rv = rs.filter(r => revInfo(r)).sort((a, b) => cur(a).revisao.localeCompare(cur(b).revisao)), sa = rs.filter(semAprov);
   const mine = rs.filter(r => cur(r).responsavel === me.nome && cur(r).status !== 'Arquivado');
+  let minhasAcoes = [];
+  try { minhasAcoes = (await getDocs(acaoCol())).docs.map(d => ({ id: d.id, ...d.data() })).filter(a => a.responsavel === me.nome && a.status !== 'Concluída'); } catch (e) {}
+  const emSeteDias = new Date(); emSeteDias.setDate(emSeteDias.getDate() + 7);
+  const limiteSemana = emSeteDias.toISOString().slice(0, 10);
+  minhasAcoes.sort((a, b) => String(a.prazo || '9999').localeCompare(String(b.prazo || '9999')));
+  const semana = minhasAcoes.filter(a => !a.prazo || a.prazo <= limiteSemana);
   const recent = (await loadAudit(8)).slice(0, 6);
   const trilha = catList();
   const proximaCategoria = trilha.find(c => !rs.some(r => cur(r).categoria === c && cur(r).status === 'Em vigor')) || trilha[0];
@@ -526,7 +532,8 @@ async function renderDash() {
     </div><aside class="dashboard-secondary">
       ${anpdCard}
       <div class="card"><h2><span aria-hidden="true">🛡️</span> Em vigor sem aprovação atual</h2>${sa.length ? miniTable(sa) : '<p class="muted">Todos os registros em vigor têm a versão atual aprovada.</p>'}</div>
-      <div class="card"><h2><span aria-hidden="true">👤</span> Atribuídos a mim</h2>${mine.length ? miniTable(mine) : '<p class="muted">Nada atribuído a você.</p>'}</div>
+      <div class="card"><h2><span aria-hidden="true">📅</span> Minha semana</h2>${semana.length ? semana.slice(0, 5).map(a => `<div class="fieldrow small"><b>${esc(a.titulo)}</b>${a.prazo ? ` <span class="tag ${a.prazo < today() ? 'bad' : 'warn'}">${a.prazo < today() ? 'vencida' : fmtD(a.prazo)}</span>` : ''}<br><span class="muted">${esc(a.registroTitulo)} · ${esc(a.status)}</span></div>`).join('') + `<div class="actions" style="margin-top:.5rem"><a class="btn" href="#/plano-acao">Ver plano de ação</a></div>` : '<p class="muted">Nenhuma ação para os próximos 7 dias.</p>'}</div>
+      <div class="card"><h2><span aria-hidden="true">👤</span> Registros atribuídos a mim</h2>${mine.length ? miniTable(mine) : '<p class="muted">Nada atribuído a você.</p>'}</div>
       <div class="card"><h2><span aria-hidden="true">🕘</span> Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted">Sem atividade.</p>'}</div>
     </aside></div>`;
 }
@@ -758,7 +765,7 @@ function checklistView(g, dados, rec) {
     if (rec && v && v !== 'N/A') {
       const evs = evDe(rec.id, i.id), est = dd[i.id + '#e'];
       if (crit.has(i.id) && v === 'Conforme') h += `<div class="small">Estágio: <b>${esc(est || 'Redigido (não informado)')}</b></div>`;
-      h += `<div class="small evrow">${evs.length ? 'Evidências: ' + evs.map(evBtn).join(' · ') : (v === 'Conforme' ? '<span class="tag warn">sem evidência</span>' : '')}${can.editRec(rec) && db.evidOk ? ` <button data-anexar="${esc(i.id)}">+ Evidência</button>` : ''}</div>`;
+      h += `<div class="small evrow">${evs.length ? 'Evidências: ' + evs.map(evBtn).join(' · ') : (v === 'Conforme' ? '<span class="tag warn">sem evidência</span>' : '')}${can.editRec(rec) && db.evidOk ? ` <button data-anexar="${esc(i.id)}">+ Evidência</button>` : ''}${can.editRec(rec) ? ` <button data-criar-acao="${esc(i.id)}">+ Plano de ação</button>` : ''}</div>`;
     }
     return h;
   };
@@ -858,6 +865,7 @@ async function renderRecord(id) {
     const reload = () => route();
     $$('[data-evopen]').forEach(b => b.onclick = guard(() => abrirEvidencia(db.evid.find(x => x.id === b.dataset.evopen))));
     $$('[data-anexar]').forEach(b => b.onclick = () => anexarModal(rec, b.dataset.anexar));
+    $$('[data-criar-acao]').forEach(b => b.onclick = () => { const item = guia && itensDe(guia).find(i => i.id === b.dataset.criarAcao); acaoForm(rec, item); });
     const e = $('#edit'); if (e) e.onclick = () => recordForm(rec);
     const ap = $('#aprov'); if (ap) ap.onclick = () => confirmBox(`Aprovar formalmente a v${rec.versao} deste registro? Ficam registrados seu nome, a data e a versão. Qualquer edição posterior exigirá nova aprovação.`, 'Aprovar', async () => {
       const b = writeBatch(fs); b.update(rdoc(id), { aprovacao: { versao: rec.versao, porId: me.id, por: me.nome, em: serverTimestamp() } });
@@ -916,10 +924,11 @@ async function renderRecord(id) {
 /* ---------- evidências: arquivos no Firebase Storage; dados de cada uma no Firestore ---------- */
 /* ---------- plano de ação ---------- */
 const acaoTag = s => `<span class="tag ${s === 'Concluída' ? 'ok' : s === 'Em andamento' ? 'warn' : ''}">${esc(s)}</span>`;
-function acaoForm() {
+function acaoForm(registro = null, item = null) {
   const regs = db.records.filter(r => !r.deleted); if (!regs.length) return toast('Crie um registro antes de abrir uma ação.');
-  modal(`<h3>Nova ação</h3><form id="af"><label for="at">Ação *</label><input id="at" required maxlength="200" placeholder="Ex.: Anexar a política assinada"><div class="row"><div><label for="ar">Registro</label><select id="ar">${regs.map(r => `<option value="${esc(r.id)}">${esc(cur(r).titulo)}</option>`).join('')}</select></div><div><label for="ap">Responsável</label><select id="ap">${opts(responsaveis(), me.nome, '— ninguém —')}</select></div></div><div class="row"><div><label for="az">Prazo</label><input id="az" type="date"></div><div><label for="ai">Prioridade</label><select id="ai">${opts(PRIOR, 'Média')}</select></div></div><div class="actions"><button class="primary" id="as">Criar ação</button><button type="button" id="ac">Cancelar</button></div></form>`, d => {
-    $('#ac', d).onclick = () => d.close(); $('#af', d).onsubmit = guard(async e => { e.preventDefault(); const rec = regs.find(r => r.id === $('#ar', d).value); const tarefa = { titulo: $('#at', d).value.trim(), status: 'A fazer', prioridade: $('#ai', d).value, responsavel: $('#ap', d).value, prazo: $('#az', d).value, registroId: rec.id, registroTitulo: cur(rec).titulo, criadoPor: me.id, criadoEm: serverTimestamp(), atualizadoEm: serverTimestamp() }; $('#as', d).disabled = true; await setDoc(doc(acaoCol()), tarefa); await auditNow('Ação criada', rec, tarefa.titulo); d.close(); toast('Ação criada.'); route(); });
+  const escolhido = registro || regs[0];
+  modal(`<h3>Nova ação</h3><form id="af"><label for="at">Ação *</label><input id="at" required maxlength="200" value="${esc(item?.label || '')}" placeholder="Ex.: Anexar a política assinada"><div class="row"><div><label for="ar">Registro</label><select id="ar" ${registro ? 'disabled' : ''}>${regs.map(r => `<option value="${esc(r.id)}" ${r.id === escolhido.id ? 'selected' : ''}>${esc(cur(r).titulo)}</option>`).join('')}</select></div><div><label for="ap">Responsável</label><select id="ap">${opts(responsaveis(), me.nome, '— ninguém —')}</select></div></div><div class="row"><div><label for="az">Prazo</label><input id="az" type="date"></div><div><label for="ai">Prioridade</label><select id="ai">${opts(PRIOR, 'Média')}</select></div></div>${item ? `<p class="small muted">Item do checklist: ${esc(item.label)}</p>` : ''}<div class="actions"><button class="primary" id="as">Criar ação</button><button type="button" id="ac">Cancelar</button></div></form>`, d => {
+    $('#ac', d).onclick = () => d.close(); $('#af', d).onsubmit = guard(async e => { e.preventDefault(); const rec = registro || regs.find(r => r.id === $('#ar', d).value); const tarefa = { titulo: $('#at', d).value.trim(), status: 'A fazer', prioridade: $('#ai', d).value, responsavel: $('#ap', d).value, prazo: $('#az', d).value, registroId: rec.id, registroTitulo: cur(rec).titulo, itemId: item?.id || '', itemRot: item?.label || '', criadoPor: me.id, criadoEm: serverTimestamp(), atualizadoEm: serverTimestamp() }; $('#as', d).disabled = true; await setDoc(doc(acaoCol()), tarefa); await auditNow('Ação criada', rec, tarefa.titulo); d.close(); toast('Ação criada.'); route(); });
   });
 }
 async function renderAcoes() {
