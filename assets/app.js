@@ -4,14 +4,14 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
   serverTimestamp, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.33.0';
-import { BIBLIO } from './biblioteca.js?v=2.33.0';
-import { MANUAL_LGPD } from './manual-lgpd.js?v=2.33.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.33.0';
+import { firebaseConfig } from './firebase-config.js?v=2.34.0';
+import { BIBLIO } from './biblioteca.js?v=2.34.0';
+import { MANUAL_LGPD } from './manual-lgpd.js?v=2.34.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.34.0';
 
-import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.33.0';
+import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.33.0';
+const VERSION = '2.34.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -62,8 +62,10 @@ if (new URLSearchParams(location.search).has('emulador')) {
 
 let me = null;
 let cid = null; // contabilidade ativa
-let db = { users: [], records: [], categorias: [], contabs: [], pessoas: [] };
+let db = { users: [], records: [], categorias: [], contabs: [], pessoas: [], presencas: [] };
 let justSignedIn = false;
+let presenceTimer = null, presenceRefreshTimer = null;
+const ONLINE_MS = 2 * 60 * 1000;
 
 /* ---------- caminhos (tudo de uma contabilidade fica sob contabilidades/{cid}) ---------- */
 const rcol = () => collection(fs, 'contabilidades', cid, 'registros');
@@ -75,6 +77,7 @@ const contabNome = id => (db.contabs.find(c => c.id === id) || {}).nome || '(rem
    status de leitura por usuário em users/{uid}/anpdLidas. Nada disso depende de contabilidade. */
 const anpdCol = () => collection(fs, 'anpd');
 const anpdLidasCol = () => collection(fs, 'users', me.id, 'anpdLidas');
+const presenceDoc = () => doc(fs, 'presencas', me.id);
 
 /* ---------- permissões ---------- */
 const cur = r => r.snap;
@@ -95,6 +98,19 @@ function auditData(acao, rec, detalhe, sys) {
 }
 const auditOp = (batch, acao, rec, detalhe) => { const s = isSys(acao, rec); batch.set(doc(aCol(s)), auditData(acao, rec, detalhe, s)); };
 const auditNow = (acao, rec, detalhe) => { const s = isSys(acao, rec); return setDoc(doc(aCol(s)), auditData(acao, rec, detalhe, s)); };
+
+/* ---------- presença: sinal renovado a cada minuto; sem sinal por 2 min = offline ---------- */
+async function pingPresence() {
+  if (!me) return;
+  await setDoc(presenceDoc(), { userId: me.id, user: me.nome, userEmail: me.email || '', role: me.role, lastSeen: serverTimestamp() });
+}
+function startPresence() {
+  clearInterval(presenceTimer);
+  pingPresence().catch(e => console.warn('Presença não atualizada', e));
+  presenceTimer = setInterval(() => pingPresence().catch(e => console.warn('Presença não atualizada', e)), 60000);
+}
+function stopPresence() { clearInterval(presenceTimer); presenceTimer = null; }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pingPresence().catch(() => {}); });
 
 /* ---------- UI utilitários ---------- */
 let toastT;
@@ -221,7 +237,11 @@ async function loadCore() {
     if (faltam.length) { db.categorias = [...db.categorias, ...faltam]; await setDoc(doc(fs, 'config', 'app'), { lista: db.categorias }); }
   }
 
-  db.users = can.admin() ? (await getDocs(collection(fs, 'users'))).docs.map(d => ({ id: d.id, ...d.data() })) : [me];
+  if (can.admin()) {
+    const [users, presencas] = await Promise.all([getDocs(collection(fs, 'users')), getDocs(collection(fs, 'presencas'))]);
+    db.users = users.docs.map(d => ({ id: d.id, ...d.data() }));
+    db.presencas = presencas.docs.map(d => ({ id: d.id, ...d.data() }));
+  } else { db.users = [me]; db.presencas = []; }
   if (cid) {
     db.pessoas = (await getDocs(collection(fs, 'contabilidades', cid, 'pessoas'))).docs.map(d => ({ id: d.id, ...d.data() }));
     const q = can.admin() ? rcol() : query(rcol(), where('deleted', '==', false));
@@ -358,6 +378,7 @@ async function route() {
   if (!me) return renderLogin();
   const my = ++seq;
   const h = location.hash || '#/';
+  if (h !== '#/usuarios') { clearTimeout(presenceRefreshTimer); presenceRefreshTimer = null; }
   let view, main = h, needs = false, recRoute = null;
   if (h.startsWith('#/registro/')) { const p = h.split('/'); recRoute = { c: p[2], id: p[3] }; main = '#/registros'; needs = true; }
   else if (h.startsWith('#/biblioteca/')) { main = '#/biblioteca'; const slug = h.slice(13); view = () => renderBiblioDoc(slug); }
@@ -448,7 +469,7 @@ function renderLogin(msg = '') {
     err.style.color = 'var(--ok)'; err.textContent = 'Se o e-mail estiver cadastrado, você receberá um link de redefinição.';
   };
 }
-async function logout() { try { await auditNow('Logout'); } catch (e) {} me = null; cid = null; try { sessionStorage.removeItem('lgpdsan:cid'); } catch (e) {} await signOut(auth); location.hash = '#/'; }
+async function logout() { try { await auditNow('Logout'); } catch (e) {} try { await deleteDoc(presenceDoc()); } catch (e) {} stopPresence(); me = null; cid = null; try { sessionStorage.removeItem('lgpdsan:cid'); } catch (e) {} await signOut(auth); location.hash = '#/'; }
 
 /* ---------- painel ---------- */
 const recLink = r => `#/registro/${cid}/${r.id}`;
@@ -1037,11 +1058,15 @@ function renderUsers() {
   bind = () => {
     $('#nu').onclick = () => userForm();
     document.querySelectorAll('[data-u]').forEach(b => b.onclick = guard(() => userAction(b.dataset.a, db.users.find(u => u.id === b.dataset.u))));
+    clearTimeout(presenceRefreshTimer);
+    presenceRefreshTimer = setTimeout(() => { if (location.hash === '#/usuarios') route(); }, 30000);
   };
   const firms = u => u.role === 'admin' ? '<span class="muted">todas</span>' : ((u.contabilidades || []).map(contabNome).map(esc).join(', ') || '<span class="tag bad">nenhuma</span>');
-  return `<div class="bar"><div><h1>Usuários</h1><p class="muted">O novo usuário recebe um e-mail para definir a própria senha; ninguém, nem o administrador, vê senhas. Administrador enxerga todas as contabilidades; Consulta e Edição só as vinculadas.</p></div><button class="primary" id="nu">+ Novo usuário</button></div>
-    <div class="card tablewrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Contabilidades</th><th>Situação</th><th></th></tr>
+  const online = new Map(db.presencas.filter(p => tms(p.lastSeen) && Date.now() - tms(p.lastSeen) < ONLINE_MS).map(p => [p.id, p]));
+  return `<div class="bar"><div><h1>Usuários</h1><p class="muted"><b>${online.size} online agora</b> · o status é renovado a cada minuto e considera offline após 2 minutos sem sinal. Administrador enxerga todas as contabilidades; Consulta e Edição só as vinculadas.</p></div><button class="primary" id="nu">+ Novo usuário</button></div>
+    <div class="card tablewrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Contabilidades</th><th>Agora</th><th>Situação</th><th></th></tr>
     ${db.users.slice().sort(byName).map(u => `<tr><td>${esc(u.nome)}${u.id === me.id ? ' <span class="tag brand">você</span>' : ''}</td><td>${esc(u.email)}</td><td>${ROLES[u.role] || esc(u.role)}</td><td>${firms(u)}</td>
+    <td>${online.has(u.id) ? '<span class="tag ok">online</span>' : '<span class="muted small">offline</span>'}</td>
     <td>${u.ativo ? '<span class="tag ok">ativo</span>' : '<span class="tag bad">bloqueado</span>'}</td>
     <td class="actions" style="margin:0"><button data-u="${u.id}" data-a="edit">Editar</button><button data-u="${u.id}" data-a="pw">Enviar redefinição de senha</button>
     <button data-u="${u.id}" data-a="toggle">${u.ativo ? 'Bloquear' : 'Desbloquear'}</button><button class="danger" data-u="${u.id}" data-a="rm">Remover acesso</button></td></tr>`).join('')}</table></div>`;
@@ -1442,6 +1467,7 @@ onAuthStateChanged(auth, async u => {
     if (!s.exists() || !s.data().ativo) { me = null; await signOut(auth); return renderLogin('Conta sem acesso ao sistema. Procure o administrador.'); }
     me = { id: u.uid, ...s.data() };
     me.tema = temaDe(me); applyTheme(me.tema); lsSet('lgpdsan:tema', me.tema);
+    startPresence();
     if (justSignedIn) { justSignedIn = false; try { await auditNow('Login'); } catch (e) { console.error(e); } }
     route();
   } catch (e) { console.error(e); me = null; await signOut(auth); renderLogin('Não foi possível validar o acesso: ' + errMsg(e)); }

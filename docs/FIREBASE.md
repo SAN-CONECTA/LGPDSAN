@@ -4,6 +4,7 @@
 - `users/{uid}`: nome, email, role (`consulta`|`edicao`|`admin`), ativo, contabilidades [ids], criado
 - `config/app`: lista (categorias, compartilhada)
 - `auditoria/{id}`: log de acessos e eventos do SISTEMA. Em cada login/logout bem-sucedido, grava data/hora, `userId`, nome, e-mail e perfil; também reúne eventos de usuários, contabilidades e categorias. Só admin lê; os eventos são imutáveis.
+- `presencas/{uid}`: sinal temporário de presença (nome, e-mail, perfil e `lastSeen`). Cada usuário só renova o próprio sinal; Administrador pode listar os usuários online.
 - `anpd/{pubId}`: publicações oficiais da ANPD (url, titulo, descricao, data, fonte, criadoEm, atualizadoEm). Só leitura para usuários; escrita pelo serviço de sincronização (Admin SDK).
   - `users/{uid}/anpdLidas/{pubId}`: status de leitura por usuário (quando). Cada usuário lê e grava apenas o próprio.
 - `contabilidades/{cid}`: nome, criado

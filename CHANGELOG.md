@@ -1,6 +1,12 @@
 # Changelog
 Formato SemVer.
 
+## [2.34.0] - 2026-10-19
+### Adicionado
+- **Quem está online:** a tela **Usuários** mostra quem está online naquele momento. O navegador envia um sinal ao entrar e a cada minuto; depois de dois minutos sem sinal, a pessoa aparece como offline. O sinal não coleta IP, dispositivo nem localização.
+### Atenção
+- **Publique `firestore.rules` junto com esta versão.** A coleção `presencas` é restrita: cada pessoa só altera o próprio status e somente Administradores podem listar presenças.
+
 ## [2.33.0] - 2026-10-19
 ### Adicionado
 - **Log de acessos:** cada login e logout bem-sucedido passa a guardar, na Auditoria de sistema, data/hora, nome, e-mail e perfil de quem acessou. O Administrador vê a identificação completa na tela **Auditoria** e pode filtrar pelo campo Usuário.
