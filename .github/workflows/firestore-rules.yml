@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Decodificar credencial exclusiva das regras
+      - name: Validar credencial exclusiva das regras
         env:
           FIREBASE_RULES_DEPLOYER: ${{ secrets.FIREBASE_RULES_DEPLOYER }}
         run: |
@@ -32,9 +32,11 @@ jobs:
             echo "::error::Crie uma conta de serviço exclusiva com o papel Firebase Rules Admin e cadastre o JSON completo nos Secrets do repositório." >&2
             exit 1
           fi
-          # O GitHub preserva o JSON multilinha de um Secret; gravamos sem exibi-lo nos logs.
-          printf '%s' "$FIREBASE_RULES_DEPLOYER" > "$RUNNER_TEMP/firestore-rules-deployer.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firestore-rules-deployer.json" >> "$GITHUB_ENV"
+
+      - name: Autenticar no Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_RULES_DEPLOYER }}
 
       - name: Publicar somente as regras do Firestore
         run: npx --yes firebase-tools@latest deploy --only firestore:rules --project lgpdsan --non-interactive
