@@ -11,7 +11,7 @@ import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ap
 
 import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.35.0';
+const VERSION = '2.36.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -499,7 +499,7 @@ async function renderDash() {
     ${recentA.length ? recentA.map(p => `<div class="fieldrow small"><b>${a.lidas.has(p.id) ? '' : '<span class="tag brand">nova</span> '}<a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.titulo)}</a></b> <span class="muted">· ${anpdData(p) ? fmtD(anpdData(p)) : ''}</span></div>`).join('') : '<p class="muted">Nenhuma publicação sincronizada ainda.</p>'}
     <div class="actions" style="margin-top:.5rem"><a class="btn" href="#/anpd">Ver todas</a></div></div>`;
   } catch (e) { /* regras do Firestore sem a seção anpd: o cartão simplesmente não aparece */ }
-  return `<section class="dash-hero"><div><p class="dash-eyebrow">VISÃO GERAL</p><h1>Painel de conformidade</h1><p class="muted">${esc(contabNome(cid))} · acompanhe prioridades, pendências e evolução da LGPD.</p></div>
+  return `<section class="dash-hero"><div class="dash-hero-title">${firmLogo() ? `<div class="dash-firm-logo"><img src="${firmLogo()}" alt="Logo ${esc(contabNome(cid))}"></div>` : ''}<div><p class="dash-eyebrow">VISÃO GERAL</p><h1>Painel de conformidade</h1><p class="muted">${esc(contabNome(cid))} · acompanhe prioridades, pendências e evolução da LGPD.</p></div></div>
     ${can.edit() ? '<a class="btn primary dash-new" href="#/registros" id="dnew">+ Novo registro</a>' : ''}</section>
     <section class="dash-progress" aria-label="Próximo passo recomendado"><div class="dash-progress-icon" aria-hidden="true">✦</div><div><span class="dash-eyebrow">PRÓXIMO PASSO</span><b>${esc(proximaCategoria || 'Comece sua adequação')}</b><p>${categoriasIniciadas ? `${categoriasIniciadas} de ${trilha.length} categorias já iniciadas.` : 'Registre a primeira ação para começar a organizar a adequação.'}</p></div><a class="btn" href="#/registros">Ver registros</a></section>
     <section class="metrics-section" aria-label="Resumo dos registros"><div class="section-label"><span>Resumo</span><small>situação dos registros</small></div><div class="metrics-grid"><div class="stat stat-main"><span class="stat-icon" aria-hidden="true">📄</span><b>${rs.length}</b><span>Registros ativos</span></div>

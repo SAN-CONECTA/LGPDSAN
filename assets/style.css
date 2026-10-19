@@ -296,6 +296,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 
 /* ============================== PAINEL ===================================== */
 .dash-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1.15rem;padding:1.15rem 1.25rem;border:1px solid color-mix(in srgb,var(--line) 92%,transparent);border-radius:var(--radius-lg);background:linear-gradient(110deg,var(--surface),color-mix(in srgb,var(--brand-soft) 42%,var(--surface)));box-shadow:var(--shadow-soft)}
+.dash-hero-title{display:flex;align-items:center;gap:.9rem;min-width:0}.dash-firm-logo{display:grid;flex:0 0 auto;place-items:center;width:4rem;height:4rem;padding:.35rem;border:1px solid var(--line);border-radius:var(--radius);background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.1);overflow:hidden}.dash-firm-logo img{display:block;max-width:100%;max-height:100%;object-fit:contain}
 .dash-hero h1{margin:.1rem 0 .2rem;font-size:clamp(1.45rem,2.3vw,1.9rem)}
 .dash-hero p:last-child{margin:0}
 .dash-eyebrow{display:block;margin:0 0 .25rem;font-size:.68rem;font-weight:750;letter-spacing:.09em;color:var(--brand)}
@@ -423,7 +424,7 @@ img.firmlogo{max-height:72px;max-width:260px;width:auto;height:auto;object-fit:c
   .metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
   .metrics-grid .stat{min-height:82px;padding:.8rem}
   .dashboard-secondary{grid-template-columns:1fr}
-  .dash-hero{align-items:flex-start;flex-direction:column;padding:1rem}.dash-new{width:100%;text-align:center}
+  .dash-hero{align-items:flex-start;flex-direction:column;padding:1rem}.dash-hero-title{align-items:flex-start}.dash-firm-logo{width:3.35rem;height:3.35rem}.dash-new{width:100%;text-align:center}
   .dash-progress{align-items:flex-start;flex-wrap:wrap}.dash-progress>div:nth-child(2){flex:1 1 180px}.dash-progress .btn{width:100%;margin-left:0;text-align:center}
   .login-card{padding:1.25rem}
   .login-hero h1{font-size:1.65rem}
