@@ -24,6 +24,24 @@ Isolamento: o caminho `contabilidades/{cid}/...` + `cid in users/{uid}.contabili
 4b. No app: Contabilidades → criar (ex.: Contabilidade 01, 02…) → Usuários → vincular cada usuário às suas contabilidades.
 5. Testar em Firestore → Regras → Playground (ver casos abaixo).
 
+## Publicação automática das regras
+
+O arquivo `firestore.rules` é publicado automaticamente pelo GitHub sempre que for alterado na
+branch `main`. Assim, mudanças de regra feitas no código não exigem abrir o Console do Firebase.
+
+Configuração única, feita por quem administra o projeto Firebase:
+
+1. Criar uma **conta de serviço exclusiva** para esta automação no Google Cloud.
+2. Dar somente o papel **Firebase Rules Admin** a essa conta.
+3. Gerar e baixar uma chave JSON.
+4. No GitHub do repositório: **Settings → Secrets and variables → Actions → New repository secret**.
+5. Nome do segredo: `FIREBASE_RULES_DEPLOYER`.
+6. Valor: a chave JSON codificada em Base64 (`base64 -w0 chave.json` no Linux).
+
+Não reutilize a conta de serviço da sincronização ANPD: ela precisa apenas gravar publicações,
+enquanto a conta das rules tem acesso administrativo às regras. As chaves nunca devem ser
+enviadas por chat ou commitadas no repositório.
+
 ## Casos para o Playground de regras
 | Quem | Operação | Esperado |
 |---|---|---|

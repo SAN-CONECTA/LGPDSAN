@@ -1,0 +1,39 @@
+name: Publicar regras do Firestore
+
+on:
+  push:
+    branches: [main]
+    paths: [firestore.rules]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firestore-rules-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Decodificar credencial exclusiva das regras
+        env:
+          FIREBASE_RULES_DEPLOYER: ${{ secrets.FIREBASE_RULES_DEPLOYER }}
+        run: |
+          if [ -z "$FIREBASE_RULES_DEPLOYER" ]; then
+            echo "::error::Secret FIREBASE_RULES_DEPLOYER não configurado." >&2
+            echo "::error::Crie uma conta de serviço exclusiva com o papel Firebase Rules Admin e cadastre a chave em base64 nos Secrets do repositório." >&2
+            exit 1
+          fi
+          echo "$FIREBASE_RULES_DEPLOYER" | base64 --decode > "$RUNNER_TEMP/firestore-rules-deployer.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firestore-rules-deployer.json" >> "$GITHUB_ENV"
+
+      - name: Publicar somente as regras do Firestore
+        run: npx --yes firebase-tools@latest deploy --only firestore:rules --project lgpdsan --non-interactive
