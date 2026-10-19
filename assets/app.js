@@ -11,7 +11,7 @@ import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ap
 
 import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.38.0';
+const VERSION = '2.39.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -848,6 +848,9 @@ async function renderRecord(id) {
     .map(d => d.data()).sort((a, b) => tms(b.ts) - tms(a.ts));
   await loadEvid();
   const c = cur(rec);
+  const guia = guiaDe(c.categoria);
+  const placar = guia ? pontuacao(guia, c.dados, evPorItem(rec.id)) : null;
+  const situacaoPrazo = overdue(rec) ? `Vencido em ${fmtD(c.prazo)}` : c.prazo ? `Prazo: ${fmtD(c.prazo)}` : 'Sem prazo definido';
   bind = () => {
     const reload = () => route();
     $$('[data-evopen]').forEach(b => b.onclick = guard(() => abrirEvidencia(db.evid.find(x => x.id === b.dataset.evopen))));
@@ -882,14 +885,15 @@ async function renderRecord(id) {
   };
   const vopts = sel => vs.map(v => `<option value="${v.n}" ${v.n === sel ? 'selected' : ''}>v${v.n} · ${fmt(v.quando)}</option>`).join('');
   const last = vs.length;
-  return `<p class="small"><a href="#/registros">← Registros</a> · ${esc(contabNome(cid))}</p>
-    <div class="bar"><div><h1>${esc(c.titulo)} ${rec.deleted ? '<span class="tag bad">excluído</span>' : ''}</h1>
-    <p>${statusTag(c.status)} ${priorTag(c.prioridade)} <span class="tag">${esc(c.categoria)}</span> <span class="tag brand">v${rec.versao}</span> ${aprovada(rec) ? `<span class="tag ok" title="Aprovada por ${esc(rec.aprovacao.por)} em ${fmt(rec.aprovacao.em)}">aprovada v${rec.versao}</span>` : rec.aprovacao ? '<span class="tag warn">alterada após aprovação</span>' : '<span class="tag">sem aprovação</span>'} ${revTag(rec)}</p></div>
-    <div class="actions" style="margin:0">
-    ${can.editRec(rec) ? '<button class="primary" id="edit">Editar</button>' : ''}
-    ${can.admin() && !rec.deleted && c.status !== 'Arquivado' && !aprovada(rec) ? '<button id="aprov">Aprovar esta versão</button>' : ''}
-    ${!rec.deleted && can.admin() ? '<button class="danger" id="del">Excluir</button>' : ''}
-    ${rec.deleted && can.admin() ? '<button id="rest">Restaurar registro</button><button class="danger" id="hard">Excluir definitivamente</button>' : ''}</div></div>
+  return `<section class="record-hero"><div class="record-hero-top"><a class="record-back" href="#/registros">← Todos os registros</a><span>${esc(contabNome(cid))}</span></div>
+    <div class="record-hero-main"><div><span class="record-kicker">REGISTRO DE CONFORMIDADE</span><h1>${esc(c.titulo)} ${rec.deleted ? '<span class="tag bad">excluído</span>' : ''}</h1><div class="record-tags">${statusTag(c.status)} ${priorTag(c.prioridade)} <span class="tag">${esc(c.categoria)}</span> <span class="tag brand">v${rec.versao}</span> ${aprovada(rec) ? `<span class="tag ok" title="Aprovada por ${esc(rec.aprovacao.por)} em ${fmt(rec.aprovacao.em)}">aprovada</span>` : rec.aprovacao ? '<span class="tag warn">reaprovar</span>' : '<span class="tag">sem aprovação</span>'}</div></div>
+    <div class="record-hero-actions">
+    ${can.editRec(rec) ? '<button class="primary" id="edit">Editar registro</button>' : ''}
+    ${can.admin() && !rec.deleted && c.status !== 'Arquivado' && !aprovada(rec) ? '<button id="aprov">Aprovar versão</button>' : ''}
+    ${!rec.deleted && can.admin() ? '<button class="danger record-delete" id="del" aria-label="Excluir registro">Excluir</button>' : ''}
+    ${rec.deleted && can.admin() ? '<button id="rest">Restaurar</button><button class="danger" id="hard">Excluir definitivamente</button>' : ''}</div></div>
+    <div class="record-hero-foot"><span><i aria-hidden="true">●</i> ${esc(c.responsavel) || 'Sem responsável'}</span><span class="${overdue(rec) ? 'is-bad' : ''}">${situacaoPrazo}</span>${revInfo(rec) ? `<span class="${revInfo(rec).k === 'bad' ? 'is-bad' : ''}">${revInfo(rec).t}</span>` : ''}</div></section>
+    ${placar ? `<section class="record-radar" aria-label="Resumo do checklist"><div class="record-radar-head"><div><span class="record-kicker">RADAR DE CONFORMIDADE</span><h2>O que precisa de atenção agora</h2></div><span class="muted small">Os indicadores são atualizados a cada versão</span></div><div class="record-radar-grid"><div class="radar-card radar-brand"><span>Declarado</span><b>${placar.declarado}%</b><small>respostas preenchidas</small></div><div class="radar-card radar-ok"><span>Comprovado</span><b>${placar.comprovado === null ? '—' : placar.comprovado + '%'}</b><small>com evidência válida</small></div><div class="radar-card ${placar.semProva ? 'radar-warn' : 'radar-ok'}"><span>Sem evidência</span><b>${placar.semProva || 0}</b><small>itens “Conforme” a comprovar</small></div><div class="radar-card ${overdue(rec) ? 'radar-bad' : ''}"><span>Agenda</span><b>${overdue(rec) ? 'Atenção' : c.revisao ? fmtD(c.revisao) : 'Livre'}</b><small>${situacaoPrazo}</small></div></div></section>` : ''}
     ${overdue(rec) ? '<div class="notice bad">Prazo vencido em ' + fmtD(c.prazo) + '.</div>' : ''}
     ${revInfo(rec) ? `<div class="notice ${revInfo(rec).k === 'bad' ? 'bad' : ''}">Próxima revisão em ${fmtD(c.revisao)}: ${revInfo(rec).t}.</div>` : ''}
     ${semAprov(rec) ? `<div class="notice">${rec.aprovacao ? `Este registro foi alterado depois da aprovação (aprovada a v${rec.aprovacao.versao}; a atual é a v${rec.versao}).` : 'Este registro está em vigor, mas nunca foi aprovado formalmente.'} Um administrador pode aprovar a versão atual.</div>` : ''}
@@ -897,7 +901,7 @@ async function renderRecord(id) {
     <div><span class="muted">Criado em</span><br>${fmt(rec.criado)}</div></div>
     <h3 style="margin-top:1rem">Descrição / procedimento</h3><div class="pre">${esc(c.descricao) || '<span class="muted">—</span>'}</div>
     <h3 style="margin-top:1rem">Evidências</h3><div class="pre">${esc(c.evidencias) || '<span class="muted">—</span>'}</div></div>
-    ${guiaDe(c.categoria) ? checklistView(guiaDe(c.categoria), c.dados, rec) : ''}
+    ${guia ? checklistView(guia, c.dados, rec) : ''}
     <div class="card"><h2>Histórico de versões</h2><div class="tablewrap"><table><tr><th>Versão</th><th>Quando</th><th>Autor</th><th>Justificativa</th><th></th></tr>
     ${vs.slice().reverse().map(v => `<tr><td>v${v.n}${v.n === last ? ' <span class="tag ok">atual</span>' : ''}</td><td>${fmt(v.quando)}</td><td>${esc(v.autor)}</td><td>${esc(v.just)}</td>
     <td>${can.editRec(rec) && v.n !== last ? `<button data-restore="${v.n}">Restaurar</button>` : ''}</td></tr>`).join('')}</table></div></div>
