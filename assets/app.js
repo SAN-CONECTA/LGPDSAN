@@ -11,7 +11,7 @@ import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ap
 
 import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.34.0';
+const VERSION = '2.35.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -488,6 +488,9 @@ async function renderDash() {
   const rv = rs.filter(r => revInfo(r)).sort((a, b) => cur(a).revisao.localeCompare(cur(b).revisao)), sa = rs.filter(semAprov);
   const mine = rs.filter(r => cur(r).responsavel === me.nome && cur(r).status !== 'Arquivado');
   const recent = (await loadAudit(8)).slice(0, 6);
+  const trilha = catList();
+  const proximaCategoria = trilha.find(c => !rs.some(r => cur(r).categoria === c && cur(r).status === 'Em vigor')) || trilha[0];
+  const categoriasIniciadas = trilha.filter(c => rs.some(r => cur(r).categoria === c)).length;
   let anpdCard = '';
   try {
     const a = await loadAnpd();
@@ -496,15 +499,16 @@ async function renderDash() {
     ${recentA.length ? recentA.map(p => `<div class="fieldrow small"><b>${a.lidas.has(p.id) ? '' : '<span class="tag brand">nova</span> '}<a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.titulo)}</a></b> <span class="muted">· ${anpdData(p) ? fmtD(anpdData(p)) : ''}</span></div>`).join('') : '<p class="muted">Nenhuma publicação sincronizada ainda.</p>'}
     <div class="actions" style="margin-top:.5rem"><a class="btn" href="#/anpd">Ver todas</a></div></div>`;
   } catch (e) { /* regras do Firestore sem a seção anpd: o cartão simplesmente não aparece */ }
-  return `<div class="bar"><div><h1>Painel</h1><p class="muted">${esc(contabNome(cid))} · visão geral da conformidade.</p></div>
-    ${can.edit() ? '<a class="btn primary" href="#/registros" id="dnew">+ Novo registro</a>' : ''}</div>
-    <div class="metrics-grid"><div class="stat"><span class="stat-icon" aria-hidden="true">📄</span><b>${rs.length}</b><span>Registros ativos</span></div>
-    <div class="stat"><span class="stat-icon" aria-hidden="true">✅</span><b>${by('Em vigor')}</b><span>Em vigor</span></div><div class="stat"><span class="stat-icon" aria-hidden="true">🔄</span><b>${by('Em revisão')}</b><span>Em revisão</span></div>
-    <div class="stat is-critical"><span class="stat-icon" aria-hidden="true">⚠️</span><b class="${od.length ? 'tone-bad' : ''}">${od.length}</b><span>Prazos vencidos</span></div>
-    <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">🕘</span><b class="${rv.some(r => revInfo(r).n < 0) ? 'tone-bad' : rv.length ? 'tone-warn' : ''}">${rv.length}</b><span>Revisões vencidas ou em 30 dias</span></div>
-    <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">🛡️</span><b class="${sa.length ? 'tone-warn' : ''}">${sa.length}</b><span>Em vigor sem aprovação atual</span></div></div>
+  return `<section class="dash-hero"><div><p class="dash-eyebrow">VISÃO GERAL</p><h1>Painel de conformidade</h1><p class="muted">${esc(contabNome(cid))} · acompanhe prioridades, pendências e evolução da LGPD.</p></div>
+    ${can.edit() ? '<a class="btn primary dash-new" href="#/registros" id="dnew">+ Novo registro</a>' : ''}</section>
+    <section class="dash-progress" aria-label="Próximo passo recomendado"><div class="dash-progress-icon" aria-hidden="true">✦</div><div><span class="dash-eyebrow">PRÓXIMO PASSO</span><b>${esc(proximaCategoria || 'Comece sua adequação')}</b><p>${categoriasIniciadas ? `${categoriasIniciadas} de ${trilha.length} categorias já iniciadas.` : 'Registre a primeira ação para começar a organizar a adequação.'}</p></div><a class="btn" href="#/registros">Ver registros</a></section>
+    <section class="metrics-section" aria-label="Resumo dos registros"><div class="section-label"><span>Resumo</span><small>situação dos registros</small></div><div class="metrics-grid"><div class="stat stat-main"><span class="stat-icon" aria-hidden="true">📄</span><b>${rs.length}</b><span>Registros ativos</span></div>
+    <div class="stat stat-ok"><span class="stat-icon" aria-hidden="true">✓</span><b>${by('Em vigor')}</b><span>Em vigor</span></div><div class="stat"><span class="stat-icon" aria-hidden="true">↻</span><b>${by('Em revisão')}</b><span>Em revisão</span></div>
+    <div class="stat is-critical"><span class="stat-icon" aria-hidden="true">!</span><b class="${od.length ? 'tone-bad' : ''}">${od.length}</b><span>Prazos vencidos</span></div>
+    <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">◷</span><b class="${rv.some(r => revInfo(r).n < 0) ? 'tone-bad' : rv.length ? 'tone-warn' : ''}">${rv.length}</b><span>Revisões em 30 dias</span></div>
+    <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">⌁</span><b class="${sa.length ? 'tone-warn' : ''}">${sa.length}</b><span>Sem aprovação atual</span></div></div></section>
     <div class="dashboard-layout"><div class="dashboard-primary">
-      <div class="card"><h2><span aria-hidden="true">🧭</span> Trilha de adequação</h2><p class="muted small">Ordem sugerida, por dependência entre os temas (não é exigência da LGPD). "Em vigor" = há ao menos um registro em vigor na categoria.</p>${trilhaHtml(rs)}</div>
+      <div class="card dashboard-trilha"><div class="card-heading"><div><span class="dash-eyebrow">ROTEIRO</span><h2>Trilha de adequação</h2></div><span class="tag brand">${categoriasIniciadas}/${trilha.length} iniciadas</span></div><p class="muted small">Ordem sugerida por dependência entre os temas. “Em vigor” indica que há ao menos um registro vigente na categoria.</p>${trilhaHtml(rs)}</div>
       <div class="card"><h2><span aria-hidden="true">⚠️</span> Prazos vencidos</h2>${od.length ? miniTable(od) : '<p class="muted">Nenhum prazo vencido.</p>'}</div>
       <div class="card"><h2><span aria-hidden="true">🕘</span> Revisões vencidas ou nos próximos 30 dias</h2>${rv.length ? `<div class="tablewrap"><table><tr><th>Registro</th><th>Categoria</th><th>Próxima revisão</th><th></th></tr>${rv.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${esc(cur(r).categoria)}</td><td>${fmtD(cur(r).revisao)}</td><td>${revTag(r)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Nenhuma revisão vencida ou próxima do vencimento. Defina a "Próxima revisão" nos registros de políticas, contratos, treinamentos e avaliações.</p>'}</div>
     </div><aside class="dashboard-secondary">
