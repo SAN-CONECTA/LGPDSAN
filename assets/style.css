@@ -316,6 +316,8 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .metrics-grid .stat-ok{border-top:3px solid var(--ok)}.metrics-grid .stat-ok b{color:var(--ok)}
 .metrics-grid .stat.is-attention{border-top:3px solid var(--warn)}
 .metrics-grid .stat.is-critical{border-top:3px solid var(--bad)}
+.metrics-grid .stat-action{width:100%;font:inherit;text-align:left;cursor:pointer}.metrics-grid .stat-action small{margin-top:.1rem;font-size:.7rem;font-weight:650;color:var(--brand);opacity:0;transition:opacity .16s ease}.metrics-grid .stat-action:hover small,.metrics-grid .stat-action:focus-visible small{opacity:1}.metrics-grid .stat-action:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.quick-filter{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin:-.15rem 0 .8rem;padding:.6rem .75rem;border:1px solid color-mix(in srgb,var(--brand) 38%,var(--line));border-radius:var(--radius);background:var(--brand-soft);font-size:var(--text-sm)}.quick-filter button{padding:.28rem .55rem;font-size:.8rem}
 .dashboard-layout{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(290px,.8fr);gap:1rem;align-items:start}
 .card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.card-heading h2{margin-bottom:.35rem}.card-heading .tag{white-space:nowrap}
 .dashboard-trilha .tablewrap{margin-top:1rem}.dashboard-trilha th{position:sticky;top:0}

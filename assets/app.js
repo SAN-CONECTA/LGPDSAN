@@ -11,7 +11,7 @@ import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ap
 
 import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.37.0';
+const VERSION = '2.38.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -496,7 +496,10 @@ async function renderDash() {
   const trilha = catList();
   const proximaCategoria = trilha.find(c => !rs.some(r => cur(r).categoria === c && cur(r).status === 'Em vigor')) || trilha[0];
   const categoriasIniciadas = trilha.filter(c => rs.some(r => cur(r).categoria === c)).length;
-  bind = () => $$('[data-start-cat]').forEach(el => el.addEventListener('click', () => { try { sessionStorage.setItem('lgpdsan:preselectCategoria', el.dataset.startCat); } catch (e) {} location.hash = '#/registros'; }));
+  bind = () => {
+    $$('[data-start-cat]').forEach(el => el.addEventListener('click', () => { try { sessionStorage.setItem('lgpdsan:preselectCategoria', el.dataset.startCat); } catch (e) {} location.hash = '#/registros'; }));
+    $$('[data-quick-list]').forEach(el => el.addEventListener('click', () => { try { sessionStorage.setItem('lgpdsan:quickList', el.dataset.quickList); } catch (e) {} location.hash = '#/registros'; }));
+  };
   let anpdCard = '';
   try {
     const a = await loadAnpd();
@@ -507,11 +510,11 @@ async function renderDash() {
   } catch (e) { /* regras do Firestore sem a seção anpd: o cartão simplesmente não aparece */ }
   return `<section class="dash-hero"><div class="dash-hero-title">${firmLogo() ? `<div class="dash-firm-logo"><img src="${firmLogo()}" alt="Logo ${esc(contabNome(cid))}"></div>` : ''}<div><p class="dash-eyebrow">VISÃO GERAL</p><h1>Painel de conformidade</h1><p class="muted">${esc(contabNome(cid))} · acompanhe prioridades, pendências e evolução da LGPD.</p></div></div>
     ${can.edit() ? '<a class="btn primary dash-new" href="#/registros" id="dnew">+ Novo registro</a>' : ''}</section>
-    <section class="dash-progress" aria-label="Próximo passo recomendado"><div class="dash-progress-icon" aria-hidden="true">✦</div><div><span class="dash-eyebrow">PRÓXIMO PASSO</span><b>${esc(proximaCategoria || 'Comece sua adequação')}</b><p>${categoriasIniciadas ? `${categoriasIniciadas} de ${trilha.length} categorias já iniciadas.` : 'Registre a primeira ação para começar a organizar a adequação.'}</p></div><a class="btn" href="#/registros">Ver registros</a></section>
+    <section class="dash-progress" aria-label="Próximo passo recomendado"><div class="dash-progress-icon" aria-hidden="true">✦</div><div><span class="dash-eyebrow">PRÓXIMO PASSO</span><b>${esc(proximaCategoria || 'Comece sua adequação')}</b><p>${categoriasIniciadas ? `${categoriasIniciadas} de ${trilha.length} categorias já iniciadas.` : 'Registre a primeira ação para começar a organizar a adequação.'}</p></div><button class="btn primary" type="button" data-start-cat="${esc(proximaCategoria || '')}">${can.edit() ? 'Começar agora' : 'Ver categoria'}</button></section>
     <section class="metrics-section" aria-label="Resumo dos registros"><div class="section-label"><span>Resumo</span><small>situação dos registros</small></div><div class="metrics-grid"><div class="stat stat-main"><span class="stat-icon" aria-hidden="true">📄</span><b>${rs.length}</b><span>Registros ativos</span></div>
     <div class="stat stat-ok"><span class="stat-icon" aria-hidden="true">✓</span><b>${by('Em vigor')}</b><span>Em vigor</span></div><div class="stat"><span class="stat-icon" aria-hidden="true">↻</span><b>${by('Em revisão')}</b><span>Em revisão</span></div>
-    <div class="stat is-critical"><span class="stat-icon" aria-hidden="true">!</span><b class="${od.length ? 'tone-bad' : ''}">${od.length}</b><span>Prazos vencidos</span></div>
-    <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">◷</span><b class="${rv.some(r => revInfo(r).n < 0) ? 'tone-bad' : rv.length ? 'tone-warn' : ''}">${rv.length}</b><span>Revisões em 30 dias</span></div>
+    <button class="stat stat-action is-critical" type="button" data-quick-list="overdue" aria-label="Ver ${od.length} prazo(s) vencido(s)"><span class="stat-icon" aria-hidden="true">!</span><b class="${od.length ? 'tone-bad' : ''}">${od.length}</b><span>Prazos vencidos</span><small>Ver lista</small></button>
+    <button class="stat stat-action is-attention" type="button" data-quick-list="review" aria-label="Ver ${rv.length} revisão(ões) próxima(s) ou vencida(s)"><span class="stat-icon" aria-hidden="true">◷</span><b class="${rv.some(r => revInfo(r).n < 0) ? 'tone-bad' : rv.length ? 'tone-warn' : ''}">${rv.length}</b><span>Revisões em 30 dias</span><small>Ver lista</small></button>
     <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">⌁</span><b class="${sa.length ? 'tone-warn' : ''}">${sa.length}</b><span>Sem aprovação atual</span></div></div></section>
     <div class="dashboard-layout"><div class="dashboard-primary">
       <div class="card dashboard-trilha"><div class="card-heading"><div><span class="dash-eyebrow">ROTEIRO</span><h2>Trilha de adequação</h2></div><span class="tag brand">${categoriasIniciadas}/${trilha.length} iniciadas</span></div><p class="muted small">Ordem sugerida por dependência entre os temas. “Em vigor” indica que há ao menos um registro vigente na categoria.</p>${trilhaHtml(rs)}</div>
@@ -533,12 +536,23 @@ async function renderList() {
   await loadEvid();
   bind = () => {
     const q = $('#q'), fc = $('#fc'), fs_ = $('#fs'), fp = $('#fp'), fd = $('#fd');
-    try { const categoriaInicial = sessionStorage.getItem('lgpdsan:preselectCategoria'); if (categoriaInicial && [...fc.options].some(o => o.value === categoriaInicial)) { fc.value = categoriaInicial; sessionStorage.removeItem('lgpdsan:preselectCategoria'); } } catch (e) {}
+    let quickScope = '';
+    try {
+      const categoriaInicial = sessionStorage.getItem('lgpdsan:preselectCategoria');
+      if (categoriaInicial && [...fc.options].some(o => o.value === categoriaInicial)) { fc.value = categoriaInicial; sessionStorage.removeItem('lgpdsan:preselectCategoria'); }
+      quickScope = sessionStorage.getItem('lgpdsan:quickList') || '';
+      sessionStorage.removeItem('lgpdsan:quickList');
+    } catch (e) {}
+    const quickLabels = { overdue: 'Prazos vencidos', review: 'Revisões vencidas ou nos próximos 30 dias' };
+    const quickNote = $('#quick-filter');
+    const clearQuick = () => { quickScope = ''; quickNote.hidden = true; draw(); };
+    if (quickScope && quickLabels[quickScope]) { $('#quick-filter-name').textContent = quickLabels[quickScope]; quickNote.hidden = false; $('#clear-quick').onclick = clearQuick; }
     let shown = [];
     const draw = () => {
       const t = q.value.toLowerCase();
       shown = db.records.filter(r => fd.value === 'del' ? r.deleted : !r.deleted).filter(r => { const c = cur(r);
         return (!fc.value || c.categoria === fc.value) && (!fs_.value || c.status === fs_.value) && (!fp.value || c.prioridade === fp.value) &&
+          (!quickScope || quickScope === 'overdue' && overdue(r) || quickScope === 'review' && !!revInfo(r)) &&
           (!t || [c.titulo, c.descricao, c.responsavel, c.evidencias, c.categoria].join(' ').toLowerCase().includes(t)); })
         .sort((a, b) => cur(a).titulo.localeCompare(cur(b).titulo, 'pt-BR'));
       $('#cnt').textContent = `${contabNome(cid)} · ${shown.length} registro(s)`;
@@ -563,6 +577,7 @@ async function renderList() {
     <div><label for="fs">Status</label><select id="fs">${opts(STATUS, '', 'Todos')}</select></div>
     <div><label for="fp">Prioridade</label><select id="fp">${opts(PRIOR, '', 'Todas')}</select></div>
     <div><label for="fd">Exibir</label><select id="fd"><option value="">Ativos</option>${can.admin() ? '<option value="del">Excluídos</option>' : ''}</select></div></div>
+    <div class="quick-filter" id="quick-filter" hidden><span>Mostrando: <b id="quick-filter-name"></b></span><button type="button" id="clear-quick">Limpar filtro</button></div>
     <div class="card tablewrap"><table><thead><tr><th>Registro</th><th>Status</th><th>Prioridade</th><th>Responsável</th><th>Prazo</th><th>Checklist</th><th>Versão</th></tr></thead><tbody id="rows"></tbody></table></div>`;
 }
 async function exportCSV(rs) {
