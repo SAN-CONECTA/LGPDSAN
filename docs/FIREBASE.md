@@ -89,8 +89,9 @@ os usuários do app não conseguem alterar o conteúdo oficial.
    - Papel: **Cloud Datastore User** (acesso ao Firestore). Nada além disso.
    - Criar uma chave JSON e baixar.
 3. No GitHub: Settings → Secrets and variables → Actions → New repository secret:
-   - Nome: `FIREBASE_SERVICE_ACCOUNT`
-   - Valor: o conteúdo da chave JSON **codificado em base64** — `base64 -w0 chave.json` no Linux — e colar a saída.
+   - Nome recomendado: `FIREBASE_ANPD_SYNC`.
+   - Valor: cole o conteúdo completo da chave JSON, puro — deve começar por `{`. Não codifique em base64.
+   - Enquanto a conta exclusiva não é criada, o Action usa o secret `FIREBASE_RULES_DEPLOYER` já configurado.
 4. O Action roda a cada 6 horas e também manualmente (aba Actions → "Sincronizar publicações da ANPD" → Run workflow).
 
 Testes locais (sem gravar no Firestore):

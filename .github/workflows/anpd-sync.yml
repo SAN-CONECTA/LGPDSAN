@@ -22,15 +22,19 @@ jobs:
       - name: Instalar dependências
         run: pip install firebase-admin
 
-      - name: Decodificar credencial de serviço do Firebase
+      - name: Preparar credencial de serviço do Firebase
         env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          # FIREBASE_ANPD_SYNC é o segredo recomendado para uma conta exclusiva
+          # da sincronização. Enquanto ele não existir, usa a credencial já
+          # configurada para o deploy das regras.
+          FIREBASE_ANPD_SYNC: ${{ secrets.FIREBASE_ANPD_SYNC || secrets.FIREBASE_RULES_DEPLOYER }}
         run: |
-          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
-            echo "::error::Secret FIREBASE_SERVICE_ACCOUNT não configurado." >&2
+          if [ -z "$FIREBASE_ANPD_SYNC" ]; then
+            echo "::error::Configure o secret FIREBASE_ANPD_SYNC (recomendado) ou FIREBASE_RULES_DEPLOYER." >&2
             exit 1
           fi
-          echo "$FIREBASE_SERVICE_ACCOUNT" | base64 -d > "$RUNNER_TEMP/service-account.json"
+          printf '%s' "$FIREBASE_ANPD_SYNC" > "$RUNNER_TEMP/service-account.json"
+          python3 -m json.tool "$RUNNER_TEMP/service-account.json" >/dev/null
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
 
       - name: Sincronizar publicações no Firestore
