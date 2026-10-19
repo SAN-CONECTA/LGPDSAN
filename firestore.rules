@@ -3,7 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function uPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
-    function active() { return request.auth != null && exists(uPath()) && get(uPath()).data.ativo == true; }
+    // Depois de encerrar todas as sessões, somente um novo login (auth_time maior)
+    // volta a ter acesso aos dados protegidos.
+    function active() { return request.auth != null && exists(uPath()) && get(uPath()).data.ativo == true
+      && request.auth.token.auth_time >= get(uPath()).data.get('sessaoMinima', 0); }
     function role() { return get(uPath()).data.role; }
     function isAdmin() { return active() && role() == 'admin'; }
     function myContabs() { return get(uPath()).data.get('contabilidades', []); }
@@ -71,6 +74,26 @@ service cloud.firestore {
         && request.resource.data.role == role()
         && request.resource.data.lastSeen == request.time;
       allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Uma sessão representa uma aba/navegador. O usuário mantém apenas a própria
+    // sessão; uma vez revogada, não consegue marcá-la como ativa novamente.
+    match /sessoes/{sid} {
+      allow get: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if active() && request.resource.data.userId == request.auth.uid
+        && request.resource.data.user == get(uPath()).data.nome
+        && request.resource.data.role == role()
+        && request.resource.data.lastSeen == request.time
+        && request.resource.data.revogada == false;
+      allow update: if isAdmin() || (active() && resource.data.userId == request.auth.uid
+        && resource.data.revogada == false && request.resource.data.revogada == false
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.user == resource.data.user
+        && request.resource.data.userEmail == resource.data.userEmail
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.lastSeen == request.time);
+      allow delete: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
     }
 
     // Auditoria do SISTEMA (login, usuários, contabilidades, categorias): só o administrador lê; ninguém edita ou apaga.

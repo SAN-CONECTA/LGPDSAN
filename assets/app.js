@@ -2,7 +2,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/fireba
 import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndPassword, signOut, onAuthStateChanged,
   createUserWithEmailAndPassword, sendPasswordResetEmail, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
-  serverTimestamp, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+  serverTimestamp, onSnapshot, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
 import { firebaseConfig } from './firebase-config.js?v=2.34.0';
 import { BIBLIO } from './biblioteca.js?v=2.34.0';
@@ -11,7 +11,7 @@ import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ap
 
 import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.41.0';
+const VERSION = '2.42.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -63,9 +63,9 @@ if (new URLSearchParams(location.search).has('emulador')) {
 
 let me = null;
 let cid = null; // contabilidade ativa
-let db = { users: [], records: [], categorias: [], contabs: [], pessoas: [], presencas: [] };
+let db = { users: [], records: [], categorias: [], contabs: [], pessoas: [], presencas: [], sessoes: [] };
 let justSignedIn = false;
-let presenceTimer = null, presenceRefreshTimer = null;
+let presenceTimer = null, presenceRefreshTimer = null, stopSessionWatch = null, sessionStartedAt = 0, forcingLogout = false;
 const ONLINE_MS = 2 * 60 * 1000;
 
 /* ---------- caminhos (tudo de uma contabilidade fica sob contabilidades/{cid}) ---------- */
@@ -81,6 +81,10 @@ const contabNome = id => (db.contabs.find(c => c.id === id) || {}).nome || '(rem
 const anpdCol = () => collection(fs, 'anpd');
 const anpdLidasCol = () => collection(fs, 'users', me.id, 'anpdLidas');
 const presenceDoc = () => doc(fs, 'presencas', me.id);
+const newSessionId = () => { try { let v = sessionStorage.getItem('lgpdsan:sid'); if (!v) { v = crypto.randomUUID(); sessionStorage.setItem('lgpdsan:sid', v); } return v; } catch (e) { return crypto.randomUUID(); } };
+let sessionId = newSessionId();
+const sessionDoc = () => doc(fs, 'sessoes', sessionId);
+const resetSessionId = () => { try { sessionStorage.removeItem('lgpdsan:sid'); } catch (e) {} sessionId = newSessionId(); };
 
 /* ---------- permissões ---------- */
 const cur = r => r.snap;
@@ -105,15 +109,41 @@ const auditNow = (acao, rec, detalhe) => { const s = isSys(acao, rec); return se
 /* ---------- presença: sinal renovado a cada minuto; sem sinal por 2 min = offline ---------- */
 async function pingPresence() {
   if (!me) return;
-  await setDoc(presenceDoc(), { userId: me.id, user: me.nome, userEmail: me.email || '', role: me.role, lastSeen: serverTimestamp() });
+  const base = { userId: me.id, user: me.nome, userEmail: me.email || '', role: me.role, lastSeen: serverTimestamp() };
+  // A regra impede que uma sessão revogada seja reativada pelo sinal periódico.
+  await Promise.all([setDoc(presenceDoc(), base), setDoc(sessionDoc(), { ...base, revogada: false }, { merge: true })]);
 }
 function startPresence() {
   clearInterval(presenceTimer);
   pingPresence().catch(e => console.warn('Presença não atualizada', e));
   presenceTimer = setInterval(() => pingPresence().catch(e => console.warn('Presença não atualizada', e)), 60000);
 }
-function stopPresence() { clearInterval(presenceTimer); presenceTimer = null; }
+function stopPresence() { clearInterval(presenceTimer); presenceTimer = null; if (stopSessionWatch) { stopSessionWatch(); stopSessionWatch = null; } }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pingPresence().catch(() => {}); });
+async function forceLogout(msg) {
+  if (forcingLogout) return;
+  forcingLogout = true;
+  stopPresence();
+  try { await deleteDoc(presenceDoc()); } catch (e) {}
+  me = null; cid = null;
+  try { sessionStorage.removeItem('lgpdsan:cid'); } catch (e) {}
+  resetSessionId();
+  try { await signOut(auth); } catch (e) {}
+  forcingLogout = false;
+  renderLogin(msg);
+}
+function watchSession() {
+  if (!me) return;
+  if (stopSessionWatch) stopSessionWatch();
+  const stopUser = onSnapshot(doc(fs, 'users', me.id), s => {
+    const min = Number((s.data() || {}).sessaoMinima || 0);
+    if (min > sessionStartedAt) forceLogout('Suas sessões foram encerradas por um administrador. Entre novamente para continuar.');
+  }, () => {});
+  const stopCurrent = onSnapshot(sessionDoc(), s => {
+    if (s.exists() && s.data().revogada === true) forceLogout('Esta sessão foi desconectada por um administrador.');
+  }, () => {});
+  stopSessionWatch = () => { stopUser(); stopCurrent(); };
+}
 
 /* ---------- UI utilitários ---------- */
 let toastT;
@@ -241,10 +271,11 @@ async function loadCore() {
   }
 
   if (can.admin()) {
-    const [users, presencas] = await Promise.all([getDocs(collection(fs, 'users')), getDocs(collection(fs, 'presencas'))]);
+    const [users, presencas, sessoes] = await Promise.all([getDocs(collection(fs, 'users')), getDocs(collection(fs, 'presencas')), getDocs(collection(fs, 'sessoes'))]);
     db.users = users.docs.map(d => ({ id: d.id, ...d.data() }));
     db.presencas = presencas.docs.map(d => ({ id: d.id, ...d.data() }));
-  } else { db.users = [me]; db.presencas = []; }
+    db.sessoes = sessoes.docs.map(d => ({ id: d.id, ...d.data() }));
+  } else { db.users = [me]; db.presencas = []; db.sessoes = []; }
   if (cid) {
     db.pessoas = (await getDocs(collection(fs, 'contabilidades', cid, 'pessoas'))).docs.map(d => ({ id: d.id, ...d.data() }));
     const q = can.admin() ? rcol() : query(rcol(), where('deleted', '==', false));
@@ -472,7 +503,7 @@ function renderLogin(msg = '') {
     err.style.color = 'var(--ok)'; err.textContent = 'Se o e-mail estiver cadastrado, você receberá um link de redefinição.';
   };
 }
-async function logout() { try { await auditNow('Logout'); } catch (e) {} try { await deleteDoc(presenceDoc()); } catch (e) {} stopPresence(); me = null; cid = null; try { sessionStorage.removeItem('lgpdsan:cid'); } catch (e) {} await signOut(auth); location.hash = '#/'; }
+async function logout() { try { await auditNow('Logout'); } catch (e) {} try { await deleteDoc(presenceDoc()); } catch (e) {} stopPresence(); me = null; cid = null; try { sessionStorage.removeItem('lgpdsan:cid'); } catch (e) {} resetSessionId(); await signOut(auth); location.hash = '#/'; }
 
 /* ---------- painel ---------- */
 const recLink = r => `#/registro/${cid}/${r.id}`;
@@ -1114,19 +1145,38 @@ function syncPessoas(b, uid, nome, role, ativo, ids, prevIds = []) {
 function renderUsers() {
   bind = () => {
     $('#nu').onclick = () => userForm();
-    document.querySelectorAll('[data-u]').forEach(b => b.onclick = guard(() => userAction(b.dataset.a, db.users.find(u => u.id === b.dataset.u))));
+    document.querySelectorAll('[data-u]').forEach(b => b.onclick = guard(() => userAction(b.dataset.a, db.users.find(u => u.id === b.dataset.u), b.dataset.sid)));
     clearTimeout(presenceRefreshTimer);
     presenceRefreshTimer = setTimeout(() => { if (location.hash === '#/usuarios') route(); }, 30000);
   };
   const firms = u => u.role === 'admin' ? '<span class="muted">todas</span>' : ((u.contabilidades || []).map(contabNome).map(esc).join(', ') || '<span class="tag bad">nenhuma</span>');
-  const online = new Map(db.presencas.filter(p => tms(p.lastSeen) && Date.now() - tms(p.lastSeen) < ONLINE_MS).map(p => [p.id, p]));
+  const isRecent = p => tms(p.lastSeen) && Date.now() - tms(p.lastSeen) < ONLINE_MS;
+  const sessionsByUser = new Map(), allSessionsByUser = new Map();
+  db.sessoes.forEach(s => {
+    const all = allSessionsByUser.get(s.userId) || []; all.push(s); allSessionsByUser.set(s.userId, all);
+    if (s.revogada) return;
+    const list = sessionsByUser.get(s.userId) || []; list.push(s); sessionsByUser.set(s.userId, list);
+  });
+  const online = new Map(db.presencas.filter(isRecent).map(p => [p.id, p]));
+  sessionsByUser.forEach((list, uid) => { if (list.some(isRecent)) online.set(uid, list[0]); });
+  const lastSeen = u => {
+    const stamps = (allSessionsByUser.get(u.id) || []).map(s => tms(s.lastSeen)).concat(online.has(u.id) ? [tms(online.get(u.id).lastSeen)] : []).filter(Boolean);
+    return stamps.length ? Math.max(...stamps) : null;
+  };
+  const sessionActions = u => {
+    const current = (sessionsByUser.get(u.id) || []).filter(isRecent);
+    if (!current.length || u.id === me.id) return '';
+    const singles = current.map((s, i) => `<button data-u="${u.id}" data-a="kick" data-sid="${s.id}" title="Último sinal: ${esc(fmt(s.lastSeen))}">Desconectar sessão ${i + 1}</button>`).join('');
+    return `${singles}<button class="danger" data-u="${u.id}" data-a="endall">Encerrar todas (${current.length})</button>`;
+  };
   return `<div class="bar"><div><h1>Usuários</h1><p class="muted"><b>${online.size} online agora</b> · o status é renovado a cada minuto e considera offline após 2 minutos sem sinal. Administrador enxerga todas as contabilidades; Consulta e Edição só as vinculadas.</p></div><button class="primary" id="nu">+ Novo usuário</button></div>
-    <div class="card tablewrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Contabilidades</th><th>Agora</th><th>Situação</th><th></th></tr>
+    <div class="card tablewrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Contabilidades</th><th>Agora</th><th>Última atividade</th><th>Situação</th><th></th></tr>
     ${db.users.slice().sort(byName).map(u => `<tr><td>${esc(u.nome)}${u.id === me.id ? ' <span class="tag brand">você</span>' : ''}</td><td>${esc(u.email)}</td><td>${ROLES[u.role] || esc(u.role)}</td><td>${firms(u)}</td>
     <td>${online.has(u.id) ? '<span class="tag ok">online</span>' : '<span class="muted small">offline</span>'}</td>
+    <td class="small">${fmt(lastSeen(u))}</td>
     <td>${u.ativo ? '<span class="tag ok">ativo</span>' : '<span class="tag bad">bloqueado</span>'}</td>
     <td class="actions" style="margin:0"><button data-u="${u.id}" data-a="edit">Editar</button><button data-u="${u.id}" data-a="pw">Enviar redefinição de senha</button>
-    <button data-u="${u.id}" data-a="toggle">${u.ativo ? 'Bloquear' : 'Desbloquear'}</button><button class="danger" data-u="${u.id}" data-a="rm">Remover acesso</button></td></tr>`).join('')}</table></div>`;
+    <button data-u="${u.id}" data-a="toggle">${u.ativo ? 'Bloquear' : 'Desbloquear'}</button>${sessionActions(u)}<button class="danger" data-u="${u.id}" data-a="rm">Remover acesso</button></td></tr>`).join('')}</table></div>`;
 }
 const genPw = () => { const ch = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%'; return [...crypto.getRandomValues(new Uint8Array(24))].map(b => ch[b % ch.length]).join(''); };
 function userForm(u) {
@@ -1168,7 +1218,7 @@ function userForm(u) {
     });
   });
 }
-async function userAction(a, u) {
+async function userAction(a, u, sid) {
   if (a === 'edit') return userForm(u);
   if (a === 'pw') { await sendPasswordResetEmail(auth, u.email); await auditNow('Redefinição de senha enviada', null, u.email); return toast('E-mail de redefinição enviado.'); }
   if (a === 'toggle') {
@@ -1177,6 +1227,24 @@ async function userAction(a, u) {
     const b = writeBatch(fs); b.update(doc(fs, 'users', u.id), { ativo: !u.ativo });
     syncPessoas(b, u.id, u.nome, u.role, !u.ativo, u.contabilidades || [], u.contabilidades || []);
     auditOp(b, u.ativo ? 'Usuário bloqueado' : 'Usuário desbloqueado', null, u.email); await b.commit(); return route();
+  }
+  if (a === 'kick') {
+    if (!sid) return;
+    return confirmBox(`Desconectar agora a sessão de ${u.nome}? O acesso desta tela será encerrado.`, 'Desconectar sessão', async () => {
+      const b = writeBatch(fs);
+      b.update(doc(fs, 'sessoes', sid), { revogada: true, revogadaEm: serverTimestamp(), revogadaPor: me.id });
+      auditOp(b, 'Sessão desconectada', null, `${u.email} · sessão ${sid.slice(0, 8)}`);
+      await b.commit(); toast('Sessão desconectada.'); route();
+    });
+  }
+  if (a === 'endall') {
+    return confirmBox(`Encerrar todas as sessões de ${u.nome}? O acesso ao Firestore será bloqueado imediatamente e será necessário entrar novamente.`, 'Encerrar todas as sessões', async () => {
+      const b = writeBatch(fs), cutoff = Math.floor(Date.now() / 1000) + 1;
+      b.update(doc(fs, 'users', u.id), { sessaoMinima: cutoff, sessoesEncerradasEm: serverTimestamp() });
+      (db.sessoes || []).filter(s => s.userId === u.id && !s.revogada).forEach(s => b.update(doc(fs, 'sessoes', s.id), { revogada: true, revogadaEm: serverTimestamp(), revogadaPor: me.id }));
+      auditOp(b, 'Todas as sessões encerradas', null, u.email);
+      await b.commit(); toast('Todas as sessões foram encerradas.'); route();
+    });
   }
   if (a === 'rm') {
     if (u.id === me.id) return toast('Você não pode remover a si mesmo.');
@@ -1522,9 +1590,13 @@ onAuthStateChanged(auth, async u => {
   try {
     const s = await getDoc(doc(fs, 'users', u.uid));
     if (!s.exists() || !s.data().ativo) { me = null; await signOut(auth); return renderLogin('Conta sem acesso ao sistema. Procure o administrador.'); }
+    const token = await u.getIdTokenResult();
+    sessionStartedAt = Number(token.claims.auth_time || 0);
+    if (Number(s.data().sessaoMinima || 0) > sessionStartedAt) { me = null; await signOut(auth); return renderLogin('Suas sessões foram encerradas por um administrador. Entre novamente para continuar.'); }
     me = { id: u.uid, ...s.data() };
     me.tema = temaDe(me); applyTheme(me.tema); lsSet('lgpdsan:tema', me.tema);
     startPresence();
+    watchSession();
     if (justSignedIn) { justSignedIn = false; try { await auditNow('Login'); } catch (e) { console.error(e); } }
     route();
   } catch (e) { console.error(e); me = null; await signOut(auth); renderLogin('Não foi possível validar o acesso: ' + errMsg(e)); }
