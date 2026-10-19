@@ -11,7 +11,7 @@ import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ap
 
 import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.36.0';
+const VERSION = '2.37.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -478,8 +478,13 @@ function trilhaHtml(rs) {
     const decl = g && rc.length ? Math.round(rc.reduce((a, r) => a + pontuacao(g, cur(r).dados).declarado, 0) / rc.length) : null;
     return { c, n: rc.length, vig, decl, dica: (TRILHA.find(t => t[0] === c) || [])[1] || 'Categoria acrescentada pelo administrador.' }; });
   const prox = passos.find(p => !p.vig);
-  return `<div class="tablewrap"><table><tr><th>#</th><th>Categoria</th><th>Situação</th><th>Registros</th><th>Declarado</th></tr>${passos.map((p, i) => `<tr${p === prox ? ' class="is-highlight"' : ''}><td>${i + 1}</td><td><b>${esc(p.c)}</b>${p === prox ? ' <span class="tag brand">próximo passo</span>' : ''}<br><span class="muted small">${esc(p.dica)}</span></td>
+  const proxN = passos.indexOf(prox), visiveis = prox ? passos.slice(proxN, proxN + 3) : passos.slice(-3);
+  const tabela = `<div class="tablewrap"><table><tr><th>#</th><th>Categoria</th><th>Situação</th><th>Registros</th><th>Declarado</th></tr>${passos.map((p, i) => `<tr${p === prox ? ' class="is-highlight"' : ''}><td>${i + 1}</td><td><b>${esc(p.c)}</b>${p === prox ? ' <span class="tag brand">próximo passo</span>' : ''}<br><span class="muted small">${esc(p.dica)}</span></td>
     <td><span class="tag ${p.vig ? 'ok' : p.n ? 'warn' : ''}">${p.vig ? 'Em vigor' : p.n ? 'Em andamento' : 'Não iniciada'}</span></td><td>${p.n}</td><td>${p.decl === null ? '<span class="muted">—</span>' : p.decl + '%'}</td></tr>`).join('')}</table></div>`;
+  if (!prox) return `<div class="journey-done"><span aria-hidden="true">✓</span><div><b>Trilha concluída</b><p>Há registros em vigor em todas as categorias. Continue acompanhando revisões e prazos.</p></div></div><details class="journey-all"><summary>Ver todas as ${passos.length} etapas</summary>${tabela}</details>`;
+  return `<div class="journey-next"><div class="journey-step">${proxN + 1}</div><div class="journey-copy"><span class="dash-eyebrow">COMECE POR AQUI</span><h3>${esc(prox.c)}</h3><p>${esc(prox.dica)}</p></div><div class="journey-action">${can.edit() ? `<button class="primary" type="button" data-start-cat="${esc(prox.c)}">${prox.n ? 'Continuar etapa' : 'Criar primeiro registro'}</button>` : `<a class="btn" href="#/registros" data-start-cat="${esc(prox.c)}">Ver registros</a>`}<span class="small muted">${prox.n ? `${prox.n} registro(s) nesta etapa` : 'Nenhum registro criado'}</span></div></div>
+    <div class="journey-upcoming">${visiveis.map((p, i) => `<div class="journey-mini${p === prox ? ' is-now' : ''}"><span>${proxN + i + 1}</span><div><b>${esc(p.c)}</b><small>${p.vig ? 'Concluída' : p.n ? 'Em andamento' : p === prox ? 'Etapa atual' : 'A seguir'}</small></div>${p.vig ? '<i aria-label="Concluída">✓</i>' : ''}</div>`).join('')}</div>
+    <details class="journey-all"><summary>Ver todas as ${passos.length} etapas e indicadores</summary>${tabela}</details>`;
 }
 async function renderDash() {
   const rs = db.records.filter(r => !r.deleted);
@@ -491,6 +496,7 @@ async function renderDash() {
   const trilha = catList();
   const proximaCategoria = trilha.find(c => !rs.some(r => cur(r).categoria === c && cur(r).status === 'Em vigor')) || trilha[0];
   const categoriasIniciadas = trilha.filter(c => rs.some(r => cur(r).categoria === c)).length;
+  bind = () => $$('[data-start-cat]').forEach(el => el.addEventListener('click', () => { try { sessionStorage.setItem('lgpdsan:preselectCategoria', el.dataset.startCat); } catch (e) {} location.hash = '#/registros'; }));
   let anpdCard = '';
   try {
     const a = await loadAnpd();
@@ -527,6 +533,7 @@ async function renderList() {
   await loadEvid();
   bind = () => {
     const q = $('#q'), fc = $('#fc'), fs_ = $('#fs'), fp = $('#fp'), fd = $('#fd');
+    try { const categoriaInicial = sessionStorage.getItem('lgpdsan:preselectCategoria'); if (categoriaInicial && [...fc.options].some(o => o.value === categoriaInicial)) { fc.value = categoriaInicial; sessionStorage.removeItem('lgpdsan:preselectCategoria'); } } catch (e) {}
     let shown = [];
     const draw = () => {
       const t = q.value.toLowerCase();
