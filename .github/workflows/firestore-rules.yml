@@ -29,10 +29,11 @@ jobs:
         run: |
           if [ -z "$FIREBASE_RULES_DEPLOYER" ]; then
             echo "::error::Secret FIREBASE_RULES_DEPLOYER não configurado." >&2
-            echo "::error::Crie uma conta de serviço exclusiva com o papel Firebase Rules Admin e cadastre a chave em base64 nos Secrets do repositório." >&2
+            echo "::error::Crie uma conta de serviço exclusiva com o papel Firebase Rules Admin e cadastre o JSON completo nos Secrets do repositório." >&2
             exit 1
           fi
-          echo "$FIREBASE_RULES_DEPLOYER" | base64 --decode > "$RUNNER_TEMP/firestore-rules-deployer.json"
+          # O GitHub preserva o JSON multilinha de um Secret; gravamos sem exibi-lo nos logs.
+          printf '%s' "$FIREBASE_RULES_DEPLOYER" > "$RUNNER_TEMP/firestore-rules-deployer.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firestore-rules-deployer.json" >> "$GITHUB_ENV"
 
       - name: Publicar somente as regras do Firestore

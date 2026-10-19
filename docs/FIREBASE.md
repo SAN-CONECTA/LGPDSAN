@@ -36,7 +36,7 @@ Configuração única, feita por quem administra o projeto Firebase:
 3. Gerar e baixar uma chave JSON.
 4. No GitHub do repositório: **Settings → Secrets and variables → Actions → New repository secret**.
 5. Nome do segredo: `FIREBASE_RULES_DEPLOYER`.
-6. Valor: a chave JSON codificada em Base64 (`base64 -w0 chave.json` no Linux).
+6. Valor: o conteúdo completo da chave JSON (sem codificar em Base64).
 
 Não reutilize a conta de serviço da sincronização ANPD: ela precisa apenas gravar publicações,
 enquanto a conta das rules tem acesso administrativo às regras. As chaves nunca devem ser
