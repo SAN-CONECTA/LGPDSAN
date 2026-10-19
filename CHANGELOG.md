@@ -1,22 +1,6 @@
 # Changelog
 Formato SemVer.
 
-## [2.33.0] - 2026-10-17
-### Segurança
-- **Gravações críticas no servidor (Cloud Functions v2, Node 22, região São Paulo).** Criar, editar, restaurar versão, aprovar, excluir e excluir definitivamente registros; enviar, reaproveitar e excluir evidências; usuários, contabilidades e categorias. Cada Function confere login, perfil ativo, papel e vínculo com a contabilidade, e tira nome, papel e horário do servidor — nunca do navegador.
-- **Versão sempre junto com a edição.** Registro, próxima versão e auditoria são gravados na mesma transação. O navegador não grava mais em `registros`, `versoes` nem `auditoria` (regras bloqueiam), então não há edição sem versão nem versão avulsa.
-- **Auditoria produzida pelo servidor**, com lista fechada de ações e esquema rígido (campo novo `fonte: 'servidor'`). Login e Logout: um evento por sessão.
-- **Evidências com reserva.** Upload só com reserva do servidor (`reserveEvidence`) para aquele usuário, caminho, tamanho e tipo; o servidor confere o arquivo (inclusive os primeiros bytes) antes de liberá-lo (`finalizeEvidence`). Leitura só de arquivo pronto; exclusão direta pelo Storage bloqueada. Reservas vencidas e arquivos órfãos são limpos a cada hora.
-### Alterado
-- Remoção de categoria confere o uso em todas as contabilidades (antes, só na selecionada).
-- O detalhe da auditoria de "Edição" lista os itens do checklist alterados como "Checklist (N campo(s))".
-- Configurações › Backup ganhou "Manutenção do servidor": migrar dados legados e limpar envios pendentes.
-- Testes no Firebase Emulator Suite (`npm test`) e workflow `Testes`; a sincronização ANPD só grava em produção depois dos testes.
-### Corrigido
-- Biblioteca › Contratos e Operadores: transferência internacional **não** exige consentimento como regra. O texto agora pede hipótese legal, mecanismo válido (ex.: cláusulas-padrão, Res. CD/ANPD nº 19/2024), transparência e avaliação de localização, réplicas, suporte remoto e subprocessadores.
-### Migração
-- Publicar Functions, regras e índices antes de subir o app (ver `docs/FUNCTIONS.md`). Depois, Administrador › Backup › **Migrar dados legados** uma vez: sem isso, evidências antigas não abrem.
-
 ## [2.32.0] - 2026-10-16
 ### Alterado
 - **Redesign visual:** Login em duas colunas, painel com hierarquia de métricas e colunas de conteúdo, e acabamento consistente para cartões, filtros, tabelas, menu, topo e janelas.
