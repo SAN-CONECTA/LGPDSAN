@@ -3,7 +3,7 @@
 Registro, versionamento e auditoria de boas práticas de conformidade com a LGPD.
 Publicação: https://lgpd.sanconecta.com/ (endereço antigo: https://san-conecta.github.io/LGPDSAN/, redireciona após configurar o domínio)
 
-**Versão atual: 2.32.0** (Firebase Auth + Firestore, regras no servidor)
+**Versão atual: 2.33.0** (Firebase Auth + Firestore, regras no servidor)
 
 ## O que o sistema faz
 - Perfis: Consulta, Edição, Administrador (matriz da especificação, seção 3.5)
@@ -12,7 +12,7 @@ Publicação: https://lgpd.sanconecta.com/ (endereço antigo: https://san-conect
 - Registros com categoria, status, prioridade, responsável, prazo e evidências (links)
 - Versionamento automático com justificativa obrigatória, comparação palavra a palavra e restauração (cria nova versão)
 - Exclusão lógica, restauração e exclusão permanente (somente Administrador)
-- Auditoria (Consulta vê apenas eventos de registros acessíveis)
+- Auditoria: log de acessos (login/logout) com data/hora, nome, e-mail e perfil; Consulta vê apenas eventos de registros acessíveis e o Administrador vê também os eventos do sistema
 - Usuários, categorias, backup/importação JSON, exportação CSV, impressão de relatório
 - Central de Atualizações ANPD: publicações oficiais de gov.br/anpd sincronizadas automaticamente (somente leitura), com status de leitura por usuário e contador de não lidas
 

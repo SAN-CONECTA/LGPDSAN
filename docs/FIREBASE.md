@@ -3,14 +3,14 @@
 ## Modelo de dados (Firestore, região southamerica-east1)
 - `users/{uid}`: nome, email, role (`consulta`|`edicao`|`admin`), ativo, contabilidades [ids], criado
 - `config/app`: lista (categorias, compartilhada)
-- `auditoria/{id}`: eventos do SISTEMA (login, usuários, contabilidades, categorias). Só admin lê.
+- `auditoria/{id}`: log de acessos e eventos do SISTEMA. Em cada login/logout bem-sucedido, grava data/hora, `userId`, nome, e-mail e perfil; também reúne eventos de usuários, contabilidades e categorias. Só admin lê; os eventos são imutáveis.
 - `anpd/{pubId}`: publicações oficiais da ANPD (url, titulo, descricao, data, fonte, criadoEm, atualizadoEm). Só leitura para usuários; escrita pelo serviço de sincronização (Admin SDK).
   - `users/{uid}/anpdLidas/{pubId}`: status de leitura por usuário (quando). Cada usuário lê e grava apenas o próprio.
 - `contabilidades/{cid}`: nome, criado
   - `pessoas/{uid}`: nome (alimenta o campo Responsável)
   - `registros/{id}`: snap{titulo,categoria,descricao,status,prioridade,responsavel,prazo,evidencias}, versao, deleted, criado, criadoPor, atualizado
     - `versoes/{n}`: n, snap, autor, autorId, quando, just (imutável)
-  - `auditoria/{id}`: ts, userId, user, role, acao, recId, recTitulo, detalhe, escopo=`registro`, contabId (só criação)
+  - `auditoria/{id}`: ts, userId, user, userEmail, role, acao, recId, recTitulo, detalhe, escopo=`registro`, contabId (só criação)
 
 Isolamento: o caminho `contabilidades/{cid}/...` + `cid in users/{uid}.contabilidades` nas regras. Administrador acessa todas.
 

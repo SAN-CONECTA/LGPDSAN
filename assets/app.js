@@ -4,14 +4,14 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
   serverTimestamp, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js?v=2.32.0';
-import { BIBLIO } from './biblioteca.js?v=2.32.0';
-import { MANUAL_LGPD } from './manual-lgpd.js?v=2.32.0';
-import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.32.0';
+import { firebaseConfig } from './firebase-config.js?v=2.33.0';
+import { BIBLIO } from './biblioteca.js?v=2.33.0';
+import { MANUAL_LGPD } from './manual-lgpd.js?v=2.33.0';
+import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, aplicaItem, ESTAGIOS } from './guias.js?v=2.33.0';
 
-import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.32.0';
+import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.33.0';
 
-const VERSION = '2.32.0';
+const VERSION = '2.33.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -90,7 +90,7 @@ const catList = () => db.categorias.slice().sort((a, b) => trilhaPos(a) - trilha
 const isSys = (acao, rec) => !rec && !FIRM_ACTS.has(acao);
 const aCol = sys => sys ? collection(fs, 'auditoria') : collection(fs, 'contabilidades', cid, 'auditoria');
 function auditData(acao, rec, detalhe, sys) {
-  return { ts: serverTimestamp(), userId: me.id, user: me.nome, role: me.role, acao, recId: rec ? rec.id : null,
+  return { ts: serverTimestamp(), userId: me.id, user: me.nome, userEmail: me.email || '', role: me.role, acao, recId: rec ? rec.id : null,
     recTitulo: rec ? cur(rec).titulo : '', detalhe: detalhe || '', escopo: sys ? 'sistema' : 'registro', contabId: sys ? null : cid };
 }
 const auditOp = (batch, acao, rec, detalhe) => { const s = isSys(acao, rec); batch.set(doc(aCol(s)), auditData(acao, rec, detalhe, s)); };
@@ -973,7 +973,7 @@ async function renderEvid() {
 /* ---------- auditoria ---------- */
 const audContab = a => a.contabId ? contabNome(a.contabId) : 'Sistema';
 const auditRows = (list, comContab = true) => list.length ? `<div class="tablewrap"><table><tr><th>Quando</th><th>Usuário</th>${comContab ? '<th>Contabilidade</th>' : ''}<th>Ação</th><th>Registro</th><th>Detalhe</th></tr>
-  ${list.map(a => `<tr><td>${fmt(a.ts)}</td><td>${esc(a.user)}<br><span class="muted small">${esc(ROLES[a.role] || '')}</span></td>${comContab ? `<td>${esc(audContab(a))}</td>` : ''}<td>${esc(a.acao)}</td><td>${esc(a.recTitulo)}</td><td>${esc(a.detalhe)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Sem eventos.</p>';
+  ${list.map(a => `<tr><td>${fmt(a.ts)}</td><td>${esc(a.user)}${a.userEmail ? `<br><span class="muted small">${esc(a.userEmail)}</span>` : ''}<br><span class="muted small">${esc(ROLES[a.role] || '')}</span></td>${comContab ? `<td>${esc(audContab(a))}</td>` : ''}<td>${esc(a.acao)}</td><td>${esc(a.recTitulo)}</td><td>${esc(a.detalhe)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Sem eventos.</p>';
 const PAG_AUD = 200; // eventos por página; "Carregar mais" não tem teto
 const novoPager = colRef => ({ colRef, itens: [], last: null, fim: false });
 async function maisEventos(pg) {
@@ -986,7 +986,8 @@ async function maisEventos(pg) {
 const pagInfo = pg => `${pg.itens.length} evento${pg.itens.length === 1 ? '' : 's'} carregado${pg.itens.length === 1 ? '' : 's'}${pg.fim ? ' · todos os eventos já estão na tela' : ''}`;
 // Tabela de auditoria com filtro por coluna (linha de filtros sob o cabeçalho): texto livre em Quando/Registro/Detalhe, lista em Usuário/Contabilidade/Ação.
 const audCols = cc => [['ts', 'Quando', 't'], ['user', 'Usuário', 's'], ...(cc ? [['cont', 'Contabilidade', 's']] : []), ['acao', 'Ação', 's'], ['rec', 'Registro', 't'], ['det', 'Detalhe', 't']];
-const audVal = (a, k) => String(k === 'ts' ? fmt(a.ts) : k === 'user' ? a.user : k === 'cont' ? audContab(a) : k === 'acao' ? a.acao : k === 'rec' ? a.recTitulo : a.detalhe) || '';
+const audUser = a => a.userEmail ? `${a.user} · ${a.userEmail}` : a.user;
+const audVal = (a, k) => String(k === 'ts' ? fmt(a.ts) : k === 'user' ? audUser(a) : k === 'cont' ? audContab(a) : k === 'acao' ? a.acao : k === 'rec' ? a.recTitulo : a.detalhe) || '';
 const audTabela = (id, cc) => `<div class="tablewrap"><table class="audt" id="${id}"><thead><tr>${audCols(cc).map(c => `<th>${c[1]}</th>`).join('')}</tr>
   <tr class="filtros">${audCols(cc).map(c => `<th>${c[2] === 's' ? `<select data-f="${c[0]}" aria-label="Filtrar por ${c[1]}"></select>` : `<input type="search" data-f="${c[0]}" placeholder="filtrar" aria-label="Filtrar por ${c[1]}">`}</th>`).join('')}</tr></thead><tbody></tbody></table></div>`;
 // Redesenha só o corpo (os campos de filtro ficam intocados). Devolve quantas linhas passam nos filtros.
@@ -1000,7 +1001,7 @@ function audDesenha(id, itens, cc, geral = '') {
   const g = geral.toLowerCase();
   const ok = itens.filter(a => cols.every(c => { const t = f[c[0]]; if (!t) return true; const v = audVal(a, c[0]); return c[2] === 's' ? v === t : v.toLowerCase().includes(t.toLowerCase()); })
     && (!g || cols.map(c => audVal(a, c[0])).join(' ').toLowerCase().includes(g)));
-  root.querySelector('tbody').innerHTML = ok.length ? ok.map(a => `<tr><td>${fmt(a.ts)}</td><td>${esc(a.user)}<br><span class="muted small">${esc(ROLES[a.role] || '')}</span></td>${cc ? `<td>${esc(audContab(a))}</td>` : ''}<td>${esc(a.acao)}</td><td>${esc(a.recTitulo)}</td><td>${esc(a.detalhe)}</td></tr>`).join('')
+  root.querySelector('tbody').innerHTML = ok.length ? ok.map(a => `<tr><td>${fmt(a.ts)}</td><td>${esc(a.user)}${a.userEmail ? `<br><span class="muted small">${esc(a.userEmail)}</span>` : ''}<br><span class="muted small">${esc(ROLES[a.role] || '')}</span></td>${cc ? `<td>${esc(audContab(a))}</td>` : ''}<td>${esc(a.acao)}</td><td>${esc(a.recTitulo)}</td><td>${esc(a.detalhe)}</td></tr>`).join('')
     : `<tr><td colspan="${cols.length}" class="muted">Sem eventos${itens.length ? ' com esses filtros' : ''}.</td></tr>`;
   return { n: ok.length, filtrado: !!g || Object.values(f).some(Boolean) };
 }
@@ -1021,7 +1022,7 @@ async function renderAudit() {
   return `<div class="bar"><div><h1>Auditoria</h1><p class="muted">${esc(contabNome(cid))} · do mais recente para o mais antigo. Somente leitura: o servidor não permite editar nem apagar eventos.</p></div></div>
     <div class="card"><label for="aq" style="margin-top:0">Busca geral</label><input id="aq" type="search" placeholder="Procura em todas as colunas…"><div style="margin-top:.75rem">${audTabela('atab', true)}</div>
       <div class="actions"><span class="muted small" id="ainfo" aria-live="polite"></span><button id="amais" type="button">Carregar mais ${PAG_AUD}</button></div></div>
-    ${ps ? `<div class="card"><h2>Eventos do sistema (administrador)</h2><p class="muted small">Logins, usuários, contabilidades, categorias.</p>${audTabela('stab', false)}
+    ${ps ? `<div class="card"><h2>Log de acessos e eventos do sistema (administrador)</h2><p class="muted small">Cada entrada e saída bem-sucedida registra data/hora, nome, e-mail e perfil do usuário. Também inclui usuários, contabilidades e categorias.</p>${audTabela('stab', false)}
       <div class="actions"><span class="muted small" id="sinfo" aria-live="polite"></span><button id="smais" type="button">Carregar mais ${PAG_AUD}</button></div></div>` : ''}`;
 }
 

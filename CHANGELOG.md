@@ -1,6 +1,12 @@
 # Changelog
 Formato SemVer.
 
+## [2.33.0] - 2026-10-19
+### Adicionado
+- **Log de acessos:** cada login e logout bem-sucedido passa a guardar, na Auditoria de sistema, data/hora, nome, e-mail e perfil de quem acessou. O Administrador vê a identificação completa na tela **Auditoria** e pode filtrar pelo campo Usuário.
+### Segurança
+- As regras validam o nome, e-mail e perfil do usuário autenticado; os eventos continuam somente de criação e não podem ser editados ou apagados, inclusive por administradores. **Publique `firestore.rules` junto com esta versão.**
+
 ## [2.32.0] - 2026-10-16
 ### Alterado
 - **Redesign visual:** Login em duas colunas, painel com hierarquia de métricas e colunas de conteúdo, e acabamento consistente para cartões, filtros, tabelas, menu, topo e janelas.

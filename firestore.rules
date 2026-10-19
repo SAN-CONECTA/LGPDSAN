@@ -68,6 +68,7 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.ts == request.time
         && request.resource.data.user == get(uPath()).data.nome
+        && request.resource.data.userEmail == get(uPath()).data.email
         && request.resource.data.role == role()
         && request.resource.data.escopo == 'sistema'
         && request.resource.data.acao is string;
@@ -148,6 +149,7 @@ service cloud.firestore {
           && request.resource.data.userId == request.auth.uid
           && request.resource.data.ts == request.time
           && request.resource.data.user == get(uPath()).data.nome
+          && request.resource.data.userEmail == get(uPath()).data.email
           && request.resource.data.role == role()
           && request.resource.data.escopo == 'registro'
           && request.resource.data.contabId == cid
