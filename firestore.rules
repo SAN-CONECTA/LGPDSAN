@@ -154,6 +154,29 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
 
+      // Plano de ação: tarefas operacionais vinculadas aos registros da contabilidade.
+      match /acoes/{id} {
+        allow read: if hasContab(cid);
+        allow create: if canEditIn(cid)
+          && request.resource.data.titulo is string && request.resource.data.titulo.size() > 0 && request.resource.data.titulo.size() <= 200
+          && request.resource.data.status in ['A fazer', 'Em andamento', 'Concluída']
+          && request.resource.data.prioridade in ['Baixa', 'Média', 'Alta']
+          && request.resource.data.responsavel is string && request.resource.data.responsavel.size() <= 100
+          && request.resource.data.prazo is string && request.resource.data.prazo.size() <= 10
+          && request.resource.data.registroId is string && request.resource.data.registroTitulo is string
+          && request.resource.data.criadoPor == request.auth.uid
+          && request.resource.data.criadoEm == request.time && request.resource.data.atualizadoEm == request.time;
+        allow update: if canEditIn(cid)
+          && request.resource.data.titulo is string && request.resource.data.titulo.size() > 0 && request.resource.data.titulo.size() <= 200
+          && request.resource.data.status in ['A fazer', 'Em andamento', 'Concluída']
+          && request.resource.data.prioridade in ['Baixa', 'Média', 'Alta']
+          && request.resource.data.responsavel is string && request.resource.data.responsavel.size() <= 100
+          && request.resource.data.prazo is string && request.resource.data.prazo.size() <= 10
+          && request.resource.data.criadoPor == resource.data.criadoPor
+          && request.resource.data.criadoEm == resource.data.criadoEm && request.resource.data.atualizadoEm == request.time;
+        allow delete: if isAdmin();
+      }
+
       // Auditoria da contabilidade: quem tem acesso lê; edição/admin criam; ninguém edita ou apaga.
       match /auditoria/{id} {
         allow read: if hasContab(cid);

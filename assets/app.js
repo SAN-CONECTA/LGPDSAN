@@ -11,11 +11,12 @@ import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ap
 
 import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.39.0';
+const VERSION = '2.40.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
 const STATUS = ['Rascunho', 'Em vigor', 'Em revisão', 'Arquivado'];
+const ACAO_STATUS = ['A fazer', 'Em andamento', 'Concluída'];
 const PRIOR = ['Baixa', 'Média', 'Alta'];
 const DEFAULT_CATS = ['Governança e Políticas', 'Direitos dos Titulares', 'Contratos e Operadores', 'Segurança da Informação',
   'Incidentes', 'Retenção e Descarte', 'Treinamento e Cultura', 'Mapeamento de Dados'];
@@ -72,6 +73,8 @@ const rcol = () => collection(fs, 'contabilidades', cid, 'registros');
 const rdoc = id => doc(fs, 'contabilidades', cid, 'registros', id);
 const vcol = id => collection(fs, 'contabilidades', cid, 'registros', id, 'versoes');
 const vdoc = (id, n) => doc(fs, 'contabilidades', cid, 'registros', id, 'versoes', String(n));
+const acaoCol = () => collection(fs, 'contabilidades', cid, 'acoes');
+const acaoDoc = id => doc(fs, 'contabilidades', cid, 'acoes', id);
 const contabNome = id => (db.contabs.find(c => c.id === id) || {}).nome || '(removida)';
 /* Publicações oficiais da ANPD: coleção global `anpd` (sincronizada por scripts/anpd_sync.py) +
    status de leitura por usuário em users/{uid}/anpdLidas. Nada disso depende de contabilidade. */
@@ -341,19 +344,19 @@ function ligaBuscaGlobal() {
 /* ---------- roteamento ---------- */
 const app = $('#app');
 const routes = [
-  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/termo', 'Termo de Ciência', renderTermo, null, true], ['#/manual', 'Manual', renderManual], ['#/anpd', 'Atualizações ANPD', renderAnpd], ['#/manual-lgpd', 'Manual da LGPD', renderManualLgpd, 'admin'],
+  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/plano-acao', 'Plano de ação', renderAcoes, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/termo', 'Termo de Ciência', renderTermo, null, true], ['#/manual', 'Manual', renderManual], ['#/anpd', 'Atualizações ANPD', renderAnpd], ['#/manual-lgpd', 'Manual da LGPD', renderManualLgpd, 'admin'],
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
 // Grupos recolhíveis do menu (v2.30.2). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
-  ['contabilidade', 'Contabilidade', [['#/', 'Painel', false], ['#/registros', 'Registros', false], ['#/evidencias', 'Evidências', false], ['#/termo', 'Termo de Ciência', false]]],
+  ['contabilidade', 'Contabilidade', [['#/', 'Painel', false], ['#/registros', 'Registros', false], ['#/plano-acao', 'Plano de ação', false], ['#/evidencias', 'Evidências', false], ['#/termo', 'Termo de Ciência', false]]],
   ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Contabilidades', true]]],
   ['aprendizado', 'Aprendizado', [['#/anpd', 'Atualizações ANPD', false], ['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false], ['#/manual-lgpd', 'Manual da LGPD', true]]],
   ['config', 'Configurações', [['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]]]
 ];
 const NAV_EMOJIS = {
-  'Painel': '📊', 'Registros': '📄', 'Evidências': '📎', 'Termo de Ciência': '✍️',
+  'Painel': '📊', 'Registros': '📄', 'Plano de ação': '✅', 'Evidências': '📎', 'Termo de Ciência': '✍️',
   'Auditoria': '🕘', 'Usuários': '👥', 'Contabilidades': '🏢', 'Atualizações ANPD': '🔔',
   'Biblioteca': '📚', 'Manual': '📖', 'Manual da LGPD': '🛡️', 'Categorias': '⚙️',
   'Backup': '⬇️', 'Sobre / versão': 'ℹ️'
@@ -911,6 +914,21 @@ async function renderRecord(id) {
 }
 
 /* ---------- evidências: arquivos no Firebase Storage; dados de cada uma no Firestore ---------- */
+/* ---------- plano de ação ---------- */
+const acaoTag = s => `<span class="tag ${s === 'Concluída' ? 'ok' : s === 'Em andamento' ? 'warn' : ''}">${esc(s)}</span>`;
+function acaoForm() {
+  const regs = db.records.filter(r => !r.deleted); if (!regs.length) return toast('Crie um registro antes de abrir uma ação.');
+  modal(`<h3>Nova ação</h3><form id="af"><label for="at">Ação *</label><input id="at" required maxlength="200" placeholder="Ex.: Anexar a política assinada"><div class="row"><div><label for="ar">Registro</label><select id="ar">${regs.map(r => `<option value="${esc(r.id)}">${esc(cur(r).titulo)}</option>`).join('')}</select></div><div><label for="ap">Responsável</label><select id="ap">${opts(responsaveis(), me.nome, '— ninguém —')}</select></div></div><div class="row"><div><label for="az">Prazo</label><input id="az" type="date"></div><div><label for="ai">Prioridade</label><select id="ai">${opts(PRIOR, 'Média')}</select></div></div><div class="actions"><button class="primary" id="as">Criar ação</button><button type="button" id="ac">Cancelar</button></div></form>`, d => {
+    $('#ac', d).onclick = () => d.close(); $('#af', d).onsubmit = guard(async e => { e.preventDefault(); const rec = regs.find(r => r.id === $('#ar', d).value); const tarefa = { titulo: $('#at', d).value.trim(), status: 'A fazer', prioridade: $('#ai', d).value, responsavel: $('#ap', d).value, prazo: $('#az', d).value, registroId: rec.id, registroTitulo: cur(rec).titulo, criadoPor: me.id, criadoEm: serverTimestamp(), atualizadoEm: serverTimestamp() }; $('#as', d).disabled = true; await setDoc(doc(acaoCol()), tarefa); await auditNow('Ação criada', rec, tarefa.titulo); d.close(); toast('Ação criada.'); route(); });
+  });
+}
+async function renderAcoes() {
+  let lista; try { lista = (await getDocs(acaoCol())).docs.map(d => ({ id: d.id, ...d.data() })); } catch (e) { return `<h1>Plano de ação</h1><div class="notice bad">Publique as regras atualizadas para habilitar o Plano de ação.</div>`; }
+  const ord = { 'A fazer': 0, 'Em andamento': 1, 'Concluída': 2 }; lista.sort((a, b) => ord[a.status] - ord[b.status] || String(a.prazo || '9999').localeCompare(String(b.prazo || '9999')));
+  bind = () => { const novo = $('#nova-acao'); if (novo) novo.onclick = acaoForm; $$('[data-acao-status]').forEach(s => s.onchange = guard(async () => { const a = lista.find(x => x.id === s.dataset.acaoStatus), rec = db.records.find(r => r.id === a.registroId); await updateDoc(acaoDoc(a.id), { status: s.value, atualizadoEm: serverTimestamp() }); await auditNow('Ação atualizada', rec, `${a.titulo} · ${s.value}`); toast('Status atualizado.'); route(); })); };
+  const abertas = lista.filter(a => a.status !== 'Concluída'), vencidas = abertas.filter(a => a.prazo && a.prazo < today());
+  return `<div class="bar"><div><h1>Plano de ação</h1><p class="muted">${esc(contabNome(cid))} · pendências organizadas em trabalho.</p></div>${can.edit() ? '<button class="primary" id="nova-acao">+ Nova ação</button>' : ''}</div><div class="action-summary"><div><b>${abertas.length}</b><span>em aberto</span></div><div class="${vencidas.length ? 'tone-bad' : ''}"><b>${vencidas.length}</b><span>vencidas</span></div><div><b>${lista.filter(a => a.status === 'Concluída').length}</b><span>concluídas</span></div></div><div class="action-board">${ACAO_STATUS.map(status => { const col = lista.filter(a => a.status === status); return `<section class="action-column"><h2>${acaoTag(status)} <span>${col.length}</span></h2>${col.length ? col.map(a => `<article class="action-card">${priorTag(a.prioridade)} ${a.prazo && a.prazo < today() && a.status !== 'Concluída' ? '<span class="tag bad">vencida</span>' : ''}<b>${esc(a.titulo)}</b><a href="#/registro/${cid}/${a.registroId}">${esc(a.registroTitulo)}</a><small>👤 ${esc(a.responsavel) || 'Sem responsável'} · ${a.prazo ? fmtD(a.prazo) : 'sem prazo'}</small>${can.edit() ? `<select data-acao-status="${esc(a.id)}">${opts(ACAO_STATUS, a.status)}</select>` : ''}</article>`).join('') : '<p class="muted small">Nada aqui.</p>'}</section>`; }).join('')}</div>`;
+}
 const EV_MAX = 10 * 1024 * 1024;
 const EV_TIPOS = { pdf: 'application/pdf', txt: 'text/plain', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
