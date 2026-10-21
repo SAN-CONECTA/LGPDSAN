@@ -381,7 +381,7 @@ const routes = [
 ];
 // Grupos recolhíveis do menu (v2.30.2). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
-  ['contabilidade', 'Contabilidade', [['#/', 'Painel', false], ['#/registros', 'Registros', false], ['#/plano-acao', 'Plano de ação', false], ['#/evidencias', 'Evidências', false], ['#/termo', 'Termo de Ciência', false]]],
+  ['contabilidade', 'Empresas', [['#/', 'Painel', false], ['#/registros', 'Registros', false], ['#/plano-acao', 'Plano de ação', false], ['#/evidencias', 'Evidências', false], ['#/termo', 'Termo de Ciência', false]]],
   ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Empresas', true]]],
   ['aprendizado', 'Aprendizado', [['#/anpd', 'Atualizações ANPD', false], ['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false], ['#/manual-lgpd', 'Manual da LGPD', true]]],
   ['config', 'Configurações', [['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]]]
@@ -396,8 +396,8 @@ const GRUPO_EMOJIS = { contabilidade: '💼', controle: '🛠️', aprendizado: 
 const gruposAbertos = new Set(['contabilidade']);
 let bind = null, seq = 0;
 function contabSelector() {
-  if (db.contabs.length > 1) return `<label for="cs" style="margin-top:0">Contabilidade</label><select id="cs">${db.contabs.map(c => `<option value="${esc(c.id)}" ${c.id === cid ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>`;
-  if (db.contabs.length === 1) return `<div class="small muted">Contabilidade</div><div><b>${esc(db.contabs[0].nome)}</b></div>`;
+  if (db.contabs.length > 1) return `<label for="cs" style="margin-top:0">Empresa</label><select id="cs">${db.contabs.map(c => `<option value="${esc(c.id)}" ${c.id === cid ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>`;
+  if (db.contabs.length === 1) return `<div class="small muted">Empresa</div><div><b>${esc(db.contabs[0].nome)}</b></div>`;
   return '<div class="small muted">Nenhuma contabilidade</div>';
 }
 // O menu lateral rola quando há grupos abertos demais para a tela; mantém à vista o elemento indicado.
