@@ -382,13 +382,13 @@ const routes = [
 // Grupos recolhíveis do menu (v2.30.2). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
   ['contabilidade', 'Contabilidade', [['#/', 'Painel', false], ['#/registros', 'Registros', false], ['#/plano-acao', 'Plano de ação', false], ['#/evidencias', 'Evidências', false], ['#/termo', 'Termo de Ciência', false]]],
-  ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Contabilidades', true]]],
+  ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Empresas', true]]],
   ['aprendizado', 'Aprendizado', [['#/anpd', 'Atualizações ANPD', false], ['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false], ['#/manual-lgpd', 'Manual da LGPD', true]]],
   ['config', 'Configurações', [['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]]]
 ];
 const NAV_EMOJIS = {
   'Painel': '📊', 'Registros': '📄', 'Plano de ação': '✅', 'Evidências': '📎', 'Termo de Ciência': '✍️',
-  'Auditoria': '🕘', 'Usuários': '👥', 'Contabilidades': '🏢', 'Atualizações ANPD': '🔔',
+  'Auditoria': '🕘', 'Usuários': '👥', 'Empresas': '🏢', 'Atualizações ANPD': '🔔',
   'Biblioteca': '📚', 'Manual': '📖', 'Manual da LGPD': '🛡️', 'Categorias': '⚙️',
   'Backup': '⬇️', 'Sobre / versão': 'ℹ️'
 };
