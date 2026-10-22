@@ -42,7 +42,7 @@ service cloud.firestore {
       // Cada usuário pode alterar apenas a própria preferência de tema (auto, claro, escuro e temas de cor).
       allow update: if request.auth != null && request.auth.uid == uid && active()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tema'])
-        && request.resource.data.tema in ['auto', 'claro', 'escuro', 'azul', 'lilas', 'rosa', 'laranja', 'verde', 'grafite', 'escuro-azul', 'escuro-lilas'];
+        && request.resource.data.tema in ['auto', 'claro', 'escuro', 'azul', 'lilas', 'rosa', 'laranja', 'verde', 'grafite', 'escuro-azul', 'escuro-lilas', 'cf', 'cf-escuro'];
 
       // Status de leitura das atualizações ANPD: cada usuário lê e marca apenas as suas.
       match /anpdLidas/{pubId} {

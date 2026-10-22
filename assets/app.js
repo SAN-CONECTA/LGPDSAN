@@ -197,7 +197,7 @@ async function prepararLogo(file) {
   } finally { URL.revokeObjectURL(url); }
 }
 /* ---------- tema claro / escuro (escolha por usuário) ---------- */
-const TEMAS = { auto: 'Automático (do sistema)', claro: 'Claro (verde-azulado)', azul: 'Azul', lilas: 'Lilás', rosa: 'Rosa', laranja: 'Laranja', verde: 'Verde', grafite: 'Grafite', escuro: 'Escuro', 'escuro-azul': 'Escuro azulado', 'escuro-lilas': 'Escuro lilás' };
+const TEMAS = { auto: 'Automático (do sistema)', claro: 'Claro (verde-azulado)', azul: 'Azul', lilas: 'Lilás', rosa: 'Rosa', laranja: 'Laranja', verde: 'Verde', grafite: 'Grafite', escuro: 'Escuro', 'escuro-azul': 'Escuro azulado', 'escuro-lilas': 'Escuro lilás', cf: 'Estilo Cloudflare (claro)', 'cf-escuro': 'Estilo Cloudflare (escuro)' };
 const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* sem armazenamento: vale só nesta sessão */ } };
 function applyTheme(t) {
@@ -473,18 +473,52 @@ window.addEventListener('hashchange', route);
 
 /* ---------- login ---------- */
 function renderLogin(msg = '') {
-  app.innerHTML = `<div class="login-shell"><section class="login-hero" aria-label="LGPDSAN">
-    <div class="login-brand"><img src="assets/logo-icon.png" alt=""><span><b>LGPDSAN</b><small>SAN Conecta</small></span></div>
-    <div class="login-hero-copy"><h1>Conformidade LGPD do escritório,<br>registrada e auditável.</h1><p>Políticas, contratos, evidências e checklists de cada contabilidade em um só lugar, com histórico de versões e trilha de auditoria.</p>
-      <ul><li>Cada edição gera uma nova versão, com justificativa</li><li>Auditoria só de criação: ninguém altera ou apaga eventos</li><li>Dados de cada contabilidade isolados no servidor</li></ul></div>
-    <p class="login-hero-foot">Dados no Firestore, região São Paulo · ${siteLink()}</p>
-  </section><main class="login-panel"><div class="card login-card"><h1 class="prod-title">Entrar</h1><p class="muted small">Use o e-mail cadastrado pelo administrador.</p>
-    <form id="f"><label for="em">E-mail</label><input id="em" type="email" required autocomplete="username">
-    <label for="pw">Senha</label><input id="pw" type="password" required autocomplete="current-password">
-    <p id="err" class="small form-error">${esc(msg)}</p>
-    <button class="primary" style="width:100%">Entrar</button></form>
-    <p class="small" style="margin-top:.75rem"><button class="link" id="fp" type="button">Esqueci minha senha</button></p>
-    <p class="small muted login-meta">Acesso restrito a usuários cadastrados pelo administrador.<br><span>v${VERSION} · ${siteLink()}</span></p></div></main></div>`;
+  const palettes = [
+    { id: 'azul', nome: 'Azul glacial', descricao: 'Azul-marinho e branco gelo. Mais presença, em sintonia com a logo.' },
+    { id: 'grafite', nome: 'Grafite', descricao: 'Grafite e platina. Uma composição neutra, discreta e precisa.' },
+    { id: 'areia', nome: 'Areia e bronze', descricao: 'Areia e bronze. Tons mais quentes, com um acabamento acolhedor.' },
+    { id: 'verde', nome: 'Verde atual', descricao: 'A paleta anterior, para comparar com as novas propostas.' }
+  ];
+  const search = new URLSearchParams(location.search);
+  const palettePreview = search.has('paletas') && ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+  const palette = palettePreview ? (palettes.find(p => p.id === search.get('paleta')) || palettes[0]) : palettes[3];
+  app.innerHTML = `<div class="login-shell" data-login-palette="${palette.id}"><section class="login-hero" aria-labelledby="login-title">
+    <div class="login-hero-main">
+      <div class="login-brand"><img src="assets/logo-icon.png" width="176" height="176" alt=""><span><b>LGPDSAN</b><small>SAN Conecta</small></span></div>
+      <div class="login-hero-copy"><p class="login-eyebrow">Gestão LGPD para sua empresa</p>
+        <h1 id="login-title">Sua conformidade.<br><span>Sob controle.</span></h1>
+        <p>Documentos, evidências e decisões da sua empresa.<br class="login-desktop-break"> Tudo organizado. Cada etapa registrada.</p></div>
+    </div>
+    <ul class="login-features" aria-label="Recursos da plataforma">
+      <li><span aria-hidden="true">01</span><b>Organização</b><p>Políticas e evidências<br>em um só lugar.</p></li>
+      <li><span aria-hidden="true">02</span><b>Histórico</b><p>Cada alteração com<br>versão e justificativa.</p></li>
+      <li><span aria-hidden="true">03</span><b>Auditoria</b><p>Uma trilha para acompanhar<br>cada etapa do trabalho.</p></li>
+    </ul>
+    <p class="login-hero-foot">LGPDSAN <span aria-hidden="true">/</span> Uma solução SAN Conecta</p>
+  </section><main class="login-panel" aria-labelledby="login-access-title">
+    <div class="login-card"><p class="login-eyebrow">Seu espaço de trabalho</p><h2 id="login-access-title" class="prod-title">Bem-vindo de volta.</h2><p class="login-intro">Entre para acompanhar a conformidade<br>do seu escritório.</p>
+      <form id="f"><label for="em">E-mail</label><input id="em" type="email" required autocomplete="username" placeholder="seu@email.com" aria-describedby="err">
+      <label for="pw">Senha</label><input id="pw" type="password" required autocomplete="current-password" placeholder="Digite sua senha" aria-describedby="err">
+      <p id="err" class="form-error" role="status" aria-live="polite">${esc(msg)}</p>
+      <button class="primary" type="submit">Entrar <span aria-hidden="true">→</span></button></form>
+      <p class="login-recovery"><button class="link" id="fp" type="button">Esqueci minha senha</button></p>
+      <p class="login-meta">Acesso exclusivo para usuários cadastrados<br>pelo administrador.</p>
+    </div>
+    <p class="login-panel-foot">v${VERSION}<span aria-hidden="true">·</span>${siteLink()}</p>
+  </main>${palettePreview ? `<aside class="login-palette-preview" aria-label="Comparar paletas de cores"><p class="palette-preview-label">Estudo de cores <span>mesmo layout</span></p>
+    <div class="palette-preview-options" role="group" aria-label="Paletas">${palettes.map(p => `<button type="button" data-preview-palette="${p.id}" aria-pressed="${p.id === palette.id}"><i aria-hidden="true"></i>${p.nome}</button>`).join('')}</div>
+    <p class="palette-preview-description" role="status" aria-live="polite">${palette.descricao}</p></aside>` : ''}</div>`;
+  if (palettePreview) $$('[data-preview-palette]').forEach(button => {
+    button.onclick = () => {
+      const selected = palettes.find(p => p.id === button.dataset.previewPalette);
+      $('.login-shell').dataset.loginPalette = selected.id;
+      $$('[data-preview-palette]').forEach(option => option.setAttribute('aria-pressed', String(option === button)));
+      $('.palette-preview-description').textContent = selected.descricao;
+      const previewUrl = new URL(location.href);
+      previewUrl.searchParams.set('paleta', selected.id);
+      history.replaceState(null, '', previewUrl);
+    };
+  });
   const err = $('#err');
   $('#f').onsubmit = async e => {
     e.preventDefault(); err.textContent = '';
