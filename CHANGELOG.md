@@ -1,6 +1,19 @@
 # Changelog
 Formato SemVer.
 
+## [2.43.0] - 2026-11-04
+### Adicionado
+- **Auditoria no servidor (Fase 1):** Cloud Functions em `functions/` registram tentativas de login falhas (data/hora, e-mail digitado, IP, navegador e motivo, com limite de 20 gravações por IP por hora) e alterações de permissão de usuário com `antes`/`depois`. Eventos do servidor levam `origem: 'servidor'`.
+- **Acesso a dados pessoais (Fase 2):** abrir o detalhe de um registro grava `Visualização de registro` (no máximo um evento por usuário e registro a cada 10 minutos); abrir ou baixar uma evidência grava `Download de evidência` com o nome do arquivo e o registro. O perfil Consulta pode criar somente essas duas ações.
+- **Diff estruturado (Fase 3):** edições de registro, usuário, bloqueio, contabilidade e ação guardam `mudancas` (`{campo:{de,para}}`, até 20 campos e 500 caracteres por valor). A tela **Auditoria** ganhou **▸ Detalhes**, com tabelas de Mudanças, Permissão (antes/depois) e Origem técnica (IP, navegador, motivo e servidor/cliente).
+- **Testes e autoria (Fase 4):** testes das regras com `node --test` + `@firebase/rules-unit-testing` em `tests/rules/`, workflow de CI e a função `atualizarUsuario` para editar/bloquear usuário com o autor (`atualizadoPor`) garantido pelo servidor.
+### Segurança
+- Regras da auditoria: `detalhe` até 500 caracteres, `mudancas` até 20 chaves; o cliente não pode gravar `origem`, `ip`, `userAgent`, `motivo`, `antes`, `depois` nem `alvoId`. `rate_limit` não tem acesso pelo cliente.
+- **Publique `firestore.rules` e faça o deploy das functions junto com esta versão.** A edição e o bloqueio de usuários no app passam a chamar `atualizarUsuario`.
+### Atenção
+- Cloud Functions exigem o plano **Blaze**, região `southamerica-east1` e `firebase-tools` **≥ 14** (a versão 13 quebra com `firebase-functions` v7).
+- A criação de usuário continua sendo feita pelo cliente; a escrita direta em `users/{uid}` por um administrador ainda é aceita pelas regras (sem autor confiável). Limitações, retenção de IP (12 meses) e TTL de `rate_limit` estão em `docs/FIREBASE.md`.
+
 ## [2.34.0] - 2026-10-19
 ### Adicionado
 - **Quem está online:** a tela **Usuários** mostra quem está online naquele momento. O navegador envia um sinal ao entrar e a cada minuto; depois de dois minutos sem sinal, a pessoa aparece como offline. O sinal não coleta IP, dispositivo nem localização.

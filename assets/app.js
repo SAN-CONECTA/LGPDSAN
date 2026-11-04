@@ -4,6 +4,7 @@ import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndP
 import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where, orderBy, limit, startAfter,
   serverTimestamp, onSnapshot, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js';
 import { firebaseConfig } from './firebase-config.js?v=2.34.0';
 import { BIBLIO } from './biblioteca.js?v=2.34.0';
 import { MANUAL_LGPD } from './manual-lgpd.js?v=2.34.0';
@@ -11,7 +12,7 @@ import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ap
 
 import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.42.0';
+const VERSION = '2.43.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -37,7 +38,8 @@ const FIELDS = [['titulo', 'Título'], ['categoria', 'Categoria'], ['descricao',
 // campos comparáveis de um registro: os fixos + os itens do checklist da categoria
 const fieldList = cat => { const g = guiaDe(cat); return g ? FIELDS.concat(itensDe(g).filter(i => i.tipo !== 'resultado').flatMap(i => i.tipo === 'sn' ? [['d:' + i.id, i.label], ['d:' + i.id + '#o', 'Observação: ' + i.label], ['d:' + i.id + '#e', 'Estágio: ' + i.label]] : [['d:' + i.id, i.label]])) : FIELDS; };
 const fval = (snap, k) => k.startsWith('d:') ? fmtVal((snap.dados || {})[k.slice(2)]) : (snap[k] ?? '');
-const FIRM_ACTS = new Set(['Exportação CSV', 'Backup exportado (contabilidade)', 'Evidência enviada', 'Evidência excluída']);
+const FIRM_ACTS = new Set(['Exportação CSV', 'Backup exportado (contabilidade)', 'Evidência enviada', 'Evidência excluída',
+  'Visualização de registro', 'Download de evidência']);
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -53,13 +55,21 @@ const auth = getAuth(fbApp);
 auth.languageCode = 'pt-BR';
 const fs = getFirestore(fbApp);
 const storage = getStorage(fbApp);
+const fns = getFunctions(fbApp, 'southamerica-east1'); // mesma região de functions/index.js
 storage.maxUploadRetryTime = 30000; storage.maxOperationRetryTime = 30000; // falha em ~30 s em vez de tentar por 10 minutos
 // Modo emulador (teste local, sem tocar no projeto de produção): abra com ?emulador=1 na URL.
-// Usa o Firebase Emulator Suite — Firestore na porta 8080 e Auth na 9099 (ver firebase.json).
+// Usa o Firebase Emulator Suite — Firestore 8080, Auth 9099 e Functions 5001 (ver firebase.json).
 if (new URLSearchParams(location.search).has('emulador')) {
   connectFirestoreEmulator(fs, 'localhost', 8080);
   connectAuthEmulator(auth, 'http://localhost:9099');
+  connectFunctionsEmulator(fns, 'localhost', 5001);
 }
+// Login falho é auditado no servidor (functions/index.js). A chamada não exige
+// autenticação e falha em silêncio: o login nunca depende da auditoria.
+const registrarTentativaLogin = (email, motivo) =>
+  httpsCallable(fns, 'registrarTentativaLogin')({ email: String(email || '').slice(0, 254), motivo }).catch(() => {});
+// Edição de usuário no servidor: lá o autor (atualizadoPor) é garantido, não informado pelo cliente.
+const atualizarUsuario = (uid, dados) => httpsCallable(fns, 'atualizarUsuario')({ uid, ...dados });
 
 let me = null;
 let cid = null; // contabilidade ativa
@@ -99,12 +109,46 @@ const catList = () => db.categorias.slice().sort((a, b) => trilhaPos(a) - trilha
 /* ---------- auditoria (gravada no servidor, só criação) ---------- */
 const isSys = (acao, rec) => !rec && !FIRM_ACTS.has(acao);
 const aCol = sys => sys ? collection(fs, 'auditoria') : collection(fs, 'contabilidades', cid, 'auditoria');
-function auditData(acao, rec, detalhe, sys) {
-  return { ts: serverTimestamp(), userId: me.id, user: me.nome, userEmail: me.email || '', role: me.role, acao, recId: rec ? rec.id : null,
-    recTitulo: rec ? cur(rec).titulo : '', detalhe: detalhe || '', escopo: sys ? 'sistema' : 'registro', contabId: sys ? null : cid };
+// Diff do evento: no máximo 20 campos, valores em texto (até 500 caracteres), listas separadas por
+// vírgula e campos sem alteração descartados. Devolve null quando não sobra nada (o campo não é gravado).
+const aTexto = v => Array.isArray(v) ? v.map(x => String(x ?? '')).join(', ') : (v === null || v === undefined ? '' : String(v));
+function normalizaMudancas(m) {
+  if (!m || typeof m !== 'object') return null;
+  const out = {};
+  for (const [campo, par] of Object.entries(m).slice(0, 20)) {
+    if (!par || typeof par !== 'object') continue;
+    const de = aTexto(par.de).slice(0, 500), para = aTexto(par.para).slice(0, 500);
+    if (de !== para) out[campo] = { de, para };
+  }
+  return Object.keys(out).length ? out : null;
 }
-const auditOp = (batch, acao, rec, detalhe) => { const s = isSys(acao, rec); batch.set(doc(aCol(s)), auditData(acao, rec, detalhe, s)); };
-const auditNow = (acao, rec, detalhe) => { const s = isSys(acao, rec); return setDoc(doc(aCol(s)), auditData(acao, rec, detalhe, s)); };
+function auditData(acao, rec, detalhe, sys, mudancas) {
+  const dados = { ts: serverTimestamp(), userId: me.id, user: me.nome, userEmail: me.email || '', role: me.role, acao, recId: rec ? rec.id : null,
+    recTitulo: rec ? cur(rec).titulo : '', detalhe: String(detalhe || '').slice(0, 500), escopo: sys ? 'sistema' : 'registro', contabId: sys ? null : cid };
+  const mud = normalizaMudancas(mudancas);
+  if (mud) dados.mudancas = mud;
+  return dados;
+}
+const auditOp = (batch, acao, rec, detalhe, mudancas) => { const s = isSys(acao, rec); batch.set(doc(aCol(s)), auditData(acao, rec, detalhe, s, mudancas)); };
+const auditNow = (acao, rec, detalhe, mudancas) => { const s = isSys(acao, rec); return setDoc(doc(aCol(s)), auditData(acao, rec, detalhe, s, mudancas)); };
+// Auditoria nunca bloqueia a ação do usuário (ex.: perfil Consulta enquanto as regras novas não são publicadas).
+const auditaSeguro = (acao, rec, detalhe) => { try { auditNow(acao, rec, detalhe).catch(() => {}); } catch (e) { /* segue sem o evento */ } };
+
+// Acesso a dados pessoais: no máximo 1 evento por usuário+registro a cada 10 minutos,
+// para não inundar a coleção ao navegar entre telas. Map em memória espelhado no sessionStorage.
+const VIS_MS = 10 * 60 * 1000, VIS_KEY = 'lgpdsan:audvis';
+const visitas = new Map();
+try { Object.entries(JSON.parse(sessionStorage.getItem(VIS_KEY) || '{}')).forEach(([k, t]) => visitas.set(k, Number(t))); } catch (e) { /* sem armazenamento: deduplica só nesta aba */ }
+function primeiraVisita(recId) {
+  const agora = Date.now(), chave = me.id + ':' + recId;
+  for (const [k, t] of visitas) if (agora - t >= VIS_MS) visitas.delete(k); // descarta visitas vencidas
+  const repetida = visitas.has(chave);
+  if (!repetida) { // só renova o relógio quando o evento será gravado (janela fixa, não deslizante)
+    visitas.set(chave, agora);
+    try { sessionStorage.setItem(VIS_KEY, JSON.stringify(Object.fromEntries(visitas))); } catch (e) {}
+  }
+  return !repetida;
+}
 
 /* ---------- presença: sinal renovado a cada minuto; sem sinal por 2 min = offline ---------- */
 async function pingPresence() {
@@ -472,6 +516,12 @@ async function route() {
 window.addEventListener('hashchange', route);
 
 /* ---------- login ---------- */
+// Códigos do Firebase Authentication → motivo aceito por registrarTentativaLogin.
+// Códigos sem relação com credenciais (rede, domínio) não geram evento.
+const motivoLogin = code => ['auth/invalid-credential', 'auth/wrong-password', 'auth/invalid-login-credentials'].includes(code) ? 'senha-invalida'
+  : code === 'auth/user-not-found' ? 'usuario-inexistente'
+    : code === 'auth/user-disabled' ? 'conta-inativa'
+      : code === 'auth/too-many-requests' ? 'bloqueado' : null;
 function renderLogin(msg = '') {
   const palettes = [
     { id: 'azul', nome: 'Azul glacial', descricao: 'Azul-marinho e branco gelo. Mais presença, em sintonia com a logo.' },
@@ -528,6 +578,8 @@ function renderLogin(msg = '') {
       await signInWithEmailAndPassword(auth, $('#em').value.trim(), $('#pw').value);
     } catch (x) {
       justSignedIn = false;
+      const motivo = motivoLogin(x.code);
+      if (motivo) registrarTentativaLogin($('#em').value.trim(), motivo);
       err.textContent = x.code === 'auth/too-many-requests' ? 'Muitas tentativas. Aguarde alguns minutos.' : 'E-mail ou senha inválidos.';
     }
   };
@@ -896,7 +948,8 @@ function recordForm(rec) {
             const n = rec.versao + 1; id = rec.id;
             batch.update(rdoc(id), { snap, versao: n, atualizado: serverTimestamp() });
             batch.set(vdoc(id, n), { n, snap, autor: me.nome, autorId: me.id, quando: serverTimestamp(), just });
-            auditOp(batch, 'Edição', { id, snap }, `v${n} · ${changed.join(', ')} · ${just}`);
+            const marc = Object.fromEntries(FIELDS.map(([k]) => [k, { de: before[k] ?? '', para: snap[k] ?? '' }]));
+            auditOp(batch, 'Edição', { id, snap }, `v${n} · ${changed.join(', ')} · ${just}`, marc);
             await batch.commit(); toast('Nova versão v' + n + ' criada.');
           } else {
             id = doc(rcol()).id;
@@ -923,6 +976,8 @@ async function renderRecord(id) {
     .map(d => d.data()).sort((a, b) => tms(b.ts) - tms(a.ts));
   await loadEvid();
   const c = cur(rec);
+  // Abrir o detalhe é acesso a dados pessoais: audita a visualização (1 evento por usuário+registro a cada 10 min).
+  if (primeiraVisita(id)) auditaSeguro('Visualização de registro', rec, c.titulo);
   const guia = guiaDe(c.categoria);
   const placar = guia ? pontuacao(guia, c.dados, evPorItem(rec.id)) : null;
   const situacaoPrazo = overdue(rec) ? `Vencido em ${fmtD(c.prazo)}` : c.prazo ? `Prazo: ${fmtD(c.prazo)}` : 'Sem prazo definido';
@@ -999,7 +1054,7 @@ function acaoForm(registro = null, item = null) {
 async function renderAcoes() {
   let lista; try { lista = (await getDocs(acaoCol())).docs.map(d => ({ id: d.id, ...d.data() })); } catch (e) { return `<h1>Plano de ação</h1><div class="notice bad">Publique as regras atualizadas para habilitar o Plano de ação.</div>`; }
   const ord = { 'A fazer': 0, 'Em andamento': 1, 'Concluída': 2 }; lista.sort((a, b) => ord[a.status] - ord[b.status] || String(a.prazo || '9999').localeCompare(String(b.prazo || '9999')));
-  bind = () => { const novo = $('#nova-acao'); if (novo) novo.onclick = acaoForm; $$('[data-acao-status]').forEach(s => s.onchange = guard(async () => { const a = lista.find(x => x.id === s.dataset.acaoStatus), rec = db.records.find(r => r.id === a.registroId); await updateDoc(acaoDoc(a.id), { status: s.value, atualizadoEm: serverTimestamp() }); await auditNow('Ação atualizada', rec, `${a.titulo} · ${s.value}`); toast('Status atualizado.'); route(); })); };
+  bind = () => { const novo = $('#nova-acao'); if (novo) novo.onclick = acaoForm; $$('[data-acao-status]').forEach(s => s.onchange = guard(async () => { const a = lista.find(x => x.id === s.dataset.acaoStatus), rec = db.records.find(r => r.id === a.registroId); await updateDoc(acaoDoc(a.id), { status: s.value, atualizadoEm: serverTimestamp() }); await auditNow('Ação atualizada', rec, `${a.titulo} · ${s.value}`, { status: { de: a.status, para: s.value } }); toast('Status atualizado.'); route(); })); };
   const abertas = lista.filter(a => a.status !== 'Concluída'), vencidas = abertas.filter(a => a.prazo && a.prazo < today());
   return `<div class="bar"><div><h1>Plano de ação</h1><p class="muted">${esc(contabNome(cid))} · pendências organizadas em trabalho.</p></div>${can.edit() ? '<button class="primary" id="nova-acao">+ Nova ação</button>' : ''}</div><div class="action-summary"><div><b>${abertas.length}</b><span>em aberto</span></div><div class="${vencidas.length ? 'tone-bad' : ''}"><b>${vencidas.length}</b><span>vencidas</span></div><div><b>${lista.filter(a => a.status === 'Concluída').length}</b><span>concluídas</span></div></div><div class="action-board">${ACAO_STATUS.map(status => { const col = lista.filter(a => a.status === status); return `<section class="action-column"><h2>${acaoTag(status)} <span>${col.length}</span></h2>${col.length ? col.map(a => `<article class="action-card">${priorTag(a.prioridade)} ${a.prazo && a.prazo < today() && a.status !== 'Concluída' ? '<span class="tag bad">vencida</span>' : ''}<b>${esc(a.titulo)}</b><a href="#/registro/${cid}/${a.registroId}">${esc(a.registroTitulo)}</a><small>👤 ${esc(a.responsavel) || 'Sem responsável'} · ${a.prazo ? fmtD(a.prazo) : 'sem prazo'}</small>${can.edit() ? `<select data-acao-status="${esc(a.id)}">${opts(ACAO_STATUS, a.status)}</select>` : ''}</article>`).join('') : '<p class="muted small">Nada aqui.</p>'}</section>`; }).join('')}</div>`;
 }
@@ -1054,7 +1109,12 @@ async function enviarEvidencia(file, categoria, descricao, onProg, vinculo) {
 async function abrirEvidencia(e) {
   if (!e) return;
   const w = window.open('', '_blank'); if (w) w.opener = null;
-  try { const u = await getDownloadURL(sRef(storage, e.path)); if (w) w.location.href = u; else location.href = u; } catch (er) { if (w) w.close(); throw er; }
+  let u;
+  try { u = await getDownloadURL(sRef(storage, e.path)); } catch (er) { if (w) w.close(); throw er; }
+  // Abrir ou baixar evidência é acesso a dados pessoais; o recId vincula o evento ao registro quando houver.
+  auditaSeguro('Download de evidência', e.registroId ? { id: e.registroId, snap: { titulo: e.itemRot || e.nome } } : null,
+    e.nome + (e.registroId ? ' · registro ' + e.registroId : ''));
+  if (w) w.location.href = u; else location.href = u;
 }
 function anexarModal(rec, itemId) {
   const g = guiaDe(cur(rec).categoria), item = g && itensDe(g).find(i => i.id === itemId); if (!item) return;
@@ -1129,8 +1189,44 @@ async function maisEventos(pg) {
 const pagInfo = pg => `${pg.itens.length} evento${pg.itens.length === 1 ? '' : 's'} carregado${pg.itens.length === 1 ? '' : 's'}${pg.fim ? ' · todos os eventos já estão na tela' : ''}`;
 // Tabela de auditoria com filtro por coluna (linha de filtros sob o cabeçalho): texto livre em Quando/Registro/Detalhe, lista em Usuário/Contabilidade/Ação.
 const audCols = cc => [['ts', 'Quando', 't'], ['user', 'Usuário', 's'], ...(cc ? [['cont', 'Contabilidade', 's']] : []), ['acao', 'Ação', 's'], ['rec', 'Registro', 't'], ['det', 'Detalhe', 't']];
+// Ações de acesso a dados pessoais sempre no filtro, mesmo antes de existir um evento carregado.
+const AUD_ACOES = ['Visualização de registro', 'Download de evidência'];
 const audUser = a => a.userEmail ? `${a.user} · ${a.userEmail}` : a.user;
 const audVal = (a, k) => String(k === 'ts' ? fmt(a.ts) : k === 'user' ? audUser(a) : k === 'cont' ? audContab(a) : k === 'acao' ? a.acao : k === 'rec' ? a.recTitulo : a.detalhe) || '';
+// Rótulos legíveis dos campos do diff (o dado guarda a chave original).
+const AUD_CAMPO = { nome: 'Nome', role: 'Perfil', ativo: 'Situação', contabilidades: 'Empresas', titulo: 'Título', categoria: 'Categoria',
+  descricao: 'Descrição', status: 'Status', prioridade: 'Prioridade', responsavel: 'Responsável', prazo: 'Prazo', revisao: 'Próxima revisão',
+  evidencias: 'Evidências', razaoSocial: 'Razão social', cnpj: 'CNPJ', endereco: 'Endereço', canalPrivacidade: 'Canal de privacidade',
+  porteRfb: 'Porte na Receita', simples: 'Simples Nacional', natJur: 'Natureza jurídica', consultaEm: 'Consulta à Receita', logo: 'Logo' };
+const audCampo = k => AUD_CAMPO[k] || k;
+const audTexto = v => v === null || v === undefined || v === '' ? '—' : String(v);
+const audMud = (k, v) => k === 'role' ? (ROLES[v] || audTexto(v)) : audTexto(v);
+// Valores do bloco "Permissão" (vindos do servidor): perfil e situação traduzidos; contabilidades por nome.
+const audPerm = (k, v) => k === 'contabilidades' ? (Array.isArray(v) && v.length ? v.map(x => contabNome(String(x))).join(', ') : '—')
+  : k === 'ativo' ? (v === true ? 'Ativo' : v === false ? 'Bloqueado' : '—')
+    : k === 'role' ? (v ? (ROLES[v] || String(v)) : '—') : audTexto(v);
+// Um evento só ganha o botão "Detalhes" se tiver algo a mais para mostrar.
+const audTemExtra = a => !!(a && ((a.mudancas && typeof a.mudancas === 'object' && Object.keys(a.mudancas).length) || a.antes || a.depois || a.origem || a.ip || a.motivo || a.userAgent));
+function audExtra(a) {
+  const blocos = [];
+  const mud = a.mudancas && typeof a.mudancas === 'object' && !Array.isArray(a.mudancas) ? Object.entries(a.mudancas) : [];
+  const linhas = mud.filter(([, p]) => p && typeof p === 'object').map(([k, p]) =>
+    `<tr><td>${esc(audCampo(k))}</td><td>${esc(audMud(k, p.de))}</td><td>${esc(audMud(k, p.para))}</td></tr>`).join('');
+  if (linhas) blocos.push(`<div class="aud-block"><h4>Mudanças</h4><table><tr><th>Campo</th><th>De</th><th>Para</th></tr>${linhas}</table></div>`);
+  if (a.antes || a.depois) {
+    const permis = ['role', 'ativo', 'contabilidades'].map(k => [k, a.antes ? a.antes[k] : undefined, a.depois ? a.depois[k] : undefined])
+      .filter(([, de, para]) => String(de) !== String(para))
+      .map(([k, de, para]) => `<tr><td>${esc(audCampo(k))}</td><td>${esc(audPerm(k, de))}</td><td>${esc(audPerm(k, para))}</td></tr>`).join('');
+    if (permis) blocos.push(`<div class="aud-block"><h4>Permissão</h4><table><tr><th>Campo</th><th>Antes</th><th>Depois</th></tr>${permis}</table></div>`);
+  }
+  const ua = String(a.userAgent || ''), tec = [['Origem', a.origem || 'cliente']];
+  if (a.ip) tec.push(['IP', a.ip]);
+  if (a.motivo) tec.push(['Motivo', a.motivo]);
+  if (ua) tec.push(['Navegador', ua.length > 120 ? ua.slice(0, 120) + '…' : ua]);
+  const linhasTec = tec.map(([k, v]) => `<tr><td>${esc(k)}</td><td${k === 'Navegador' ? ` title="${esc(ua)}"` : ''}>${esc(v)}</td></tr>`).join('');
+  blocos.push(`<div class="aud-block"><h4>Origem técnica</h4><table>${linhasTec}</table></div>`);
+  return `<div class="aud-blocks">${blocos.join('')}</div>`;
+}
 const audTabela = (id, cc) => `<div class="tablewrap"><table class="audt" id="${id}"><thead><tr>${audCols(cc).map(c => `<th>${c[1]}</th>`).join('')}</tr>
   <tr class="filtros">${audCols(cc).map(c => `<th>${c[2] === 's' ? `<select data-f="${c[0]}" aria-label="Filtrar por ${c[1]}"></select>` : `<input type="search" data-f="${c[0]}" placeholder="filtrar" aria-label="Filtrar por ${c[1]}">`}</th>`).join('')}</tr></thead><tbody></tbody></table></div>`;
 // Redesenha só o corpo (os campos de filtro ficam intocados). Devolve quantas linhas passam nos filtros.
@@ -1138,14 +1234,29 @@ function audDesenha(id, itens, cc, geral = '') {
   const root = $('#' + id), cols = audCols(cc), f = {};
   root.querySelectorAll('[data-f]').forEach(el => { f[el.dataset.f] = el.value; });
   cols.filter(c => c[2] === 's').forEach(c => { const sel = root.querySelector(`select[data-f="${c[0]}"]`), cur = sel.value;
-    const vals = [...new Set(itens.map(a => audVal(a, c[0])).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'pt-BR'));
+    const vals = [...new Set([...(c[0] === 'acao' ? AUD_ACOES : []), ...itens.map(a => audVal(a, c[0]))].filter(Boolean))]
+      .sort((x, y) => x.localeCompare(y, 'pt-BR'));
     const html = `<option value="">Todos</option>` + vals.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
     if (sel.dataset.h !== html) { sel.innerHTML = html; sel.dataset.h = html; sel.value = vals.includes(cur) ? cur : ''; } });
   const g = geral.toLowerCase();
   const ok = itens.filter(a => cols.every(c => { const t = f[c[0]]; if (!t) return true; const v = audVal(a, c[0]); return c[2] === 's' ? v === t : v.toLowerCase().includes(t.toLowerCase()); })
     && (!g || cols.map(c => audVal(a, c[0])).join(' ').toLowerCase().includes(g)));
-  root.querySelector('tbody').innerHTML = ok.length ? ok.map(a => `<tr><td>${fmt(a.ts)}</td><td>${esc(a.user)}${a.userEmail ? `<br><span class="muted small">${esc(a.userEmail)}</span>` : ''}<br><span class="muted small">${esc(ROLES[a.role] || '')}</span></td>${cc ? `<td>${esc(audContab(a))}</td>` : ''}<td>${esc(a.acao)}</td><td>${esc(a.recTitulo)}</td><td>${esc(a.detalhe)}</td></tr>`).join('')
+  const tb = root.querySelector('tbody');
+  tb.innerHTML = ok.length ? ok.map((a, i) => {
+    const xid = `${id}-x${i}`, extra = audTemExtra(a);
+    const botao = extra ? `<button type="button" class="link aud-more" data-audx="${xid}" aria-expanded="false" aria-controls="${xid}">▸ Detalhes</button>` : '';
+    return `<tr><td>${fmt(a.ts)}</td><td>${esc(a.user)}${a.userEmail ? `<br><span class="muted small">${esc(a.userEmail)}</span>` : ''}<br><span class="muted small">${esc(ROLES[a.role] || '')}</span></td>${cc ? `<td>${esc(audContab(a))}</td>` : ''}<td>${esc(a.acao)}</td><td>${esc(a.recTitulo)}</td><td>${botao}${a.detalhe ? `<div class="aud-det">${esc(a.detalhe)}</div>` : ''}</td></tr>`
+      + (extra ? `<tr class="aud-extra" id="${xid}" hidden><td colspan="${cols.length}">${audExtra(a)}</td></tr>` : '');
+  }).join('')
     : `<tr><td colspan="${cols.length}" class="muted">Sem eventos${itens.length ? ' com esses filtros' : ''}.</td></tr>`;
+  // Reata os botões depois de cada redesenho (as linhas expandidas ficam fora do filtro, que trabalha sobre `itens`).
+  tb.querySelectorAll('[data-audx]').forEach(b => b.onclick = () => {
+    const alvo = document.getElementById(b.dataset.audx); if (!alvo) return;
+    const aberto = b.getAttribute('aria-expanded') === 'true';
+    b.setAttribute('aria-expanded', String(!aberto));
+    b.textContent = (aberto ? '▸' : '▾') + ' Detalhes';
+    alvo.hidden = aberto;
+  });
   return { n: ok.length, filtrado: !!g || Object.values(f).some(Boolean) };
 }
 async function renderAudit() {
@@ -1165,7 +1276,7 @@ async function renderAudit() {
   return `<div class="bar"><div><h1>Auditoria</h1><p class="muted">${esc(contabNome(cid))} · do mais recente para o mais antigo. Somente leitura: o servidor não permite editar nem apagar eventos.</p></div></div>
     <div class="card"><label for="aq" style="margin-top:0">Busca geral</label><input id="aq" type="search" placeholder="Procura em todas as colunas…"><div style="margin-top:.75rem">${audTabela('atab', true)}</div>
       <div class="actions"><span class="muted small" id="ainfo" aria-live="polite"></span><button id="amais" type="button">Carregar mais ${PAG_AUD}</button></div></div>
-    ${ps ? `<div class="card"><h2>Log de acessos e eventos do sistema (administrador)</h2><p class="muted small">Cada entrada e saída bem-sucedida registra data/hora, nome, e-mail e perfil do usuário. Também inclui usuários, contabilidades e categorias.</p>${audTabela('stab', false)}
+    ${ps ? `<div class="card"><h2>Log de acessos e eventos do sistema (administrador)</h2><p class="muted small">Cada entrada e saída bem-sucedida registra data/hora, nome, e-mail e perfil do usuário. Também inclui tentativas de login falhas (com IP e navegador), usuários, contabilidades e categorias.</p>${audTabela('stab', false)}
       <div class="actions"><span class="muted small" id="sinfo" aria-live="polite"></span><button id="smais" type="button">Carregar mais ${PAG_AUD}</button></div></div>` : ''}`;
 }
 
@@ -1233,15 +1344,19 @@ function userForm(u) {
       try {
         if (u) {
           if (u.role === 'admin' && role !== 'admin' && activeAdmins().length === 1) throw { message: 'Mantenha ao menos um administrador ativo.' };
-          const b = writeBatch(fs); b.update(doc(fs, 'users', u.id), { nome, role, contabilidades: ids });
+          await atualizarUsuario(u.id, { nome, role, contabilidades: ids, ativo: u.ativo });
+          const b = writeBatch(fs);
           syncPessoas(b, u.id, nome, role, u.ativo, ids, u.contabilidades || []);
-          auditOp(b, 'Usuário editado', null, `${u.email} · ${ROLES[u.role]} → ${ROLES[role]} · ${ids.map(contabNome).join(', ') || 'todas'}`); await b.commit();
+          auditOp(b, 'Usuário editado', null, `${u.email} · ${ROLES[u.role]} → ${ROLES[role]} · ${ids.map(contabNome).join(', ') || 'todas'}`,
+            { nome: { de: u.nome, para: nome }, role: { de: u.role, para: role },
+              contabilidades: { de: (u.contabilidades || []).map(contabNome), para: ids.map(contabNome) } });
+          await b.commit();
         } else {
           const email = $('#m', d).value.toLowerCase().trim();
           const sec = initializeApp(firebaseConfig, 'sec' + Date.now()), sa = getAuth(sec);
           const cred = await createUserWithEmailAndPassword(sa, email, genPw());
           await signOut(sa);
-          const b = writeBatch(fs); b.set(doc(fs, 'users', cred.user.uid), { nome, email, role, ativo: true, contabilidades: ids, criado: serverTimestamp() });
+          const b = writeBatch(fs); b.set(doc(fs, 'users', cred.user.uid), { nome, email, role, ativo: true, contabilidades: ids, criado: serverTimestamp(), atualizadoPor: me.id });
           syncPessoas(b, cred.user.uid, nome, role, true, ids, []);
           auditOp(b, 'Usuário criado', null, `${email} · ${ROLES[role]} · ${ids.map(contabNome).join(', ') || 'todas'}`); await b.commit();
           await sendPasswordResetEmail(auth, email);
@@ -1258,9 +1373,12 @@ async function userAction(a, u, sid) {
   if (a === 'toggle') {
     if (u.ativo && u.role === 'admin' && activeAdmins().length === 1) return toast('Mantenha ao menos um administrador ativo.');
     if (u.id === me.id) return toast('Você não pode bloquear a si mesmo.');
-    const b = writeBatch(fs); b.update(doc(fs, 'users', u.id), { ativo: !u.ativo });
+    await atualizarUsuario(u.id, { nome: u.nome, role: u.role, contabilidades: u.contabilidades || [], ativo: !u.ativo });
+    const b = writeBatch(fs);
     syncPessoas(b, u.id, u.nome, u.role, !u.ativo, u.contabilidades || [], u.contabilidades || []);
-    auditOp(b, u.ativo ? 'Usuário bloqueado' : 'Usuário desbloqueado', null, u.email); await b.commit(); return route();
+    auditOp(b, u.ativo ? 'Usuário bloqueado' : 'Usuário desbloqueado', null, u.email,
+      { ativo: { de: u.ativo ? 'Ativo' : 'Bloqueado', para: u.ativo ? 'Bloqueado' : 'Ativo' } });
+    await b.commit(); return route();
   }
   if (a === 'kick') {
     if (!sid) return;
@@ -1340,8 +1458,9 @@ function renderContabs() {
           const upd = { nome, ...cad }; if (novaLogo !== null) upd.logo = novaLogo;
           if (nome === c.nome && novaLogo === null && !mudouCad) return d.close();
           const b = writeBatch(fs); b.update(doc(fs, 'contabilidades', c.id), upd);
-          if (nome !== c.nome) auditOp(b, 'Contabilidade renomeada', null, `${c.nome} → ${nome}`);
-          if (mudouCad) auditOp(b, 'Dados cadastrais da contabilidade alterados', null, nome);
+          const mudCad = Object.fromEntries(Object.keys(cad).filter(k => (c[k] || '') !== cad[k]).map(k => [k, { de: c[k] || '', para: cad[k] || '' }]));
+          if (nome !== c.nome) auditOp(b, 'Contabilidade renomeada', null, `${c.nome} → ${nome}`, { nome: { de: c.nome, para: nome } });
+          if (mudouCad) auditOp(b, 'Dados cadastrais da contabilidade alterados', null, nome, mudCad);
           if (novaLogo !== null) auditOp(b, novaLogo ? 'Logo da contabilidade alterada' : 'Logo da contabilidade removida', null, nome);
           await b.commit(); d.close(); await loadCore(); route(); });
       });
@@ -1599,7 +1718,7 @@ async function renderTermo() {
 function renderAbout() {
   return `<div class="bar"><div><h1>Sobre</h1><p class="muted">LGPDSAN v${VERSION}</p></div></div>
     <div class="card"><h2>Como a segurança funciona</h2><p>Login pelo Firebase Authentication. Permissões, isolamento entre contabilidades e auditoria são <b>aplicados no servidor</b> pelas Regras do Firestore; esconder um botão na tela não é a proteção.</p>
-    <ul><li>Dados no Firestore, região São Paulo.</li><li>Cada contabilidade é isolada: usuários só leem e gravam nas contabilidades a que estão vinculados. Somente o Administrador acessa todas.</li><li>Auditoria somente de criação: nem o administrador altera eventos pelo app.</li><li>Versões de registros são imutáveis; só a exclusão permanente do registro as remove.</li><li>Única consulta externa feita pelo navegador: ao digitar um CNPJ válido (checklist de Contratos e Operadores, cadastro de Contabilidades e Termo de Ciência), o CNPJ (somente ele) é enviado à BrasilAPI ou, se ela falhar, ao CNPJ.ws, que devolvem dados públicos da Receita Federal.</li>
+    <ul><li>Dados no Firestore, região São Paulo.</li><li>Cada contabilidade é isolada: usuários só leem e gravam nas contabilidades a que estão vinculados. Somente o Administrador acessa todas.</li><li>Auditoria somente de criação: nem o administrador altera eventos pelo app. Tentativas de login falhas e alterações de permissão são gravadas por Cloud Functions em São Paulo; abrir registros e evidências também gera eventos de acesso a dados pessoais.</li><li>Versões de registros são imutáveis; só a exclusão permanente do registro as remove.</li><li>Única consulta externa feita pelo navegador: ao digitar um CNPJ válido (checklist de Contratos e Operadores, cadastro de Contabilidades e Termo de Ciência), o CNPJ (somente ele) é enviado à BrasilAPI ou, se ela falhar, ao CNPJ.ws, que devolvem dados públicos da Receita Federal.</li>
 <li>Atualizações ANPD: as publicações de gov.br/anpd são baixadas por um serviço (GitHub Actions), não pelo navegador. Nenhum dado do usuário sai do sistema.</li></ul></div>
     <div class="card"><h2>Como calculamos a pontuação do checklist</h2>
     <ul><li><b>Declarado</b>: soma ponderada das respostas. Conforme vale 1, Parcial vale 0,5, Não conforme e sem avaliação valem 0. N/A sai do cálculo.</li>
@@ -1611,8 +1730,9 @@ function renderAbout() {
     <li><b>Aprovação formal</b>: só o Administrador aprova uma versão; ficam gravados quem aprovou, quando e qual versão. Se o registro for editado depois, ele aparece como "alterado após aprovação" até nova aprovação.</li>
     <li>Não há envio de e-mail de aviso: os alertas aparecem no Painel.</li></ul></div>
     <div class="card"><h2>Limitações conhecidas</h2><ul><li>Evidências ficam no Firebase Storage (até 10 MB por arquivo). Sem e-mails de prazo e sem links temporários: quem tem o link de download consegue abrir o arquivo.</li>
-    <li>Tentativas de login falhas não entram na auditoria (o servidor limita tentativas, mas o log fica no console do Firebase).</li>
-    <li>Sem política de retenção automática nem importação de backup.</li>
+    <li>Tentativas de login falhas são registradas no servidor, com data/hora, e-mail digitado, IP e navegador (até 20 por IP a cada hora).</li>
+    <li>IP e navegador são dados pessoais: os eventos de login falho os guardam por até 12 meses, quando o IP deve ser anonimizado (procedimento manual, descrito em docs/FIREBASE.md). O TTL de <code>rate_limit</code> é configurado no console.</li>
+    <li>Sem importação de backup. O limite de 20 tentativas de login por IP/hora é mitigação, não bloqueio absoluto.</li>
     <li>Categorias são compartilhadas entre contabilidades. Não há administrador por contabilidade: usuários são gerenciados pelo Administrador geral.</li></ul></div>
     <div class="card"><h2>Versionamento do sistema</h2><p>SemVer (<code>MAIOR.MENOR.CORREÇÃO</code>). Veja o CHANGELOG no repositório.</p>
     <p>Desenvolvido por <b>SAN Conecta</b> — Conectando Empresas a Soluções · ${siteLink()}</p></div>`;
@@ -1623,7 +1743,11 @@ onAuthStateChanged(auth, async u => {
   if (!u) { me = null; seq++; return renderLogin(); }
   try {
     const s = await getDoc(doc(fs, 'users', u.uid));
-    if (!s.exists() || !s.data().ativo) { me = null; await signOut(auth); return renderLogin('Conta sem acesso ao sistema. Procure o administrador.'); }
+    if (!s.exists() || !s.data().ativo) {
+      // Conta sem acesso: só audita quando houve login nesta sessão (recarregar a página não repete o evento).
+      if (justSignedIn) { justSignedIn = false; registrarTentativaLogin(u.email || '', 'conta-inativa'); }
+      me = null; await signOut(auth); return renderLogin('Conta sem acesso ao sistema. Procure o administrador.');
+    }
     const token = await u.getIdTokenResult();
     sessionStartedAt = Number(token.claims.auth_time || 0);
     if (Number(s.data().sessaoMinima || 0) > sessionStartedAt) { me = null; await signOut(auth); return renderLogin('Suas sessões foram encerradas por um administrador. Entre novamente para continuar.'); }

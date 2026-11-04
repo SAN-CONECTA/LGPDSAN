@@ -12,7 +12,12 @@
 - [ ] Escolher stack (ex.: Supabase/Postgres com RLS, ou API própria) e região de hospedagem no Brasil
 - [ ] Autenticação real (e-mail+senha com MFA), sessões, recuperação de senha
 - [ ] Permissões aplicadas no servidor (RLS) conforme matriz da seção 3.5
-- [ ] Auditoria imutável no servidor
+- [x] Auditoria imutável no servidor — **parcial (2026-11-04)**: login falho e alteração de permissões gravados por Cloud Functions (Admin SDK), eventos imutáveis por regra, diff estruturado e origem técnica na tela. Ainda falta:
+  - [ ] Exportação contínua para Cloud Logging/BigQuery (retenção fora do Firestore)
+  - [ ] Alertas (rajada de login falho, mudança de permissão, leitura em massa)
+  - [ ] Encadeamento de hash (tamper-evidence) entre eventos
+  - [ ] Registrar a sincronização `anpd-sync` no log do sistema
+  - [ ] Retenção automática/anonimização do IP (hoje é procedimento manual; ver `docs/FIREBASE.md`)
 - [ ] Upload seguro de anexos com classificação de acesso
 - [ ] Retenção e backup automáticos
 ## v2.1+

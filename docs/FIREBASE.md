@@ -3,7 +3,8 @@
 ## Modelo de dados (Firestore, região southamerica-east1)
 - `users/{uid}`: nome, email, role (`consulta`|`edicao`|`admin`), ativo, contabilidades [ids], criado
 - `config/app`: lista (categorias, compartilhada)
-- `auditoria/{id}`: log de acessos e eventos do SISTEMA. Em cada login/logout bem-sucedido, grava data/hora, `userId`, nome, e-mail e perfil; também reúne eventos de usuários, contabilidades e categorias. Só admin lê; os eventos são imutáveis.
+- `auditoria/{id}`: eventos do SISTEMA (login, logout, usuários, contabilidades, categorias). Campos: `ts`, `userId`, `user`, `userEmail`, `role`, `acao`, `recId`, `recTitulo`, `detalhe` (≤500), `escopo=sistema`, `contabId` e, opcionalmente, `mudancas` (mapa `{campo:{de,para}}`, ≤20 campos). Eventos gravados pelo servidor trazem `origem=servidor`, `motivo`, `ip`, `userAgent` e, em `Permissão alterada`, `antes`/`depois` (`{role, ativo, contabilidades}`) e `alvoId`. Só admin lê; ninguém edita ou apaga.
+- `rate_limit/{ipHash}`: contador do limite de login falho (SHA-256 do IP, `janela`, `contagem`, `expira`). Nenhum cliente lê ou escreve; TTL opcional em `expira`.
 - `presencas/{uid}`: sinal temporário de presença (nome, e-mail, perfil e `lastSeen`). Cada usuário só renova o próprio sinal; Administrador pode listar os usuários online.
 - `anpd/{pubId}`: publicações oficiais da ANPD (url, titulo, descricao, data, fonte, criadoEm, atualizadoEm). Só leitura para usuários; escrita pelo serviço de sincronização (Admin SDK).
   - `users/{uid}/anpdLidas/{pubId}`: status de leitura por usuário (quando). Cada usuário lê e grava apenas o próprio.
@@ -11,7 +12,7 @@
   - `pessoas/{uid}`: nome (alimenta o campo Responsável)
   - `registros/{id}`: snap{titulo,categoria,descricao,status,prioridade,responsavel,prazo,evidencias}, versao, deleted, criado, criadoPor, atualizado
     - `versoes/{n}`: n, snap, autor, autorId, quando, just (imutável)
-  - `auditoria/{id}`: ts, userId, user, userEmail, role, acao, recId, recTitulo, detalhe, escopo=`registro`, contabId (só criação)
+  - `auditoria/{id}`: `ts`, `userId`, `user`, `userEmail`, `role`, `acao`, `recId`, `recTitulo`, `detalhe` (≤500), `escopo=registro`, `contabId`, `mudancas` opcional (≤20 campos). Só criação; edição/admin criam qualquer ação, Consulta só `Visualização de registro` e `Download de evidência`.
 
 Isolamento: o caminho `contabilidades/{cid}/...` + `cid in users/{uid}.contabilidades` nas regras. Administrador acessa todas.
 
@@ -23,6 +24,8 @@ Isolamento: o caminho `contabilidades/{cid}/...` + `cid in users/{uid}.contabili
 4. Primeiro administrador: documento `users/{UID do Authentication}` com nome, email, role=`admin`, ativo=true (admin não precisa do campo contabilidades).
 4b. No app: Contabilidades → criar (ex.: Contabilidade 01, 02…) → Usuários → vincular cada usuário às suas contabilidades.
 5. Testar em Firestore → Regras → Playground (ver casos abaixo).
+6. Publicar as Cloud Functions: `firebase deploy --only functions --project lgpdsan` (plano Blaze, `firebase-tools` ≥ 14).
+7. Ativar o TTL de `rate_limit.expira` no console (seção "Retenção de dados pessoais na auditoria").
 
 ## Publicação automática das regras
 
@@ -42,7 +45,10 @@ Não reutilize a conta de serviço da sincronização ANPD: ela precisa apenas g
 enquanto a conta das rules tem acesso administrativo às regras. As chaves nunca devem ser
 enviadas por chat ou commitadas no repositório.
 
-## Casos para o Playground de regras
+## Casos de teste das regras
+Os casos de auditoria são cobertos automaticamente por `tests/rules/` (`npm test` dentro de `tests/rules`). Os demais podem ser conferidos no Playground do console.
+
+### Registros e perfis
 | Quem | Operação | Esperado |
 |---|---|---|
 | sem login | get registros/x | negado |
@@ -53,13 +59,78 @@ enviadas por chat ou commitadas no repositório.
 | edicao | update registro com versao != atual+1 | negado |
 | edicao | update registro Arquivado | negado |
 | edicao | delete registros/x | negado |
-| qualquer | update/delete em qualquer auditoria | negado |
 | admin | delete registros/x | permitido |
+
+### Auditoria
+| Quem | Operação | Esperado |
+|---|---|---|
+| edicao | create evento válido em `contabilidades/c1/auditoria` | permitido |
+| edicao | create com `userId` de outro usuário | negado |
+| edicao | create com `ts` do cliente (sem `serverTimestamp`) | negado |
+| edicao / consulta / admin | update ou delete de evento | negado |
+| consulta | create `Visualização de registro` | permitido |
+| consulta | create `Download de evidência` | permitido |
+| consulta | create `Edição` | negado |
+| edição de c2 | create em `c1/auditoria` | negado |
+| usuário inativo | create em `c1/auditoria` | negado |
+| edicao | create com `origem`, `ip`, `userAgent`, `motivo`, `antes`, `depois` ou `alvoId` | negado |
+| edicao | `detalhe` com 501 caracteres | negado |
+| edicao | `detalhe` com 500 caracteres | permitido |
+| edicao | `mudancas` com 21 chaves | negado |
+| edicao | `mudancas` com 20 chaves | permitido |
+| edicao | `mudancas` como texto | negado |
+| admin | create `Login` em `auditoria` (sistema) | permitido |
+| edicao | get `auditoria` (sistema) | negado |
+| admin | get `auditoria` (sistema) | permitido |
+| qualquer | read ou write em `rate_limit/*` | negado |
+
+## Auditoria no servidor — Cloud Functions
+A pasta `functions/` (Node 20, `firebase-functions` v2 / 7.4.0, `firebase-admin`) grava os eventos que o cliente não pode ou não deve gravar. As funções rodam em `southamerica-east1`, a mesma região do Firestore, e o app usa `getFunctions(app, 'southamerica-east1')`.
+
+| Função | Tipo | O que faz |
+|---|---|---|
+| `registrarTentativaLogin` | `onCall` pública (sem login) | recebe `{ email, motivo }` (`senha-invalida`, `conta-inativa`, `usuario-inexistente`, `bloqueado`), limita e-mail a 254 e user-agent a 300 caracteres e grava `Login falhou` em `auditoria` com `escopo=sistema`, `origem=servidor`, `ip`, `userAgent` e `motivo`. Resposta sempre neutra (`{ok:true}`) e limite de 20 gravações por IP por hora, com contador em `rate_limit/{sha256(ip)}`. |
+| `onUserWrite` | trigger `onDocumentWritten('users/{uid}')` | grava `Permissão alterada` com `antes`/`depois` (`role`, `ativo`, `contabilidades`) e `alvoId` quando esses campos mudam. O autor sai de `atualizadoPor`. Eventos criados/excluídos também geram o evento, com um dos lados nulo. |
+| `atualizarUsuario` | `onCall` (exige admin ativo) | recebe `{ uid, nome, role, contabilidades, ativo }`, valida perfil (3 opções), até 200 contabilidades de texto e nome até 100 caracteres, e grava `atualizadoPor` com o uid do administrador autenticado. Impede o admin de se rebaixar ou se bloquear. |
+
+Pré-requisitos e publicação:
+- Plano **Blaze** (Cloud Functions de 2ª geração e Storage).
+- `firebase-tools` **≥ 14** (a versão 13 quebra com `firebase-functions` v7; testado com 15.34.2). Node 20 no deploy.
+- Publicar as funções **antes** do front-end que as usa:
+  ```
+  firebase deploy --only functions --project lgpdsan
+  ```
+- As regras do Firestore continuam valendo para o cliente; a Admin SDK usada pelas funções ignora as regras (por isso `origem=servidor`).
+
+## Testes das regras (emulador)
+`tests/rules/` tem um projeto Node próprio (não entra no build do site) com `@firebase/rules-unit-testing` e `firebase` 11.10.0:
+```
+cd tests/rules
+npm install
+npm test
+```
+O script sobe o emulador com `firebase emulators:exec --only firestore --project lgpdsan-test` e roda `node --test`. O CI (`.github/workflows/rules-test.yml`) executa o mesmo comando em Node 20 a cada mudança em `firestore.rules` ou `tests/rules/**`.
+
+## Retenção de dados pessoais na auditoria
+`ip` e `userAgent` são dados pessoais. Política adotada:
+- Eventos com `ip` (tentativas de login falhas) são mantidos por **12 meses**. Depois disso, o IP deve ser anonimizado (`ip: null`), mantendo data, e-mail digitado e motivo para a trilha.
+- A anonimização é uma operação administrativa (Admin SDK/console), porque a regra impede `update` no cliente; registre quem executou e quando.
+- Backups exportados (`out.auditoria`, `out.auditoria_sistema`) contêm os mesmos campos e seguem a mesma retenção; trate-os como dado sensível.
+- `rate_limit` é descartável: o campo `expira` é gravado uma hora após a janela. Passo a passo do TTL no console:
+  1. Firebase Console → **Firestore Database** → aba **TTL** → **Criar política**.
+  2. Coleção `rate_limit`, campo `expira` → **Criar**. A exclusão é feita em segundo plano (pode levar até 24 h).
+  3. Opcional por linha de comando: `gcloud firestore fields ttls update expira --collection-group=rate_limit --enable-ttl`.
+- Sem TTL, os documentos de `rate_limit` continuam válidos para o limite (a janela reinicia na próxima tentativa), mas ocupam espaço; o TTL é só limpeza.
 
 ## Observações
 - A chave `apiKey` do app web é pública por desenho; a proteção é feita pelas regras e pela restrição de domínio.
 - Remover acesso de um usuário apaga só `users/{uid}`; a conta de login continua no Authentication.
-- Sem Cloud Functions. O menu Evidências usa o Firebase Storage (seção abaixo), que exige o plano Blaze.
+- As Cloud Functions (seção acima) gravam login falho e alterações de permissão e exigem o plano Blaze. O menu Evidências usa o Firebase Storage (seção abaixo), que também exige Blaze.
+- Limitações conhecidas:
+  - O autor (`atualizadoPor`) só é confiável quando a alteração passa por `atualizarUsuario`. Um administrador ainda consegue escrever direto em `users/{uid}` pelo SDK/console e as regras não mudaram nesta versão; nesse caminho o evento do trigger fica sem autoria verificável.
+  - O cabeçalho `x-forwarded-for` pode ser forjado; o limite de 20 gravações por IP/hora é mitigação, não bloqueio absoluto.
+  - `registrarTentativaLogin` é pública por desenho (é o caso de uso) e aceita e-mails arbitrários até 254 caracteres; o limite por IP contém o abuso.
+  - Editar/excluir usuário no app agora depende da função publicada; sem ela a tela mostra erro de chamada.
 
 ## Domínio próprio (lgpd.sanconecta.com)
 1. DNS de `sanconecta.com`: registro **CNAME**, nome `lgpd`, valor `san-conecta.github.io`.
@@ -111,18 +182,19 @@ Observações:
   consentimento por usuário. O contador de não lidas no menu e no Painel cobre a necessidade atual.
 
 ## Testar localmente com o Emulator Suite (antes de subir para main)
-O `firebase.json` configura os emuladores de **Auth** (9099) e **Firestore** (8080). Assim dá para
-testar a Central ANPD (e o app todo) sem tocar no projeto de produção nem precisar de credenciais.
+O `firebase.json` configura os emuladores de **Auth** (9099), **Firestore** (8080) e **Functions** (5001). Assim dá para
+testar o app e as funções sem tocar no projeto de produção nem precisar de credenciais.
 
 Pré-requisitos (uma vez):
 ```
-npm install -g firebase-tools            # ou: npm install --prefix ~/.local firebase-tools
+npm install -g firebase-tools@15        # exige >= 14 por causa do firebase-functions v7
 python3 -m venv ~/lgpdsan-venv && ~/lgpdsan-venv/bin/pip install firebase-admin pytest
 ```
+Node 20+ e Java 11+ (o emulador do Firestore é Java).
 
 Subir os emuladores (terminal dedicado):
 ```
-firebase emulators:start --project lgpdsan --only firestore,auth
+firebase emulators:start --project lgpdsan --only firestore,auth,functions
 ```
 
 Semeia os dados locais (publicações ANPD reais + usuário admin de teste + uma contabilidade):
@@ -138,8 +210,13 @@ python3 -m http.server 8000
 ```
 
 O parâmetro `?emulador=1` conecta o app aos emuladores (trecho opcional em `assets/app.js`,
-`connectFirestoreEmulator`/`connectAuthEmulator`). Sem ele, o app usa o projeto real. O `firestore.rules`
-é carregado no emulador, então a permissão de leitura da coleção `anpd` e de `anpdLidas` também é testada.
+`connectFirestoreEmulator`/`connectAuthEmulator`/`connectFunctionsEmulator`). Sem ele, o app usa o projeto real. O `firestore.rules`
+é carregado no emulador, então as permissões da auditoria, da coleção `anpd` e de `anpdLidas` também são testadas.
+
+Para rodar só os testes das regras (sem abrir o app):
+```
+cd tests/rules && npm test
+```
 
 Importante: o projectId dos emuladores deve bater com `assets/firebase-config.js` (`lgpdsan`) — o
 `"singleProjectMode": false` no `firebase.json` evita o conflito caso o emulador seja iniciado com outro projeto.

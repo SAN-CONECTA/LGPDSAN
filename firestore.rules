@@ -106,7 +106,13 @@ service cloud.firestore {
         && request.resource.data.userEmail == get(uPath()).data.email
         && request.resource.data.role == role()
         && request.resource.data.escopo == 'sistema'
-        && request.resource.data.acao is string;
+        && request.resource.data.acao is string
+        && (!('detalhe' in request.resource.data) || (request.resource.data.detalhe is string && request.resource.data.detalhe.size() <= 500))
+        && (!('mudancas' in request.resource.data) || (request.resource.data.mudancas is map && request.resource.data.mudancas.size() <= 20))
+        // Campos técnicos são gravados somente pelo servidor (Cloud Functions / Admin SDK).
+        && !('origem' in request.resource.data) && !('ip' in request.resource.data) && !('userAgent' in request.resource.data)
+        && !('motivo' in request.resource.data) && !('antes' in request.resource.data) && !('depois' in request.resource.data)
+        && !('alvoId' in request.resource.data);
       allow update, delete: if false;
     }
 
@@ -201,9 +207,12 @@ service cloud.firestore {
       }
 
       // Auditoria da contabilidade: quem tem acesso lê; edição/admin criam; ninguém edita ou apaga.
+      // Perfil Consulta também cria, mas somente os eventos de acesso a dados pessoais
+      // (abrir o detalhe de um registro e abrir/baixar uma evidência).
       match /auditoria/{id} {
         allow read: if hasContab(cid);
-        allow create: if canEditIn(cid)
+        allow create: if (canEditIn(cid)
+            || (hasContab(cid) && request.resource.data.acao in ['Visualização de registro', 'Download de evidência']))
           && request.resource.data.userId == request.auth.uid
           && request.resource.data.ts == request.time
           && request.resource.data.user == get(uPath()).data.nome
@@ -211,7 +220,13 @@ service cloud.firestore {
           && request.resource.data.role == role()
           && request.resource.data.escopo == 'registro'
           && request.resource.data.contabId == cid
-          && request.resource.data.acao is string;
+          && request.resource.data.acao is string
+          && (!('detalhe' in request.resource.data) || (request.resource.data.detalhe is string && request.resource.data.detalhe.size() <= 500))
+          && (!('mudancas' in request.resource.data) || (request.resource.data.mudancas is map && request.resource.data.mudancas.size() <= 20))
+          // Campos técnicos são gravados somente pelo servidor (Cloud Functions / Admin SDK).
+          && !('origem' in request.resource.data) && !('ip' in request.resource.data) && !('userAgent' in request.resource.data)
+          && !('motivo' in request.resource.data) && !('antes' in request.resource.data) && !('depois' in request.resource.data)
+          && !('alvoId' in request.resource.data);
         allow update, delete: if false;
       }
     }
