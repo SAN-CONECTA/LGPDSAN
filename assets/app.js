@@ -988,7 +988,12 @@ function checklistView(g, dados, rec) {
     }
     return h;
   };
-  return `<div class="card"><h2>Checklist · ${esc(g.titulo)}${legIcon(LEG_GERAL, 'Legenda das respostas')}</h2>
+  // Pendente = pergunta Sim/Não aplicável e ainda sem resposta (é o que o resumo chama de "sem avaliação").
+  const sn = i => i.tipo === 'sn' && aplicaItem(i, dd), pendente = i => sn(i) && !dd[i.id];
+  const secs = g.secoes.map(sec => { const its = sec.itens.filter(sn), feitas = its.filter(i => dd[i.id]).length; return { sec, total: its.length, feitas }; });
+  const primeira = Math.max(0, secs.findIndex(x => x.feitas < x.total)); // abre a 1ª seção com pendência; as demais ficam recolhidas
+  return `<div class="card"><div class="card-heading"><h2>Checklist · ${esc(g.titulo)}${legIcon(LEG_GERAL, 'Legenda das respostas')}</h2>
+    <div class="chk-tools no-print">${pr.pend ? `<button type="button" id="chk-next">Próxima pendência (${pr.pend})</button>` : ''}<button type="button" class="ghost" id="chk-toggle">Expandir tudo</button></div></div>
     <p class="small" style="margin-bottom:.3rem"><b>Declarado ${pt.declarado}%</b> <span class="muted">o que foi respondido</span></p>
     <div class="prog" title="${pt.declarado}% declarado"><span style="width:${pt.declarado}%"></span></div>
     <p class="small" style="margin:.6rem 0 .3rem"><b>Comprovado ${pt.comprovado === null ? 'indisponível' : pt.comprovado + '%'}</b> <span class="muted">itens Conforme com evidência${pt.criticos ? ' (críticos também precisam estar Implantados ou Testados)' : ''}</span></p>
@@ -996,8 +1001,8 @@ function checklistView(g, dados, rec) {
     <p class="small muted">${pr.ok} conformes · ${pr.parcial} parciais · ${pr.nao} não conformes · ${pr.na} N/A · ${pr.pend} sem avaliação${pt.semProva ? ` · <b>${pt.semProva} conforme(s) ainda sem prova</b>` : ''}. Critérios em Configurações › Sobre / versão.</p>
     ${pt.comprovado === null ? '<div class="notice">As evidências não puderam ser lidas (regras do Firestore sem a seção <code>evidencias</code>). Publique o <code>firestore.rules</code> atualizado.</div>' : ''}
     ${alerts.length ? `<div class="notice bad"><b>Pontos de atenção</b><ul>${alerts.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
-    ${g.secoes.map(sec => `<h3 style="margin-top:1rem">${esc(sec.titulo)}</h3><div class="tablewrap"><table>${sec.itens.map(i =>
-      `<tr><td style="width:55%">${esc(i.label)}${legIcon(i)}${i.extra ? ' <span class="tag brand">extra</span>' : ''}${i.bp ? ' <span class="tag">boa prática</span>' : ''}${crit.has(i.id) ? ' <span class="tag warn" title="Item crítico: peso 2 na pontuação">crítico</span>' : ''}</td><td>${val(i)}</td></tr>`).join('')}</table></div>`).join('')}</div>`;
+    ${secs.map((x, k) => `<details class="chk-sec"${k === primeira ? ' open' : ''}><summary><span class="chk-sec-t">${esc(x.sec.titulo)}</span><span class="chk-sec-p">${x.total ? `${x.feitas} de ${x.total}` : '—'}</span><span class="chk-sec-bar" aria-hidden="true"><i style="width:${x.total ? Math.round(x.feitas / x.total * 100) : 0}%"></i></span></summary><div class="tablewrap"><table>${x.sec.itens.map(i =>
+      `<tr${pendente(i) ? ' data-pend' : ''}><td style="width:55%">${esc(i.label)}${legIcon(i)}${i.extra ? ' <span class="tag brand">extra</span>' : ''}${i.bp ? ' <span class="tag">boa prática</span>' : ''}${crit.has(i.id) ? ' <span class="tag warn" title="Item crítico: peso 2 na pontuação">crítico</span>' : ''}</td><td>${val(i)}</td></tr>`).join('')}</table></div></details>`).join('')}</div>`;
 }
 
 /* ---------- formulário de registro ---------- */
@@ -1083,8 +1088,36 @@ async function renderRecord(id) {
   const guia = guiaDe(c.categoria);
   const placar = guia ? pontuacao(guia, c.dados, evPorItem(rec.id)) : null;
   const situacaoPrazo = overdue(rec) ? `Vencido em ${fmtD(c.prazo)}` : c.prazo ? `Prazo: ${fmtD(c.prazo)}` : 'Sem prazo definido';
+  const pend = guia ? progresso(guia, c.dados).pend : 0;
+  const abas = [['resumo', 'Resumo'], guia ? ['checklist', `Checklist${pend ? ` <span class="tab-n">${pend}</span>` : ''}`] : null, ['versoes', `Versões <span class="tab-n">${vs.length}</span>`], ['auditoria', 'Auditoria']].filter(Boolean);
+  let abaAtiva = 'resumo';
+  try { const x = sessionStorage.getItem('lgpdsan:aba:' + id); if (abas.some(a => a[0] === x)) abaAtiva = x; } catch (e) {}
   bind = () => {
     const reload = () => route();
+    // Abas do registro: clique, setas e Home/End; a escolha é lembrada neste registro durante a sessão.
+    const mostraAba = (nome, foco) => {
+      $$('.rec-tab').forEach(t => { const on = t.dataset.aba === nome; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; if (on && foco) t.focus(); });
+      $$('.rec-panel').forEach(pn => { pn.hidden = pn.id !== 'painel-' + nome; });
+      try { sessionStorage.setItem('lgpdsan:aba:' + id, nome); } catch (e) {}
+    };
+    $$('.rec-tab').forEach(t => { t.onclick = () => mostraAba(t.dataset.aba);
+      t.onkeydown = e => { const ts = $$('.rec-tab'), i = ts.indexOf(t), k = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: ts.length - 1 }[e.key];
+        if (k === undefined) return; e.preventDefault(); mostraAba(ts[(k + ts.length) % ts.length].dataset.aba, true); }; });
+    // Checklist: recolher/expandir tudo e saltar para a próxima pergunta sem resposta.
+    const tg = $('#chk-toggle');
+    if (tg) {
+      // O rótulo sempre reflete o estado atual: "Recolher tudo" só quando todas as seções estão abertas.
+      const rotulo = () => { tg.textContent = $$('.chk-sec').every(d => d.open) ? 'Recolher tudo' : 'Expandir tudo'; };
+      tg.onclick = () => { const ds = $$('.chk-sec'), abre = ds.some(d => !d.open); ds.forEach(d => { d.open = abre; }); rotulo(); };
+      $$('.chk-sec').forEach(d => d.addEventListener('toggle', rotulo));
+      rotulo();
+    }
+    const proxima = () => { const ls = $$('tr[data-pend]'); if (!ls.length) return;
+      const atual = ls.findIndex(l => l.classList.contains('is-focus')); ls.forEach(l => l.classList.remove('is-focus'));
+      const alvo = ls[(atual + 1) % ls.length], d = alvo.closest('details'); if (d) d.open = true; alvo.classList.add('is-focus');
+      alvo.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); };
+    const nx = $('#chk-next'); if (nx) nx.onclick = proxima;
+    $$('[data-aba-ir]').forEach(b => b.onclick = () => { mostraAba(b.dataset.abaIr); proxima(); });
     $$('[data-evopen]').forEach(b => b.onclick = guard(() => abrirEvidencia(db.evid.find(x => x.id === b.dataset.evopen))));
     $$('[data-anexar]').forEach(b => b.onclick = () => anexarModal(rec, b.dataset.anexar));
     $$('[data-criar-acao]').forEach(b => b.onclick = () => { const item = guia && itensDe(guia).find(i => i.id === b.dataset.criarAcao); acaoForm(rec, item); });
@@ -1138,21 +1171,25 @@ async function renderRecord(id) {
     ${!rec.deleted && can.admin() ? '<div class="more-menu"><button type="button" class="more-btn" id="more" aria-haspopup="menu" aria-expanded="false" aria-controls="more-list" aria-label="Mais ações" title="Mais ações"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></button><div class="more-list" id="more-list" role="menu" aria-label="Mais ações" hidden><button type="button" class="danger record-delete" id="del" role="menuitem">Excluir registro</button></div></div>' : ''}
     ${rec.deleted && can.admin() ? '<button id="rest">Restaurar</button><button class="danger" id="hard">Excluir definitivamente</button>' : ''}</div></div>
     <div class="record-hero-foot"><span><i aria-hidden="true">●</i> ${esc(c.responsavel) || 'Sem responsável'}</span><span class="${overdue(rec) ? 'is-bad' : ''}">${situacaoPrazo}</span>${revInfo(rec) ? `<span class="${revInfo(rec).k === 'bad' ? 'is-bad' : ''}">${revInfo(rec).t}</span>` : ''}</div></section>
-    ${placar ? `<section class="record-radar" aria-label="Resumo do checklist"><div class="record-radar-head"><div><span class="record-kicker">RADAR DE CONFORMIDADE</span><h2>O que precisa de atenção agora</h2></div><span class="muted small">Os indicadores são atualizados a cada versão</span></div><div class="record-radar-grid"><div class="radar-card radar-brand"><span>Declarado</span><b>${placar.declarado}%</b><small>respostas preenchidas</small></div><div class="radar-card radar-ok"><span>Comprovado</span><b>${placar.comprovado === null ? '—' : placar.comprovado + '%'}</b><small>com evidência válida</small></div><div class="radar-card ${placar.semProva ? 'radar-warn' : 'radar-ok'}"><span>Sem evidência</span><b>${placar.semProva || 0}</b><small>itens “Conforme” a comprovar</small></div><div class="radar-card ${overdue(rec) ? 'radar-bad' : ''}"><span>Agenda</span><b>${overdue(rec) ? 'Atenção' : c.revisao ? fmtD(c.revisao) : 'Livre'}</b><small>${situacaoPrazo}</small></div></div></section>` : ''}
-    ${overdue(rec) ? '<div class="notice bad">Prazo vencido em ' + fmtD(c.prazo) + '.</div>' : ''}
-    ${revInfo(rec) ? `<div class="notice ${revInfo(rec).k === 'bad' ? 'bad' : ''}">Próxima revisão em ${fmtD(c.revisao)}: ${revInfo(rec).t}.</div>` : ''}
     ${semAprov(rec) ? `<div class="notice">${rec.aprovacao ? `Este registro foi alterado depois da aprovação (aprovada a v${rec.aprovacao.versao}; a atual é a v${rec.versao}).` : 'Este registro está em vigor, mas nunca foi aprovado formalmente.'} Um administrador pode aprovar a versão atual.</div>` : ''}
-    <div class="card"><div class="row small"><div><span class="muted">Responsável</span><br>${esc(c.responsavel) || '—'}</div><div><span class="muted">Prazo</span><br>${fmtD(c.prazo)}</div>
-    <div><span class="muted">Criado em</span><br>${fmt(rec.criado)}</div></div>
-    <h3 style="margin-top:1rem">Descrição / procedimento</h3><div class="pre">${esc(c.descricao) || '<span class="muted">—</span>'}</div>
-    <h3 style="margin-top:1rem">Evidências</h3><div class="pre">${esc(c.evidencias) || '<span class="muted">—</span>'}</div></div>
-    ${guia ? checklistView(guia, c.dados, rec) : ''}
+    <div class="rec-tabs no-print" role="tablist" aria-label="Seções do registro">${abas.map(a => `<button type="button" role="tab" class="rec-tab" id="aba-${a[0]}" data-aba="${a[0]}" aria-controls="painel-${a[0]}" aria-selected="${a[0] === abaAtiva}" tabindex="${a[0] === abaAtiva ? 0 : -1}">${a[1]}</button>`).join('')}</div>
+    <section class="rec-panel" role="tabpanel" id="painel-resumo" aria-labelledby="aba-resumo"${abaAtiva === 'resumo' ? '' : ' hidden'}>
+    ${placar ? `<section class="record-radar" aria-label="Resumo do checklist"><div class="record-radar-head"><div><span class="record-kicker">RADAR DE CONFORMIDADE</span><h2>O que precisa de atenção agora</h2></div><span class="muted small">Os indicadores são atualizados a cada versão</span></div><div class="record-radar-grid"><div class="radar-card radar-brand"><span>Declarado</span><b>${placar.declarado}%</b><small>respostas preenchidas</small></div><div class="radar-card radar-ok"><span>Comprovado</span><b>${placar.comprovado === null ? '—' : placar.comprovado + '%'}</b><small>com evidência válida</small></div><div class="radar-card ${placar.semProva ? 'radar-warn' : 'radar-ok'}"><span>Sem evidência</span><b>${placar.semProva || 0}</b><small>itens “Conforme” a comprovar</small></div><div class="radar-card ${overdue(rec) ? 'radar-bad' : ''}"><span>Agenda</span><b>${overdue(rec) ? 'Atenção' : c.revisao ? fmtD(c.revisao) : 'Livre'}</b><small>${situacaoPrazo}</small></div></div></section>` : ''}
+      ${pend ? `<p class="rec-hint">${pend} pergunta(s) do checklist ainda sem resposta. <button type="button" class="link" data-aba-ir="checklist">Ver pendências</button></p>` : ''}
+      <div class="card"><div class="row small"><div><span class="muted">Responsável</span><br>${c.responsavel ? esc(c.responsavel) : '<span class="muted">Sem responsável</span>'}</div><div><span class="muted">Prazo</span><br>${c.prazo ? fmtD(c.prazo) : '<span class="muted">Sem prazo</span>'}</div>
+      <div><span class="muted">Próxima revisão</span><br>${c.revisao ? fmtD(c.revisao) : '<span class="muted">Não definida</span>'}</div>${rec.criado ? `<div><span class="muted">Criado em</span><br>${fmt(rec.criado)}</div>` : ''}</div>
+      <h3 style="margin-top:1rem">Descrição / procedimento</h3><div class="pre">${esc(c.descricao) || '<span class="muted">Sem descrição.</span>'}</div>
+      <h3 style="margin-top:1rem">Evidências</h3><div class="pre">${esc(c.evidencias) || '<span class="muted">Nenhuma referência informada.</span>'}</div></div>
+    </section>
+    ${guia ? `<section class="rec-panel" role="tabpanel" id="painel-checklist" aria-labelledby="aba-checklist"${abaAtiva === 'checklist' ? '' : ' hidden'}>${checklistView(guia, c.dados, rec)}</section>` : ''}
+    <section class="rec-panel" role="tabpanel" id="painel-versoes" aria-labelledby="aba-versoes"${abaAtiva === 'versoes' ? '' : ' hidden'}>
     <div class="card"><h2>Histórico de versões</h2><div class="tablewrap"><table><tr><th>Versão</th><th>Quando</th><th>Autor</th><th>Justificativa</th><th></th></tr>
     ${vs.slice().reverse().map(v => `<tr><td>v${v.n}${v.n === last ? ' <span class="tag ok">atual</span>' : ''}</td><td>${fmt(v.quando)}</td><td>${esc(v.autor)}</td><td>${esc(v.just)}</td>
     <td>${can.editRec(rec) && v.n !== last ? `<button data-restore="${v.n}">Restaurar</button>` : ''}</td></tr>`).join('')}</table></div></div>
     ${vs.length > 1 ? `<div class="card"><h2>Comparar versões</h2><div class="row"><div><label for="va">De</label><select id="va">${vopts(vs.length - 1)}</select></div>
     <div><label for="vb">Para</label><select id="vb">${vopts(vs.length)}</select></div></div><div id="diff"></div></div>` : ''}
-    <div class="card"><h2>Auditoria deste registro</h2>${auditRows(au, false)}</div>`;
+    </section>
+    <section class="rec-panel" role="tabpanel" id="painel-auditoria" aria-labelledby="aba-auditoria"${abaAtiva === 'auditoria' ? '' : ' hidden'}><div class="card"><h2>Auditoria deste registro</h2>${auditRows(au, false)}</div></section>`;
 }
 
 /* ---------- evidências: arquivos no Firebase Storage; dados de cada uma no Firestore ---------- */
