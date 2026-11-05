@@ -85,7 +85,7 @@ Os casos de auditoria são cobertos automaticamente por `tests/rules/` (`npm tes
 | qualquer | read ou write em `rate_limit/*` | negado |
 
 ## Auditoria no servidor — Cloud Functions
-A pasta `functions/` (Node 20, `firebase-functions` v2 / 7.4.0, `firebase-admin`) grava os eventos que o cliente não pode ou não deve gravar. As funções rodam em `southamerica-east1`, a mesma região do Firestore, e o app usa `getFunctions(app, 'southamerica-east1')`.
+A pasta `functions/` (Node 22, `firebase-functions` v2 / 7.4.0, `firebase-admin`) grava os eventos que o cliente não pode ou não deve gravar. As funções rodam em `southamerica-east1`, a mesma região do Firestore, e o app usa `getFunctions(app, 'southamerica-east1')`.
 
 | Função | Tipo | O que faz |
 |---|---|---|
@@ -95,7 +95,7 @@ A pasta `functions/` (Node 20, `firebase-functions` v2 / 7.4.0, `firebase-admin`
 
 Pré-requisitos e publicação:
 - Plano **Blaze** (Cloud Functions de 2ª geração e Storage).
-- `firebase-tools` **≥ 14** (a versão 13 quebra com `firebase-functions` v7; testado com 15.34.2). Node 20 no deploy.
+- `firebase-tools` **≥ 14** (a versão 13 quebra com `firebase-functions` v7; testado com 15.34.2). Node 22 no deploy (o Node 20 foi descontinuado em 2026-10-30).
 - Publicar as funções **antes** do front-end que as usa:
   ```
   firebase deploy --only functions --project lgpdsan

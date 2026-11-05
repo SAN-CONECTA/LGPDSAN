@@ -68,8 +68,12 @@ if (new URLSearchParams(location.search).has('emulador')) {
 // autenticação e falha em silêncio: o login nunca depende da auditoria.
 const registrarTentativaLogin = (email, motivo) =>
   httpsCallable(fns, 'registrarTentativaLogin')({ email: String(email || '').slice(0, 254), motivo }).catch(() => {});
-// Edição de usuário no servidor: lá o autor (atualizadoPor) é garantido, não informado pelo cliente.
-const atualizarUsuario = (uid, dados) => httpsCallable(fns, 'atualizarUsuario')({ uid, ...dados });
+// Edição de usuário gravada direto no Firestore (as regras só permitem ao administrador ativo).
+// A Cloud Function atualizarUsuario (autoria garantida pelo servidor) não está publicada.
+const atualizarUsuario = (uid, d) => {
+  if (uid === me.id && (d.role !== 'admin' || !d.ativo)) throw { message: 'Você não pode remover o próprio perfil de administrador nem se bloquear.' };
+  return updateDoc(doc(fs, 'users', uid), { nome: d.nome, role: d.role, contabilidades: [...new Set(d.contabilidades)], ativo: d.ativo === true, atualizadoPor: me.id });
+};
 
 let me = null;
 let cid = null; // contabilidade ativa
