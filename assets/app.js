@@ -12,7 +12,7 @@ import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ap
 
 import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.44.0';
+const VERSION = '2.44.1';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -688,7 +688,7 @@ async function renderDash() {
       : `<div class="empty-state is-ok"><span class="empty-icon" aria-hidden="true">${ICO('<path d="m5 12.5 4.5 4.5L19 7.5"/>')}</span><h3>Tudo em dia</h3><p class="muted">Nenhum prazo vencido, revisão pendente ou registro sem aprovação.</p></div>`;
   const chip = (n, rot, tom, quick) => `<${quick ? `button type="button" data-quick-list="${quick}"` : 'span'} class="strip-item${tom ? ' ' + tom : ''}"><b>${n}</b><span>${rot}</span></${quick ? 'button' : 'span'}>`;
   const feitasTrilha = trilha.filter(c => rs.some(r => cur(r).categoria === c && cur(r).status === 'Em vigor')).length;
-  return `<section class="dash-head"><div><p class="dash-eyebrow">${esc(contabNome(cid))}</p><h1>Painel</h1></div>
+  return `<section class="dash-head"><div class="dash-hero-title">${firmLogo() ? `<div class="dash-firm-logo"><img src="${firmLogo()}" alt="Logo ${esc(contabNome(cid))}"></div>` : ''}<div><p class="dash-eyebrow">${esc(contabNome(cid))}</p><h1>Painel</h1></div></div>
     ${can.edit() ? `<a class="btn${rs.length ? ' primary' : ''}" href="#/registros" id="dnew">+ Novo registro</a>` : ''}</section>
     <section class="status-strip" aria-label="Resumo">${chip(rs.length, 'registros', '')}${chip(by('Em vigor'), 'em vigor', 'is-ok')}${chip(by('Em revisão'), 'em revisão', '')}${chip(od.length, 'prazos vencidos', od.length ? 'is-bad' : '', od.length ? 'overdue' : '')}${chip(rv.length, 'revisões em 30 dias', rv.length ? 'is-warn' : '', rv.length ? 'review' : '')}${chip(sa.length, 'sem aprovação', sa.length ? 'is-warn' : '')}</section>
     <div class="dash-grid"><div class="dash-main">

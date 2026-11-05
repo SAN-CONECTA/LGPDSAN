@@ -1,6 +1,10 @@
 # Changelog
 Formato SemVer.
 
+## [2.44.1] - 2026-11-05
+### Corrigido
+- **Logo da empresa no Painel:** a reorganização da 2.44.0 removeu a logo do topo do Painel. Ela volta ao lado do título (e some sem deixar espaço vazio quando a empresa não tem logo). Registros, Termo de Ciência e Relatório não foram afetados.
+
 ## [2.44.0] - 2026-11-05
 ### Adicionado
 - **Relatório de adequação** (`#/relatorio`, menu Empresas): nota, barra das etapas, resumo, tabela de etapas e pendências, pronto para imprimir ou salvar em PDF (A4, fundo branco em qualquer tema). Disponível para todos os perfis.
