@@ -700,58 +700,114 @@ async function renderDash() {
       <section class="card"><h2>Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted small">Sem atividade.</p>'}</section>
     </aside></div>`;
 }
-const chkCell = (g, d, recId) => { const p = progresso(g, d), q = pontuacao(g, d, evPorItem(recId));
-  return `<span class="tag ${p.nao ? 'bad' : p.pend ? 'warn' : 'ok'}" title="Declarado: o que foi respondido (itens críticos pesam 2; Parcial vale metade)">Decl. ${q.declarado}%</span> <span class="tag ${q.comprovado === null ? '' : q.comprovado >= q.declarado && q.declarado ? 'ok' : 'warn'}" title="Comprovado: itens Conforme com evidência anexada (e, nos críticos, estágio Implantado ou Testado)">Comp. ${q.comprovado === null ? '—' : q.comprovado + '%'}</span> <span class="muted small">${p.pend} pend.</span>`; };
 const miniTable = rs => `<div class="tablewrap"><table><tr><th>Registro</th><th>Status</th><th>Prazo</th></tr>${rs.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${statusTag(cur(r).status)}</td><td>${fmtD(cur(r).prazo)}</td></tr>`).join('')}</table></div>`;
 
-/* ---------- lista ---------- */
+/* ---------- lista de registros ---------- */
+// Grupo de urgência (menor = mais urgente). O registro entra no primeiro grupo que casar.
+const regGrupo = r => { const c = cur(r), v = revInfo(r);
+  if (c.status === 'Arquivado') return 5;
+  if (overdue(r)) return 0;
+  if (v && v.n < 0) return 1;
+  if (semAprov(r)) return 2;
+  if (v) return 3;
+  return 4; };
+// Data que causou o grupo (prazo ou revisão); vazia vai para o fim.
+const regData = r => { const c = cur(r), g = regGrupo(r); return (g === 1 || g === 3 ? c.revisao : c.prazo) || '9999-12-31'; };
+const PRIOR_ORDEM = { 'Alta': 0, 'Média': 1, 'Baixa': 2 };
+const REG_COLS = [['titulo', 'Registro'], ['status', 'Status'], ['prioridade', 'Prioridade', 'reg-col-prio'], ['responsavel', 'Responsável'], ['prazo', 'Prazo']];
+const REG_CHIPS = [['todos', 'Todos', () => true], ['vencidos', 'Vencidos', r => overdue(r)], ['revisoes', 'Revisões', r => !!revInfo(r)],
+  ['semaprov', 'Sem aprovação', r => semAprov(r)], ['meus', 'Meus', r => cur(r).responsavel === me.nome], ['rascunhos', 'Rascunhos', r => cur(r).status === 'Rascunho']];
+const REG_PAGINA = 25;
+const regChave = (r, col) => { const c = cur(r);
+  if (col === 'prioridade') return PRIOR_ORDEM[c.prioridade] ?? 9;
+  if (col === 'prazo') return c.prazo || '';
+  return String(c[col] || '').toLowerCase(); };
+const regOrdena = (lista, ordem) => lista.slice().sort((a, b) => {
+  const titulo = () => cur(a).titulo.localeCompare(cur(b).titulo, 'pt-BR');
+  if (!ordem) return regGrupo(a) - regGrupo(b) || regData(a).localeCompare(regData(b)) || titulo();
+  const ka = regChave(a, ordem.col), kb = regChave(b, ordem.col), dir = ordem.dir === 'desc' ? -1 : 1;
+  if (ordem.col === 'prazo' && (!ka || !kb)) return ka === kb ? titulo() : !ka ? 1 : -1; // sem prazo sempre no fim
+  const c = typeof ka === 'number' ? ka - kb : ka.localeCompare(kb, 'pt-BR');
+  return (c * dir) || titulo(); });
+// Progresso do checklist: barra fina com o percentual declarado; os detalhes ficam no tooltip.
+const regBar = (c, r) => { const g = guiaDe(c.categoria); if (!g) return '<span class="muted">—</span>';
+  const q = pontuacao(g, c.dados, evPorItem(r.id)), p = progresso(g, c.dados);
+  const txt = `Declarado ${q.declarado}% · Comprovado ${q.comprovado === null ? '—' : q.comprovado + '%'} · ${p.pend} pendente(s)`;
+  return `<span class="reg-prog" role="img" title="${esc(txt)}" aria-label="${esc(txt)}"><span class="reg-bar"><i style="width:${Number(q.declarado) || 0}%"></i></span><b>${Number(q.declarado) || 0}%</b></span>`; };
+const regLinha = r => { const c = cur(r);
+  return `<tr><td><a href="${recLink(r)}">${esc(c.titulo)}</a>${r.versao > 1 ? ` <span class="tag reg-ver" title="Versão ${r.versao}">v${r.versao}</span>` : ''}${r.deleted ? ' <span class="tag bad">excluído</span>' : ''}<br><span class="muted small">${esc(c.categoria)}</span></td>
+    <td>${statusTag(c.status)}</td><td class="reg-col-prio">${priorTag(c.prioridade)}</td><td>${c.responsavel ? esc(c.responsavel) : '<span class="muted">Sem responsável</span>'}</td>
+    <td>${overdue(r) ? '<span class="tag bad">vencido</span> ' : ''}${c.prazo ? fmtD(c.prazo) : '<span class="muted">Sem prazo</span>'}${revInfo(r) ? '<br>' + revTag(r) : ''}</td>
+    <td class="reg-col-chk">${regBar(c, r)}</td></tr>`; };
 async function renderList() {
   await loadEvid();
   bind = () => {
     const q = $('#q'), fc = $('#fc'), fs_ = $('#fs'), fp = $('#fp'), fd = $('#fd');
-    let quickScope = '';
+    let chip = 'todos', ordem = null, limite = REG_PAGINA, shown = [];
     try {
       const categoriaInicial = sessionStorage.getItem('lgpdsan:preselectCategoria');
       if (categoriaInicial && [...fc.options].some(o => o.value === categoriaInicial)) { fc.value = categoriaInicial; sessionStorage.removeItem('lgpdsan:preselectCategoria'); }
-      quickScope = sessionStorage.getItem('lgpdsan:quickList') || '';
+      // O Painel abre a lista já filtrada por "vencidos" ou "revisões".
+      const rapido = sessionStorage.getItem('lgpdsan:quickList');
+      if (rapido === 'overdue') chip = 'vencidos'; else if (rapido === 'review') chip = 'revisoes';
       sessionStorage.removeItem('lgpdsan:quickList');
+      const o = JSON.parse(sessionStorage.getItem('lgpdsan:ordem') || 'null');
+      if (o && REG_COLS.some(c => c[0] === o.col) && ['asc', 'desc'].includes(o.dir)) ordem = o;
     } catch (e) {}
-    const quickLabels = { overdue: 'Prazos vencidos', review: 'Revisões vencidas ou nos próximos 30 dias' };
-    const quickNote = $('#quick-filter');
-    const clearQuick = () => { quickScope = ''; quickNote.hidden = true; draw(); };
-    if (quickScope && quickLabels[quickScope]) { $('#quick-filter-name').textContent = quickLabels[quickScope]; quickNote.hidden = false; $('#clear-quick').onclick = clearQuick; }
-    let shown = [];
+    const filtros = [fc, fs_, fp, fd];
     const draw = () => {
-      const t = q.value.toLowerCase();
-      shown = db.records.filter(r => fd.value === 'del' ? r.deleted : !r.deleted).filter(r => { const c = cur(r);
+      const t = q.value.toLowerCase(), todos = db.records.filter(r => fd.value === 'del' ? r.deleted : !r.deleted);
+      const base = todos.filter(r => { const c = cur(r);
         return (!fc.value || c.categoria === fc.value) && (!fs_.value || c.status === fs_.value) && (!fp.value || c.prioridade === fp.value) &&
-          (!quickScope || quickScope === 'overdue' && overdue(r) || quickScope === 'review' && !!revInfo(r)) &&
-          (!t || [c.titulo, c.descricao, c.responsavel, c.evidencias, c.categoria].join(' ').toLowerCase().includes(t)); })
-        .sort((a, b) => cur(a).titulo.localeCompare(cur(b).titulo, 'pt-BR'));
-      $('#cnt').textContent = `${contabNome(cid)} · ${shown.length} registro(s)`;
-      $('#rows').innerHTML = shown.map(r => { const c = cur(r);
-        return `<tr><td><a href="${recLink(r)}">${esc(c.titulo)}</a>${r.deleted ? ' <span class="tag bad">excluído</span>' : ''}<br><span class="muted small">${esc(c.categoria)}</span></td>
-        <td>${statusTag(c.status)}</td><td>${priorTag(c.prioridade)}</td><td>${esc(c.responsavel) || '—'}</td>
-        <td>${overdue(r) ? '<span class="tag bad">vencido</span> ' : ''}${fmtD(c.prazo)}${revInfo(r) ? '<br>' + revTag(r) : ''}</td><td>${guiaDe(c.categoria) ? chkCell(guiaDe(c.categoria), c.dados, r.id) : '<span class="muted">—</span>'}</td><td>v${r.versao}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">Nenhum registro encontrado.</td></tr>';
+          (!t || [c.titulo, c.descricao, c.responsavel, c.evidencias, c.categoria].join(' ').toLowerCase().includes(t)); });
+      const pred = REG_CHIPS.find(x => x[0] === chip)[2];
+      shown = regOrdena(base.filter(pred), ordem);
+      // contagens dos atalhos: sobre os registros do filtro atual, sem o atalho em si
+      $$('.reg-chip').forEach(b => { const x = REG_CHIPS.find(c => c[0] === b.dataset.chip);
+        b.setAttribute('aria-pressed', String(b.dataset.chip === chip)); b.querySelector('span').textContent = `(${base.filter(x[2]).length})`; });
+      const ativos = filtros.filter(el => el.value).length; $('#reg-mais-n').textContent = ativos ? ` (${ativos})` : '';
+      $$('th[data-col]').forEach(th => { const on = ordem && ordem.col === th.dataset.col; th.setAttribute('aria-sort', on ? (ordem.dir === 'asc' ? 'ascending' : 'descending') : 'none'); });
+      const vis = shown.slice(0, limite);
+      $('#cnt').textContent = `${contabNome(cid)} · ${shown.length} registro(s)` + (shown.length > vis.length ? ` · mostrando ${vis.length}` : '');
+      $('#rows').innerHTML = vis.map(regLinha).join('') || `<tr><td colspan="6"><div class="empty-state"><h3>Nenhum registro encontrado</h3><p class="muted">Nenhum registro combina com a busca ou com os filtros escolhidos.</p><button type="button" id="reg-limpar">Limpar filtros</button></div></td></tr>`;
+      const mais = $('#reg-mais-btn'); mais.hidden = shown.length <= vis.length;
+      mais.textContent = `Mostrar mais ${Math.min(REG_PAGINA, shown.length - vis.length)}`;
+      $('#reg-live').textContent = `Mostrando ${vis.length} de ${shown.length}`;
       const gb = $('#gbtn'); if (gb) gb.hidden = !guiaDe(fc.value);
     };
-    [q, fc, fs_, fp, fd].forEach(el => el.addEventListener('input', draw)); draw();
+    const recomeca = () => { limite = REG_PAGINA; draw(); };
+    q.addEventListener('input', recomeca); filtros.forEach(el => el.addEventListener('input', recomeca));
+    $$('.reg-chip').forEach(b => b.onclick = () => { chip = b.dataset.chip; recomeca(); });
+    // 1º clique ordena crescente, 2º decrescente, 3º volta à ordem por urgência
+    $$('.th-sort').forEach(b => b.onclick = () => { const col = b.closest('th').dataset.col;
+      ordem = !ordem || ordem.col !== col ? { col, dir: 'asc' } : ordem.dir === 'asc' ? { col, dir: 'desc' } : null;
+      try { ordem ? sessionStorage.setItem('lgpdsan:ordem', JSON.stringify(ordem)) : sessionStorage.removeItem('lgpdsan:ordem'); } catch (e) {}
+      recomeca(); });
+    $('#reg-mais-btn').onclick = () => { limite += REG_PAGINA; draw(); };
+    $('#rows').addEventListener('click', e => { if (!e.target.closest('#reg-limpar')) return;
+      q.value = ''; filtros.forEach(el => { el.value = ''; }); chip = 'todos'; recomeca(); });
+    draw();
     const nb = $('#new'); if (nb) nb.onclick = () => recordForm();
-    const ex = $('#exp'); if (ex) ex.onclick = guard(() => exportCSV(shown));
-    $('#prn').onclick = () => window.print();
+    const ex = $('#exp'); if (ex) ex.onclick = guard(() => exportCSV(shown)); // exporta todos os filtrados, não só a página visível
+    // Impressão: mostra a lista inteira e volta à paginação depois.
+    $('#prn').onclick = () => { limite = Infinity; draw(); window.addEventListener('afterprint', recomeca, { once: true }); window.print(); };
     $('#gbtn').onclick = () => { const g = guiaDe(fc.value); if (g) modal(`<h2>Guia de referência · ${esc(g.titulo)}</h2><div class="guide-ref">${g.referencia}</div><div class="actions"><button id="x">Fechar</button></div>`, d => { $('#x', d).onclick = () => d.close(); }); };
   };
+  const chips = REG_CHIPS.map(c => `<button type="button" class="reg-chip" data-chip="${c[0]}" aria-pressed="false">${c[1]} <span></span></button>`).join('');
+  const th = c => `<th scope="col" data-col="${c[0]}" aria-sort="none"${c[2] ? ` class="${c[2]}"` : ''}><button type="button" class="th-sort">${c[1]}<svg class="ui-icon th-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 10l4-4 4 4M8 14l4 4 4-4"/></svg></button></th>`;
   return `<div class="printhead">${firmLogo() ? `<img class="firmlogo" src="${firmLogo()}" alt="Logo ${esc(contabNome(cid))}">` : ''}<div><b>${esc(contabNome(cid))}</b><br><span class="small">Relatório de registros · emitido em ${new Date().toLocaleDateString('pt-BR')}</span></div></div>
     <div class="bar"><div><h1>Registros</h1><p class="muted" id="cnt"></p></div>${firmLogo() ? `<img class="firmlogo no-print" src="${firmLogo()}" alt="Logo ${esc(contabNome(cid))}">` : ''}<div class="actions" style="margin:0">
     ${can.edit() ? '<button class="primary" id="new">+ Novo registro</button>' : ''}
     ${can.export() ? '<button id="exp">Exportar CSV</button>' : ''}<button id="gbtn" hidden>Guia de referência</button><button id="prn">Imprimir relatório</button></div></div>
-    <div class="filters"><div><label for="q">Pesquisa</label><input id="q" type="search" placeholder="Palavra-chave…"></div>
-    <div><label for="fc">Categoria</label><select id="fc">${opts(catList(), '', 'Todas')}</select></div>
-    <div><label for="fs">Status</label><select id="fs">${opts(STATUS, '', 'Todos')}</select></div>
-    <div><label for="fp">Prioridade</label><select id="fp">${opts(PRIOR, '', 'Todas')}</select></div>
-    <div><label for="fd">Exibir</label><select id="fd"><option value="">Ativos</option>${can.admin() ? '<option value="del">Excluídos</option>' : ''}</select></div></div>
-    <div class="quick-filter" id="quick-filter" hidden><span>Mostrando: <b id="quick-filter-name"></b></span><button type="button" id="clear-quick">Limpar filtro</button></div>
-    <div class="card tablewrap"><table><thead><tr><th>Registro</th><th>Status</th><th>Prioridade</th><th>Responsável</th><th>Prazo</th><th>Checklist</th><th>Versão</th></tr></thead><tbody id="rows"></tbody></table></div>`;
+    <div class="reg-toolbar no-print"><div class="reg-search"><label class="sr-only" for="q">Pesquisa</label><input id="q" type="search" placeholder="Pesquisar registros…"></div>
+      <div class="reg-chips" role="group" aria-label="Atalhos de filtro">${chips}</div>
+      <details class="reg-mais"><summary>Mais filtros<span id="reg-mais-n"></span></summary><div class="reg-mais-grid">
+        <div><label for="fc">Categoria</label><select id="fc">${opts(catList(), '', 'Todas')}</select></div>
+        <div><label for="fs">Status</label><select id="fs">${opts(STATUS, '', 'Todos')}</select></div>
+        <div><label for="fp">Prioridade</label><select id="fp">${opts(PRIOR, '', 'Todas')}</select></div>
+        <div><label for="fd">Exibir</label><select id="fd"><option value="">Ativos</option>${can.admin() ? '<option value="del">Excluídos</option>' : ''}</select></div></div></details></div>
+    <div class="card tablewrap reg-card"><table class="reg-table"><thead><tr>${REG_COLS.map(th).join('')}<th class="reg-col-chk">Checklist</th></tr></thead><tbody id="rows"></tbody></table></div>
+    <p class="reg-more no-print"><button type="button" id="reg-mais-btn" hidden>Mostrar mais</button></p><p class="sr-only" id="reg-live" aria-live="polite"></p>`;
 }
 async function exportCSV(rs) {
   if (!can.export()) return;
@@ -1038,6 +1094,18 @@ async function renderRecord(id) {
       auditOp(b, 'Versão aprovada', rec, 'v' + rec.versao); await b.commit(); toast('Versão aprovada.'); reload(); }, false);
     const dl = $('#del'); if (dl) dl.onclick = () => confirmBox('Excluir logicamente este registro? Ele sai das listas, mas pode ser restaurado.', 'Excluir', async () => {
       const b = writeBatch(fs); b.update(rdoc(id), { deleted: true }); auditOp(b, 'Exclusão lógica', rec); await b.commit(); reload(); });
+    // Menu "Mais ações": abre/fecha por clique, Esc, setas e perda de foco (sem listeners globais).
+    const mb = $('#more'), ml = $('#more-list');
+    if (mb && ml) {
+      const abre = v => { ml.hidden = !v; mb.setAttribute('aria-expanded', String(v)); if (v) ml.querySelector('[role=menuitem]').focus(); };
+      mb.onclick = () => abre(ml.hidden);
+      ml.onkeydown = e => { const it = [...ml.querySelectorAll('[role=menuitem]')], i = it.indexOf(document.activeElement);
+        if (e.key === 'Escape') { e.preventDefault(); abre(false); mb.focus(); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); it[(i + 1) % it.length].focus(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); it[(i - 1 + it.length) % it.length].focus(); } };
+      ml.parentElement.addEventListener('focusout', e => { if (!ml.parentElement.contains(e.relatedTarget)) { ml.hidden = true; mb.setAttribute('aria-expanded', 'false'); } });
+      ml.addEventListener('click', () => { ml.hidden = true; mb.setAttribute('aria-expanded', 'false'); });
+    }
     const rs = $('#rest'); if (rs) rs.onclick = guard(async () => {
       const b = writeBatch(fs); b.update(rdoc(id), { deleted: false }); auditOp(b, 'Registro restaurado', rec); await b.commit(); reload(); });
     const hd = $('#hard'); if (hd) hd.onclick = () => confirmBox('Excluir DEFINITIVAMENTE, com todo o histórico de versões? Não pode ser desfeito. A auditoria é mantida.', 'Excluir definitivamente', async () => {
@@ -1067,7 +1135,7 @@ async function renderRecord(id) {
     <div class="record-hero-actions">
     ${can.editRec(rec) ? '<button class="primary" id="edit">Editar registro</button>' : ''}
     ${can.admin() && !rec.deleted && c.status !== 'Arquivado' && !aprovada(rec) ? '<button id="aprov">Aprovar versão</button>' : ''}
-    ${!rec.deleted && can.admin() ? '<button class="danger record-delete" id="del" aria-label="Excluir registro">Excluir</button>' : ''}
+    ${!rec.deleted && can.admin() ? '<div class="more-menu"><button type="button" class="more-btn" id="more" aria-haspopup="menu" aria-expanded="false" aria-controls="more-list" aria-label="Mais ações" title="Mais ações"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></button><div class="more-list" id="more-list" role="menu" aria-label="Mais ações" hidden><button type="button" class="danger record-delete" id="del" role="menuitem">Excluir registro</button></div></div>' : ''}
     ${rec.deleted && can.admin() ? '<button id="rest">Restaurar</button><button class="danger" id="hard">Excluir definitivamente</button>' : ''}</div></div>
     <div class="record-hero-foot"><span><i aria-hidden="true">●</i> ${esc(c.responsavel) || 'Sem responsável'}</span><span class="${overdue(rec) ? 'is-bad' : ''}">${situacaoPrazo}</span>${revInfo(rec) ? `<span class="${revInfo(rec).k === 'bad' ? 'is-bad' : ''}">${revInfo(rec).t}</span>` : ''}</div></section>
     ${placar ? `<section class="record-radar" aria-label="Resumo do checklist"><div class="record-radar-head"><div><span class="record-kicker">RADAR DE CONFORMIDADE</span><h2>O que precisa de atenção agora</h2></div><span class="muted small">Os indicadores são atualizados a cada versão</span></div><div class="record-radar-grid"><div class="radar-card radar-brand"><span>Declarado</span><b>${placar.declarado}%</b><small>respostas preenchidas</small></div><div class="radar-card radar-ok"><span>Comprovado</span><b>${placar.comprovado === null ? '—' : placar.comprovado + '%'}</b><small>com evidência válida</small></div><div class="radar-card ${placar.semProva ? 'radar-warn' : 'radar-ok'}"><span>Sem evidência</span><b>${placar.semProva || 0}</b><small>itens “Conforme” a comprovar</small></div><div class="radar-card ${overdue(rec) ? 'radar-bad' : ''}"><span>Agenda</span><b>${overdue(rec) ? 'Atenção' : c.revisao ? fmtD(c.revisao) : 'Livre'}</b><small>${situacaoPrazo}</small></div></div></section>` : ''}

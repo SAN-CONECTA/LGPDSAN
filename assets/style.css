@@ -320,7 +320,6 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .metrics-grid .stat.is-attention{border-top:3px solid var(--warn)}
 .metrics-grid .stat.is-critical{border-top:3px solid var(--bad)}
 .metrics-grid .stat-action{width:100%;font:inherit;text-align:left;cursor:pointer}.metrics-grid .stat-action small{margin-top:.1rem;font-size:.7rem;font-weight:650;color:var(--brand);opacity:0;transition:opacity .16s ease}.metrics-grid .stat-action:hover small,.metrics-grid .stat-action:focus-visible small{opacity:1}.metrics-grid .stat-action:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
-.quick-filter{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin:-.15rem 0 .8rem;padding:.6rem .75rem;border:1px solid color-mix(in srgb,var(--brand) 38%,var(--line));border-radius:var(--radius);background:var(--brand-soft);font-size:var(--text-sm)}.quick-filter button{padding:.28rem .55rem;font-size:.8rem}
 .dashboard-layout{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(290px,.8fr);gap:1rem;align-items:start}
 .card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.card-heading h2{margin-bottom:.35rem}.card-heading .tag{white-space:nowrap}
 .dashboard-trilha .tablewrap{margin-top:1rem}.dashboard-trilha th{position:sticky;top:0}
@@ -607,6 +606,54 @@ button.strip-item:hover span{color:var(--ink);text-decoration:underline}
 }
 :root[data-theme=estelar] button.primary,:root[data-theme=estelar] .btn.primary{color:#0a0d12}
 @media(max-width:900px){:root[data-theme=estelar] .topbar{margin:.5rem .75rem 0}}
+
+
+/* --- registros: barra de busca com atalhos, colunas limpas e menu "Mais ações" --- */
+.reg-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.7rem .9rem;margin-bottom:1rem}
+.reg-search{flex:0 1 280px;min-width:200px}
+.reg-search input{margin:0}
+.reg-chips{display:flex;flex-wrap:wrap;gap:.4rem;flex:1 1 auto}
+.reg-chip{min-height:34px;padding:.25rem .8rem;border-radius:var(--radius-pill);font-size:.85rem;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--line);box-shadow:none}
+.reg-chip span{font-weight:500;opacity:.8;margin-left:.15rem;font-variant-numeric:tabular-nums}
+.reg-chip:hover{color:var(--ink)}
+.reg-chip[aria-pressed=true]{color:var(--brand);background:var(--brand-soft);border-color:var(--brand)}
+.reg-mais{flex:1 1 100%}
+.reg-mais summary{display:inline-block;cursor:pointer;font-size:.88rem;font-weight:600;color:var(--brand);list-style:none}
+.reg-mais summary::-webkit-details-marker{display:none}
+.reg-mais summary::before{content:"+ "}
+.reg-mais[open] summary::before{content:"− "}
+.reg-mais-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-top:.6rem;padding:.9rem 1rem;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
+.reg-mais-grid label{margin:0 0 .2rem}
+.reg-table th{white-space:nowrap}
+.th-sort{display:inline-flex;align-items:center;gap:.3rem;min-height:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;
+  font:inherit;font-weight:600;letter-spacing:inherit;text-transform:inherit;color:inherit;cursor:pointer}
+.th-sort:hover{background:transparent;border-color:transparent;color:var(--ink)}
+.th-arrow{width:.85rem;height:.85rem;opacity:.35}
+th[aria-sort=ascending] .th-sort,th[aria-sort=descending] .th-sort{color:var(--ink)}
+th[aria-sort=ascending] .th-arrow,th[aria-sort=descending] .th-arrow{opacity:1;color:var(--brand)}
+.reg-col-chk{white-space:nowrap}
+.reg-prog{display:inline-flex;align-items:center;gap:.5rem}
+.reg-prog b{min-width:2.6ch;font-size:.85rem;font-variant-numeric:tabular-nums}
+.reg-bar{display:block;width:72px;height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+.reg-bar i{display:block;height:100%;border-radius:99px;background:var(--brand)}
+.reg-ver{margin-left:.25rem;font-size:.68rem;padding:.05rem .4rem}
+.reg-more{margin:1rem 0 0;text-align:center}
+.reg-card .empty-state{align-items:center;text-align:center;padding:1.5rem 0}
+/* o painel do menu precisa ficar acima do rodapé do cabeçalho (que tem overflow:hidden e empilhamento próprio) */
+.record-hero-main{position:relative;z-index:3}
+.more-menu{position:relative;display:inline-block}
+.more-btn{min-width:38px;padding:.5rem .6rem}
+.more-btn .ui-icon{width:1.1rem;height:1.1rem;fill:currentColor;stroke:none}
+.more-list{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:190px;padding:.35rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-pop)}
+.more-list button{width:100%;justify-content:flex-start;border:0;background:transparent;box-shadow:none}
+.more-list button:hover{background:var(--bad-soft)}
+:root[data-theme=estelar] .th-sort,:root[data-theme=estelar] .th-sort:hover{background:transparent;border-color:transparent}
+:root[data-theme=estelar] .reg-chip,:root[data-theme=estelar] .reg-mais-grid{background:var(--glass);border-color:var(--glass-line)}
+:root[data-theme=estelar] .reg-chip[aria-pressed=true]{background:var(--brand-soft);border-color:var(--brand)}
+:root[data-theme=estelar] .more-list{background:var(--glass-strong);border-color:var(--glass-line);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+@media(max-width:900px){.reg-mais-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.reg-col-prio,.reg-col-chk{display:none}.reg-search{flex:1 1 100%}}
+@media print{.th-arrow{display:none}.th-sort{color:inherit}}
 
 
 /* ============================== RESPONSIVO ================================= */
