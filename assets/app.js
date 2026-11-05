@@ -248,7 +248,7 @@ async function prepararLogo(file) {
   } finally { URL.revokeObjectURL(url); }
 }
 /* ---------- tema claro / escuro (escolha por usuário) ---------- */
-const TEMAS = { auto: 'Automático (do sistema)', claro: 'Claro (verde-azulado)', azul: 'Azul', lilas: 'Lilás', rosa: 'Rosa', laranja: 'Laranja', verde: 'Verde', grafite: 'Grafite', escuro: 'Escuro', 'escuro-azul': 'Escuro azulado', 'escuro-lilas': 'Escuro lilás', cf: 'Estilo Cloudflare (claro)', 'cf-escuro': 'Estilo Cloudflare (escuro)' };
+const TEMAS = { auto: 'Automático (do sistema)', claro: 'Claro (verde-azulado)', azul: 'Azul', lilas: 'Lilás', rosa: 'Rosa', laranja: 'Laranja', verde: 'Verde', grafite: 'Grafite', escuro: 'Escuro', 'escuro-azul': 'Escuro azulado', 'escuro-lilas': 'Escuro lilás', cf: 'Estilo Cloudflare (claro)', 'cf-escuro': 'Estilo Cloudflare (escuro)', estelar: 'Estelar (escuro)' };
 const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* sem armazenamento: vale só nesta sessão */ } };
 function applyTheme(t) {
