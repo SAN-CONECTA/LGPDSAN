@@ -1,6 +1,23 @@
 # Changelog
 Formato SemVer.
 
+## [2.44.0] - 2026-11-05
+### Adicionado
+- **Relatório de adequação** (`#/relatorio`, menu Empresas): nota, barra das etapas, resumo, tabela de etapas e pendências, pronto para imprimir ou salvar em PDF (A4, fundo branco em qualquer tema). Disponível para todos os perfis.
+- **Registro aberto em abas** (Resumo, Checklist, Versões, Auditoria): checklist em seções recolhíveis com progresso por seção, botão **Próxima pendência** e Expandir/Recolher tudo. A aba escolhida é lembrada por registro.
+- **Lista de Registros:** ordem padrão por urgência (vencidos, revisão vencida, sem aprovação, revisão a vencer), ordenação por coluna, atalhos com contagem (Todos, Vencidos, Revisões, Sem aprovação, Meus, Rascunhos), "Mais filtros" recolhido e paginação de 25 em 25. O CSV e a impressão levam todos os filtrados.
+- **Painel reorganizado:** faixa de status, lista única **Precisa de ação**, barra de adequação em 9 etapas e estados vazios com instrução.
+- **Menu "Mais ações"** no registro aberto: **Excluir** saiu do lado de "Aprovar versão".
+### Alterado
+- **Visual:** botões em frase com um único primário por tela, ícones de linha no menu, tabelas mais legíveis e novo tema **Estelar** (escuro, vidro fosco).
+- **Temas:** restam dois, **Claro** e **Estelar (escuro)**. Quem usava um tema escuro vai para o Estelar; os demais vão para o Claro. Sem preferência salva, o padrão é o Estelar.
+- A edição e o bloqueio de usuários gravam direto no Firestore (a função `atualizarUsuario` não precisa estar publicada); Node 22 nas Cloud Functions.
+### Segurança
+- **Publique `firestore.rules`:** a lista de temas aceitos no perfil passa a ser `claro` e `estelar`. O workflow publica as regras ao subir na `main`.
+- Nenhuma fonte externa é carregada (sem Google Fonts), para não enviar o IP do usuário a terceiros.
+### Atenção
+- No celular o menu lateral ainda ocupa boa parte da tela (já era assim).
+
 ## [2.43.0] - 2026-11-04
 ### Adicionado
 - **Auditoria no servidor (Fase 1):** Cloud Functions em `functions/` registram tentativas de login falhas (data/hora, e-mail digitado, IP, navegador e motivo, com limite de 20 gravações por IP por hora) e alterações de permissão de usuário com `antes`/`depois`. Eventos do servidor levam `origem: 'servidor'`.

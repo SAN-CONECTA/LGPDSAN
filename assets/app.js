@@ -12,7 +12,7 @@ import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ap
 
 import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.43.0';
+const VERSION = '2.44.0';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -429,13 +429,13 @@ function ligaBuscaGlobal() {
 /* ---------- roteamento ---------- */
 const app = $('#app');
 const routes = [
-  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/plano-acao', 'Plano de ação', renderAcoes, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/termo', 'Termo de Ciência', renderTermo, null, true], ['#/manual', 'Manual', renderManual], ['#/anpd', 'Atualizações ANPD', renderAnpd], ['#/manual-lgpd', 'Manual da LGPD', renderManualLgpd, 'admin'],
+  ['#/', 'Painel', renderDash, null, true], ['#/registros', 'Registros', renderList, null, true], ['#/plano-acao', 'Plano de ação', renderAcoes, null, true], ['#/evidencias', 'Evidências', renderEvid, null, true], ['#/auditoria', 'Auditoria', renderAudit, null, true], ['#/biblioteca', 'Biblioteca', renderBiblio], ['#/termo', 'Termo de Ciência', renderTermo, null, true], ['#/relatorio', 'Relatório', renderRelatorio, null, true], ['#/manual', 'Manual', renderManual], ['#/anpd', 'Atualizações ANPD', renderAnpd], ['#/manual-lgpd', 'Manual da LGPD', renderManualLgpd, 'admin'],
   ['#/usuarios', 'Usuários', renderUsers, 'admin'], ['#/contabilidades', 'Contabilidades', renderContabs, 'admin'],
   ['#/categorias', 'Categorias', renderCats, 'admin'], ['#/backup', 'Backup', renderBackup, 'admin', true], ['#/sobre', 'Sobre / versão', renderAbout]
 ];
 // Grupos recolhíveis do menu (v2.30.2). [id, título, itens [hash, rótulo, soAdmin]]
 const GRUPOS = [
-  ['contabilidade', 'Empresas', [['#/', 'Painel', false], ['#/registros', 'Registros', false], ['#/plano-acao', 'Plano de ação', false], ['#/evidencias', 'Evidências', false], ['#/termo', 'Termo de Ciência', false]]],
+  ['contabilidade', 'Empresas', [['#/', 'Painel', false], ['#/registros', 'Registros', false], ['#/plano-acao', 'Plano de ação', false], ['#/evidencias', 'Evidências', false], ['#/termo', 'Termo de Ciência', false], ['#/relatorio', 'Relatório', false]]],
   ['controle', 'Controle', [['#/auditoria', 'Auditoria', false], ['#/usuarios', 'Usuários', true], ['#/contabilidades', 'Empresas', true]]],
   ['aprendizado', 'Aprendizado', [['#/anpd', 'Atualizações ANPD', false], ['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false], ['#/manual-lgpd', 'Manual da LGPD', true]]],
   ['config', 'Configurações', [['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]]]
@@ -447,6 +447,7 @@ const NAV_EMOJIS = {
   'Registros': ICO('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>'),
   'Plano de ação': ICO('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>'),
   'Evidências': ICO('<path d="m21 12-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.9-8.9a3.7 3.7 0 0 1 5.2 5.2l-8.9 8.9a1.8 1.8 0 0 1-2.6-2.6L15 7.5"/>'),
+  'Relatório': ICO('<path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5"/><path d="M9 17v-4M12 17v-7M15 17v-2"/>'),
   'Termo de Ciência': ICO('<path d="M4 20h4L19 9a2.1 2.1 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'),
   'Auditoria': ICO('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
   'Usuários': ICO('<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 0 1 0 6M18 14.4c1.8.8 3 2.6 3 5.6"/>'),
@@ -701,6 +702,71 @@ async function renderDash() {
     </aside></div>`;
 }
 const miniTable = rs => `<div class="tablewrap"><table><tr><th>Registro</th><th>Status</th><th>Prazo</th></tr>${rs.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${statusTag(cur(r).status)}</td><td>${fmtD(cur(r).prazo)}</td></tr>`).join('')}</table></div>`;
+
+/* ---------- relatório de adequação (imprimir / salvar PDF) ---------- */
+async function renderRelatorio() {
+  const rs = db.records.filter(r => !r.deleted);
+  const etapas = catList();
+  const situacao = c => {
+    const rc = rs.filter(r => cur(r).categoria === c);
+    const vig = rc.filter(r => cur(r).status === 'Em vigor').length;
+    const emCurso = rc.filter(r => cur(r).status !== 'Arquivado').length;
+    return { etapa: c, total: rc.length, sit: vig ? 'Em vigor' : emCurso ? 'Em andamento' : 'Não iniciada' };
+  };
+  const linhas = etapas.map(situacao);
+  const concluidas = linhas.filter(l => l.sit === 'Em vigor').length;
+  const nota = etapas.length ? Math.round(concluidas / etapas.length * 100) : 0;
+  const contar = s => rs.filter(r => cur(r).status === s).length;
+  const vencidos = rs.filter(overdue);
+  // Mesma regra do Painel: revInfo devolve revisões vencidas ou a vencer em até 30 dias, e as duas entram na contagem.
+  const rev30 = rs.filter(r => revInfo(r)).length;
+  const semAp = rs.filter(semAprov);
+  const pend = [];
+  rs.forEach(r => {
+    const c = cur(r), v = revInfo(r), prazo = overdue(r), revisao = !!(v && v.n < 0);
+    if (!prazo && !revisao) return;
+    const datas = [prazo ? c.prazo : '', revisao ? c.revisao : ''].filter(Boolean).sort();
+    pend.push({ c, data: datas[0] || '', motivo: prazo && revisao ? 'Prazo e revisão vencidos' : prazo ? 'Prazo vencido' : 'Revisão vencida' });
+  });
+  pend.sort((a, b) => String(a.data).localeCompare(String(b.data)) || a.c.titulo.localeCompare(b.c.titulo, 'pt-BR'));
+  const ct = db.contabs.find(c => c.id === cid) || {};
+  const nome = contabNome(cid), emissao = fmtD(today()), logo = firmLogo();
+  bind = () => {
+    const prn = $('#rel-prn'); if (prn) prn.onclick = () => window.print();
+    const cb = $('#rel-pend');
+    if (cb) cb.onchange = () => { const sec = $('#rel-pend-sec'); if (sec) sec.hidden = !cb.checked; };
+  };
+  const segs = linhas.map(l => `<li class="rel-seg ${l.sit === 'Em vigor' ? 'is-vig' : l.sit === 'Em andamento' ? 'is-and' : ''}"><span class="rel-sr">${esc(l.etapa)}: ${esc(l.sit)}</span></li>`).join('');
+  const resumo = [
+    `<span><b>${rs.length}</b> ${rs.length === 1 ? 'registro' : 'registros'}</span>`,
+    `<span><b>${contar('Em vigor')}</b> em vigor</span>`,
+    `<span><b>${contar('Em revisão')}</b> em revisão</span>`,
+    `<span${vencidos.length ? ' class="tone-bad"' : ''}><b>${vencidos.length}</b> ${vencidos.length === 1 ? 'prazo vencido' : 'prazos vencidos'}</span>`,
+    `<span${rev30 ? ' class="tone-warn"' : ''}><b>${rev30}</b> ${rev30 === 1 ? 'revisão em 30 dias' : 'revisões em 30 dias'}</span>`,
+    `<span${semAp.length ? ' class="tone-warn"' : ''}><b>${semAp.length}</b> em vigor sem aprovação atual</span>`
+  ].join('<span class="rel-sep" aria-hidden="true">·</span>');
+  return `<div class="bar no-print"><div><h1>Relatório de adequação</h1><p class="muted">Página pronta para entregar ao cliente. Use Imprimir / Salvar PDF e escolha "Salvar como PDF" no destino.</p></div>
+    <div class="actions rel-tools" style="margin:0"><label class="rel-check" for="rel-pend"><input type="checkbox" id="rel-pend" checked aria-controls="rel-pend-sec"><span>Incluir pendências</span></label><button class="primary" id="rel-prn" type="button">Imprimir / Salvar PDF</button></div></div>
+    <article class="card rel-doc" aria-labelledby="rel-title">
+      <header class="rel-head">${logo ? `<img class="rel-logo" src="${logo}" alt="Logo de ${esc(nome)}">` : ''}
+        <div class="rel-head-copy"><h2 id="rel-title">Relatório de adequação à LGPD</h2><p class="rel-firm">${esc(nome)}</p>
+        <p class="rel-meta">CNPJ ${esc(ct.cnpj || 'não informado')} · Emitido em ${esc(emissao)}</p></div></header>
+      <section class="rel-sec" aria-labelledby="rel-nota"><h3 id="rel-nota">Nota de adequação</h3>
+        <div class="rel-score-row"><strong class="rel-score">${nota}%</strong>
+          <div class="rel-score-copy"><p class="rel-score-cap">${concluidas} de ${etapas.length} ${etapas.length === 1 ? 'etapa' : 'etapas'} com registro em vigor.</p>
+            <ol class="rel-segs" aria-label="Etapas da trilha">${segs}</ol></div></div>
+        <p class="rel-legend"><span><i class="rel-key is-vig" aria-hidden="true"></i>Em vigor</span><span><i class="rel-key is-and" aria-hidden="true"></i>Em andamento</span><span><i class="rel-key" aria-hidden="true"></i>Não iniciada</span></p></section>
+      <section class="rel-sec" aria-labelledby="rel-resumo"><h3 id="rel-resumo">Resumo</h3><p class="rel-summary">${resumo}</p></section>
+      <section class="rel-sec" aria-labelledby="rel-etapas"><h3 id="rel-etapas">Etapas</h3>
+        <div class="tablewrap"><table class="rel-table"><thead><tr><th scope="col">Etapa</th><th scope="col">Situação</th><th scope="col" class="num">Registros</th></tr></thead>
+          <tbody>${linhas.length ? linhas.map(l => `<tr><td>${esc(l.etapa)}</td><td><span class="tag ${l.sit === 'Em vigor' ? 'ok' : l.sit === 'Em andamento' ? 'warn' : ''}">${esc(l.sit)}</span></td><td class="num">${l.total}</td></tr>`).join('') : '<tr><td colspan="3" class="muted">Nenhuma etapa cadastrada.</td></tr>'}</tbody></table></div></section>
+      <section class="rel-sec" id="rel-pend-sec" aria-labelledby="rel-pend-title"><h3 id="rel-pend-title">Pendências</h3>
+        ${pend.length ? `<div class="tablewrap"><table class="rel-table rel-pend"><thead><tr><th scope="col">Pendência</th><th scope="col">Categoria</th><th scope="col">Responsável</th><th scope="col" class="rel-date">Data</th></tr></thead>
+          <tbody>${pend.map(p => `<tr><td><b>${esc(p.c.titulo)}</b><br><span class="rel-reason">${esc(p.motivo)}</span></td><td>${esc(p.c.categoria)}</td><td>${esc(p.c.responsavel) || '—'}</td><td class="rel-date">${fmtD(p.data)}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="rel-none">Nenhuma pendência na data de emissão.</p>'}</section>
+      <footer class="rel-foot">Emitido por <b>${esc(me.nome)}</b> em ${esc(emissao)} · LGPDSAN</footer>
+    </article>`;
+}
 
 /* ---------- lista de registros ---------- */
 // Grupo de urgência (menor = mais urgente). O registro entra no primeiro grupo que casar.
