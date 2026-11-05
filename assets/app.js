@@ -60,9 +60,12 @@ storage.maxUploadRetryTime = 30000; storage.maxOperationRetryTime = 30000; // fa
 // Modo emulador (teste local, sem tocar no projeto de produção): abra com ?emulador=1 na URL.
 // Usa o Firebase Emulator Suite — Firestore 8080, Auth 9099 e Functions 5001 (ver firebase.json).
 if (new URLSearchParams(location.search).has('emulador')) {
-  connectFirestoreEmulator(fs, 'localhost', 8080);
-  connectAuthEmulator(auth, 'http://localhost:9099');
-  connectFunctionsEmulator(fns, 'localhost', 5001);
+  // O emulador usa o mesmo host da página (localhost ou 127.0.0.1): o navegador limita as conexões por host,
+  // e várias abas abertas no mesmo emulador podem esgotar o limite e deixar o app "offline".
+  const emuHost = ['localhost', '127.0.0.1'].includes(location.hostname) ? location.hostname : 'localhost';
+  connectFirestoreEmulator(fs, emuHost, 8080);
+  connectAuthEmulator(auth, `http://${emuHost}:9099`);
+  connectFunctionsEmulator(fns, emuHost, 5001);
 }
 // Login falho é auditado no servidor (functions/index.js). A chamada não exige
 // autenticação e falha em silêncio: o login nunca depende da auditoria.
@@ -434,13 +437,31 @@ const GRUPOS = [
   ['aprendizado', 'Aprendizado', [['#/anpd', 'Atualizações ANPD', false], ['#/biblioteca', 'Biblioteca', false], ['#/manual', 'Manual', false], ['#/manual-lgpd', 'Manual da LGPD', true]]],
   ['config', 'Configurações', [['#/categorias', 'Categorias', true], ['#/backup', 'Backup', true], ['#/sobre', 'Sobre / versão', false]]]
 ];
+// Ícones de linha (traço de 1,7px, herdam a cor do texto). Substituem os emojis do menu.
+const ICO = d => `<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 const NAV_EMOJIS = {
-  'Painel': '📊', 'Registros': '📄', 'Plano de ação': '✅', 'Evidências': '📎', 'Termo de Ciência': '✍️',
-  'Auditoria': '🕘', 'Usuários': '👥', 'Empresas': '🏢', 'Atualizações ANPD': '🔔',
-  'Biblioteca': '📚', 'Manual': '📖', 'Manual da LGPD': '🛡️', 'Categorias': '⚙️',
-  'Backup': '⬇️', 'Sobre / versão': 'ℹ️'
+  'Painel': ICO('<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>'),
+  'Registros': ICO('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>'),
+  'Plano de ação': ICO('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>'),
+  'Evidências': ICO('<path d="m21 12-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.9-8.9a3.7 3.7 0 0 1 5.2 5.2l-8.9 8.9a1.8 1.8 0 0 1-2.6-2.6L15 7.5"/>'),
+  'Termo de Ciência': ICO('<path d="M4 20h4L19 9a2.1 2.1 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'),
+  'Auditoria': ICO('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  'Usuários': ICO('<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 0 1 0 6M18 14.4c1.8.8 3 2.6 3 5.6"/>'),
+  'Empresas': ICO('<path d="M4 21V6l8-3 8 3v15M9 21v-5h6v5M8 9h2M14 9h2M8 12.5h2M14 12.5h2"/>'),
+  'Atualizações ANPD': ICO('<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 21h4"/>'),
+  'Biblioteca': ICO('<path d="M4 4h4v16H4zM10 4h4v16h-4zM16.5 5.5l3.8-1 3 15-3.8 1z" transform="translate(-1.5 0)"/>'),
+  'Manual': ICO('<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19a2 2 0 0 1 2-2h13"/>'),
+  'Manual da LGPD': ICO('<path d="M12 3 5 6v5c0 4.4 2.9 8.1 7 10 4.1-1.9 7-5.6 7-10V6z"/><path d="m9 12 2 2 4-4"/>'),
+  'Categorias': ICO('<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>'),
+  'Backup': ICO('<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"/>'),
+  'Sobre / versão': ICO('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8v.1"/>')
 };
-const GRUPO_EMOJIS = { contabilidade: '💼', controle: '🛠️', aprendizado: '📚', config: '⚙️' };
+const GRUPO_EMOJIS = {
+  contabilidade: ICO('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>'),
+  controle: ICO('<path d="M12 3 5 6v5c0 4.4 2.9 8.1 7 10 4.1-1.9 7-5.6 7-10V6z"/>'),
+  aprendizado: ICO('<path d="M2 9l10-5 10 5-10 5zM6 11.5V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5"/>'),
+  config: ICO('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/>')
+};
 const gruposAbertos = new Set(['contabilidade']);
 let bind = null, seq = 0;
 function contabSelector() {
@@ -597,7 +618,7 @@ async function logout() { try { await auditNow('Logout'); } catch (e) {} try { a
 
 /* ---------- painel ---------- */
 const recLink = r => `#/registro/${cid}/${r.id}`;
-function trilhaHtml(rs) {
+function trilhaHtml(rs, modo = 'classico') {
   const cats = catList(), passos = cats.map(c => { const rc = rs.filter(r => cur(r).categoria === c), vig = rc.filter(r => cur(r).status === 'Em vigor').length, g = guiaDe(c);
     const decl = g && rc.length ? Math.round(rc.reduce((a, r) => a + pontuacao(g, cur(r).dados).declarado, 0) / rc.length) : null;
     return { c, n: rc.length, vig, decl, dica: (TRILHA.find(t => t[0] === c) || [])[1] || 'Categoria acrescentada pelo administrador.' }; });
@@ -605,6 +626,15 @@ function trilhaHtml(rs) {
   const proxN = passos.indexOf(prox), visiveis = prox ? passos.slice(proxN, proxN + 3) : passos.slice(-3);
   const tabela = `<div class="tablewrap"><table><tr><th>#</th><th>Categoria</th><th>Situação</th><th>Registros</th><th>Declarado</th></tr>${passos.map((p, i) => `<tr${p === prox ? ' class="is-highlight"' : ''}><td>${i + 1}</td><td><b>${esc(p.c)}</b>${p === prox ? ' <span class="tag brand">próximo passo</span>' : ''}<br><span class="muted small">${esc(p.dica)}</span></td>
     <td><span class="tag ${p.vig ? 'ok' : p.n ? 'warn' : ''}">${p.vig ? 'Em vigor' : p.n ? 'Em andamento' : 'Não iniciada'}</span></td><td>${p.n}</td><td>${p.decl === null ? '<span class="muted">—</span>' : p.decl + '%'}</td></tr>`).join('')}</table></div>`;
+  if (modo === 'barra') {
+    const seg = passos.map((p, i) => `<li class="seg ${p.vig ? 'is-done' : p.n ? 'is-part' : ''}${p === prox ? ' is-now' : ''}" title="${i + 1}. ${esc(p.c)} — ${p.vig ? 'Em vigor' : p.n ? 'Em andamento' : 'Não iniciada'}"><span class="sr-only">${esc(p.c)}</span></li>`).join('');
+    const feitas = passos.filter(p => p.vig).length;
+    const acao = prox ? (can.edit() ? `<button type="button" data-start-cat="${esc(prox.c)}">${prox.n ? 'Continuar etapa' : 'Criar primeiro registro'}</button>` : `<a class="btn" href="#/registros" data-start-cat="${esc(prox.c)}">Ver registros</a>`) : '';
+    return `<ol class="seg-bar" aria-label="Progresso da adequação: ${feitas} de ${passos.length} etapas em vigor">${seg}</ol>
+    <p class="seg-count"><b>${feitas}</b> de ${passos.length} etapas em vigor</p>
+    ${prox ? `<div class="next-step"><div><span class="dash-eyebrow">PRÓXIMA ETAPA · ${proxN + 1} DE ${passos.length}</span><h3>${esc(prox.c)}</h3><p class="muted">${esc(prox.dica)}</p></div>${acao}</div>` : '<p class="muted">Há registros em vigor em todas as categorias. Continue acompanhando revisões e prazos.</p>'}
+    <details class="journey-all"><summary>Ver as ${passos.length} etapas em detalhe</summary>${tabela}</details>`;
+  }
   if (!prox) return `<div class="journey-done"><span aria-hidden="true">✓</span><div><b>Trilha concluída</b><p>Há registros em vigor em todas as categorias. Continue acompanhando revisões e prazos.</p></div></div><details class="journey-all"><summary>Ver todas as ${passos.length} etapas</summary>${tabela}</details>`;
   return `<div class="journey-next"><div class="journey-step">${proxN + 1}</div><div class="journey-copy"><span class="dash-eyebrow">COMECE POR AQUI</span><h3>${esc(prox.c)}</h3><p>${esc(prox.dica)}</p></div><div class="journey-action">${can.edit() ? `<button class="primary" type="button" data-start-cat="${esc(prox.c)}">${prox.n ? 'Continuar etapa' : 'Criar primeiro registro'}</button>` : `<a class="btn" href="#/registros" data-start-cat="${esc(prox.c)}">Ver registros</a>`}<span class="small muted">${prox.n ? `${prox.n} registro(s) nesta etapa` : 'Nenhum registro criado'}</span></div></div>
     <div class="journey-upcoming">${visiveis.map((p, i) => `<div class="journey-mini${p === prox ? ' is-now' : ''}"><span>${proxN + i + 1}</span><div><b>${esc(p.c)}</b><small>${p.vig ? 'Concluída' : p.n ? 'Em andamento' : p === prox ? 'Etapa atual' : 'A seguir'}</small></div>${p.vig ? '<i aria-label="Concluída">✓</i>' : ''}</div>`).join('')}</div>
@@ -638,24 +668,33 @@ async function renderDash() {
     ${recentA.length ? recentA.map(p => `<div class="fieldrow small"><b>${a.lidas.has(p.id) ? '' : '<span class="tag brand">nova</span> '}<a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.titulo)}</a></b> <span class="muted">· ${anpdData(p) ? fmtD(anpdData(p)) : ''}</span></div>`).join('') : '<p class="muted">Nenhuma publicação sincronizada ainda.</p>'}
     <div class="actions" style="margin-top:.5rem"><a class="btn" href="#/anpd">Ver todas</a></div></div>`;
   } catch (e) { /* regras do Firestore sem a seção anpd: o cartão simplesmente não aparece */ }
-  return `<section class="dash-hero"><div class="dash-hero-title">${firmLogo() ? `<div class="dash-firm-logo"><img src="${firmLogo()}" alt="Logo ${esc(contabNome(cid))}"></div>` : ''}<div><p class="dash-eyebrow">VISÃO GERAL</p><h1>Painel de conformidade</h1><p class="muted">${esc(contabNome(cid))} · acompanhe prioridades, pendências e evolução da LGPD.</p></div></div>
-    ${can.edit() ? '<a class="btn primary dash-new" href="#/registros" id="dnew">+ Novo registro</a>' : ''}</section>
-    <section class="dash-progress" aria-label="Próximo passo recomendado"><div class="dash-progress-icon" aria-hidden="true">✦</div><div><span class="dash-eyebrow">PRÓXIMO PASSO</span><b>${esc(proximaCategoria || 'Comece sua adequação')}</b><p>${categoriasIniciadas ? `${categoriasIniciadas} de ${trilha.length} categorias já iniciadas.` : 'Registre a primeira ação para começar a organizar a adequação.'}</p></div><button class="btn primary" type="button" data-start-cat="${esc(proximaCategoria || '')}">${can.edit() ? 'Começar agora' : 'Ver categoria'}</button></section>
-    <section class="metrics-section" aria-label="Resumo dos registros"><div class="section-label"><span>Resumo</span><small>situação dos registros</small></div><div class="metrics-grid"><div class="stat stat-main"><span class="stat-icon" aria-hidden="true">📄</span><b>${rs.length}</b><span>Registros ativos</span></div>
-    <div class="stat stat-ok"><span class="stat-icon" aria-hidden="true">✓</span><b>${by('Em vigor')}</b><span>Em vigor</span></div><div class="stat"><span class="stat-icon" aria-hidden="true">↻</span><b>${by('Em revisão')}</b><span>Em revisão</span></div>
-    <button class="stat stat-action is-critical" type="button" data-quick-list="overdue" aria-label="Ver ${od.length} prazo(s) vencido(s)"><span class="stat-icon" aria-hidden="true">!</span><b class="${od.length ? 'tone-bad' : ''}">${od.length}</b><span>Prazos vencidos</span><small>Ver lista</small></button>
-    <button class="stat stat-action is-attention" type="button" data-quick-list="review" aria-label="Ver ${rv.length} revisão(ões) próxima(s) ou vencida(s)"><span class="stat-icon" aria-hidden="true">◷</span><b class="${rv.some(r => revInfo(r).n < 0) ? 'tone-bad' : rv.length ? 'tone-warn' : ''}">${rv.length}</b><span>Revisões em 30 dias</span><small>Ver lista</small></button>
-    <div class="stat is-attention"><span class="stat-icon" aria-hidden="true">⌁</span><b class="${sa.length ? 'tone-warn' : ''}">${sa.length}</b><span>Sem aprovação atual</span></div></div></section>
-    <div class="dashboard-layout"><div class="dashboard-primary">
-      <div class="card dashboard-trilha"><div class="card-heading"><div><span class="dash-eyebrow">ROTEIRO</span><h2>Trilha de adequação</h2></div><span class="tag brand">${categoriasIniciadas}/${trilha.length} iniciadas</span></div><p class="muted small">Ordem sugerida por dependência entre os temas. “Em vigor” indica que há ao menos um registro vigente na categoria.</p>${trilhaHtml(rs)}</div>
-      <div class="card"><h2><span aria-hidden="true">⚠️</span> Prazos vencidos</h2>${od.length ? miniTable(od) : '<p class="muted">Nenhum prazo vencido.</p>'}</div>
-      <div class="card"><h2><span aria-hidden="true">🕘</span> Revisões vencidas ou nos próximos 30 dias</h2>${rv.length ? `<div class="tablewrap"><table><tr><th>Registro</th><th>Categoria</th><th>Próxima revisão</th><th></th></tr>${rv.map(r => `<tr><td><a href="${recLink(r)}">${esc(cur(r).titulo)}</a></td><td>${esc(cur(r).categoria)}</td><td>${fmtD(cur(r).revisao)}</td><td>${revTag(r)}</td></tr>`).join('')}</table></div>` : '<p class="muted">Nenhuma revisão vencida ou próxima do vencimento. Defina a "Próxima revisão" nos registros de políticas, contratos, treinamentos e avaliações.</p>'}</div>
-    </div><aside class="dashboard-secondary">
+  // Lista única "Precisa de ação": do mais grave ao menos grave, sem repetir o mesmo registro.
+  const itens = [], vistos = new Set();
+  const add = (r, rank, tag, quando) => { if (vistos.has(r.id)) return; vistos.add(r.id); itens.push({ r, rank, tag, quando }); };
+  od.forEach(r => add(r, 0, '<span class="tag bad">Prazo vencido</span>', cur(r).prazo));
+  rv.filter(r => revInfo(r).n < 0).forEach(r => add(r, 1, revTag(r), cur(r).revisao));
+  sa.forEach(r => add(r, 2, '<span class="tag warn">Sem aprovação</span>', ''));
+  rv.filter(r => revInfo(r).n >= 0).forEach(r => add(r, 3, revTag(r), cur(r).revisao));
+  const todoRow = i => `<a class="todo-item" href="${recLink(i.r)}"><span class="todo-main"><b>${esc(cur(i.r).titulo)}</b><small>${esc(cur(i.r).categoria)}${cur(i.r).responsavel ? ' · ' + esc(cur(i.r).responsavel) : ''}</small></span><span class="todo-tag">${i.tag}</span><span class="todo-when">${i.quando ? fmtD(i.quando) : ''}</span></a>`;
+  const primeira = trilha[0] || '';
+  const todo = !rs.length
+    ? `<div class="empty-state"><span class="empty-icon" aria-hidden="true">${ICO('<path d="M12 5v14M5 12h14"/>')}</span><h3>Comece pelo primeiro registro</h3><p class="muted">Registre uma política, contrato ou procedimento. A etapa sugerida é <b>${esc(primeira)}</b>: define quem responde pela LGPD e dá base para o resto.</p>${can.edit() ? `<button class="primary" type="button" data-start-cat="${esc(primeira)}">Criar primeiro registro</button>` : '<p class="small muted">Peça a um usuário de Edição ou Administrador para começar.</p>'}</div>`
+    : itens.length
+      ? `<div class="todo-list">${itens.slice(0, 8).map(todoRow).join('')}</div>${itens.length > 8 ? `<p class="small muted todo-more">Mostrando 8 de ${itens.length}. <a href="#/registros">Ver todos os registros</a></p>` : ''}`
+      : `<div class="empty-state is-ok"><span class="empty-icon" aria-hidden="true">${ICO('<path d="m5 12.5 4.5 4.5L19 7.5"/>')}</span><h3>Tudo em dia</h3><p class="muted">Nenhum prazo vencido, revisão pendente ou registro sem aprovação.</p></div>`;
+  const chip = (n, rot, tom, quick) => `<${quick ? `button type="button" data-quick-list="${quick}"` : 'span'} class="strip-item${tom ? ' ' + tom : ''}"><b>${n}</b><span>${rot}</span></${quick ? 'button' : 'span'}>`;
+  const feitasTrilha = trilha.filter(c => rs.some(r => cur(r).categoria === c && cur(r).status === 'Em vigor')).length;
+  return `<section class="dash-head"><div><p class="dash-eyebrow">${esc(contabNome(cid))}</p><h1>Painel</h1></div>
+    ${can.edit() ? `<a class="btn${rs.length ? ' primary' : ''}" href="#/registros" id="dnew">+ Novo registro</a>` : ''}</section>
+    <section class="status-strip" aria-label="Resumo">${chip(rs.length, 'registros', '')}${chip(by('Em vigor'), 'em vigor', 'is-ok')}${chip(by('Em revisão'), 'em revisão', '')}${chip(od.length, 'prazos vencidos', od.length ? 'is-bad' : '', od.length ? 'overdue' : '')}${chip(rv.length, 'revisões em 30 dias', rv.length ? 'is-warn' : '', rv.length ? 'review' : '')}${chip(sa.length, 'sem aprovação', sa.length ? 'is-warn' : '')}</section>
+    <div class="dash-grid"><div class="dash-main">
+      <section class="card"><div class="card-heading"><h2>Precisa de ação</h2>${itens.length ? `<span class="tag ${itens[0].rank < 2 ? 'bad' : 'warn'}">${itens.length}</span>` : ''}</div>${todo}</section>
+      <section class="card"><div class="card-heading"><h2>Adequação</h2><span class="tag brand">${feitasTrilha}/${trilha.length}</span></div>${trilhaHtml(rs, 'barra')}</section>
+    </div><aside class="dash-side">
       ${anpdCard}
-      <div class="card"><h2><span aria-hidden="true">🛡️</span> Em vigor sem aprovação atual</h2>${sa.length ? miniTable(sa) : '<p class="muted">Todos os registros em vigor têm a versão atual aprovada.</p>'}</div>
-      <div class="card"><h2><span aria-hidden="true">📅</span> Minha semana</h2>${semana.length ? semana.slice(0, 5).map(a => `<div class="fieldrow small"><b>${esc(a.titulo)}</b>${a.prazo ? ` <span class="tag ${a.prazo < today() ? 'bad' : 'warn'}">${a.prazo < today() ? 'vencida' : fmtD(a.prazo)}</span>` : ''}<br><span class="muted">${esc(a.registroTitulo)} · ${esc(a.status)}</span></div>`).join('') + `<div class="actions" style="margin-top:.5rem"><a class="btn" href="#/plano-acao">Ver plano de ação</a></div>` : '<p class="muted">Nenhuma ação para os próximos 7 dias.</p>'}</div>
-      <div class="card"><h2><span aria-hidden="true">👤</span> Registros atribuídos a mim</h2>${mine.length ? miniTable(mine) : '<p class="muted">Nada atribuído a você.</p>'}</div>
-      <div class="card"><h2><span aria-hidden="true">🕘</span> Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted">Sem atividade.</p>'}</div>
+      <section class="card"><h2>Minha semana</h2>${semana.length ? semana.slice(0, 5).map(a => `<div class="fieldrow small"><b>${esc(a.titulo)}</b>${a.prazo ? ` <span class="tag ${a.prazo < today() ? 'bad' : 'warn'}">${a.prazo < today() ? 'vencida' : fmtD(a.prazo)}</span>` : ''}<br><span class="muted">${esc(a.registroTitulo)} · ${esc(a.status)}</span></div>`).join('') + `<div class="actions" style="margin-top:.5rem"><a class="btn" href="#/plano-acao">Ver plano de ação</a></div>` : '<p class="muted small">Nenhuma ação para os próximos 7 dias.</p>'}</section>
+      ${mine.length ? `<section class="card"><h2>Atribuídos a mim</h2>${miniTable(mine)}</section>` : ''}
+      <section class="card"><h2>Atividade recente</h2>${recent.length ? recent.map(a => `<div class="fieldrow small"><b>${esc(a.acao)}</b> · ${esc(a.user)} · <span class="muted">${fmt(a.ts)}</span><br>${esc(a.recTitulo)}</div>`).join('') : '<p class="muted small">Sem atividade.</p>'}</section>
     </aside></div>`;
 }
 const chkCell = (g, d, recId) => { const p = progresso(g, d), q = pontuacao(g, d, evPorItem(recId));

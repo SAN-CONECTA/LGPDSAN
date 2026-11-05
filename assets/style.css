@@ -526,6 +526,110 @@ img.firmlogo{max-height:72px;max-width:260px;width:auto;height:auto;object-fit:c
 }
 
 
+/* ============================== DIREÇÃO CLARA E SÓBRIA ===================== */
+/* Camada de refinamento sobre os componentes base: botões em frase (sem caixa alta),
+   um único botão primário preenchido, tabelas legíveis, menu com ícones de linha. */
+.ui-icon{display:block;width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.nav-icon{display:grid;place-items:center;width:1.1rem;flex:0 0 1.1rem;font-size:1.05rem;line-height:1;color:var(--muted)}
+.nav a.on .nav-icon,.nav a:hover .nav-icon{color:var(--brand)}
+.group-icon{display:inline-grid;place-items:center;width:1rem;font-size:.95rem;letter-spacing:0;text-transform:none}
+.bell .ui-icon{width:1.1rem;height:1.1rem}
+
+/* botões */
+button,.btn{min-height:var(--button-h);padding:.5rem 1rem;font:600 .875rem/1.2 var(--font);letter-spacing:0;text-transform:none;
+  border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);box-shadow:0 1px 0 rgba(15,23,42,.03)}
+button:hover,.btn:hover{border-color:color-mix(in srgb,var(--ink) 30%,var(--line));color:var(--ink);background:var(--bg)}
+button.primary,.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);box-shadow:none}
+button.primary:hover,.btn.primary:hover{background:var(--brand-hover);border-color:var(--brand-hover);color:var(--brand-ink)}
+button.danger,.btn.danger{background:var(--surface);color:var(--bad);border-color:color-mix(in srgb,var(--bad) 35%,var(--line))}
+button.danger:hover,.btn.danger:hover{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+button.ghost,.btn.ghost{background:transparent;border-color:transparent;color:var(--muted);box-shadow:none}
+button.ghost:hover,.btn.ghost:hover{background:var(--bg);color:var(--ink)}
+td button,td .btn{min-height:32px;padding:.3rem .7rem;font-size:.8rem}
+
+/* campos */
+label{font-weight:600;color:var(--ink)}
+input,select,textarea{border-color:color-mix(in srgb,var(--ink) 16%,var(--line));box-shadow:none}
+
+/* superfícies */
+.card{border-color:var(--line);box-shadow:none}
+.stat{border-color:var(--line);box-shadow:none}
+.side{box-shadow:none}
+.topbar{box-shadow:none}
+.nav a{font-size:.92rem}
+.nav a.on{background:var(--brand-soft);color:var(--brand)}
+.nav .grph{font-size:.7rem;letter-spacing:.06em}
+
+/* tabelas */
+th{padding:.65rem .75rem;background:transparent;color:var(--muted);font-size:.78rem;font-weight:600;text-transform:none;letter-spacing:0;border-bottom:1px solid var(--line)}
+td{padding:.8rem .75rem;vertical-align:middle}
+tbody tr:hover{background:color-mix(in srgb,var(--bg) 60%,var(--surface))}
+
+/* tags e títulos */
+.tag{padding:.15rem .55rem;font-weight:600}
+.bar h1,main>h1{font-size:1.6rem;letter-spacing:-.03em}
+.dash-new{border-radius:var(--radius-sm)}
+.dash-eyebrow,.record-kicker{letter-spacing:.06em;font-weight:700}
+
+
+/* --- painel v2: faixa de status, "Precisa de ação", barra de etapas, estados vazios --- */
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.dash-head{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1rem}
+.dash-head h1{margin:0;font-size:1.75rem;letter-spacing:-.03em}
+.dash-head .dash-eyebrow{margin:0 0 .15rem;color:var(--muted)}
+
+.status-strip{display:flex;flex-wrap:wrap;margin-bottom:1.25rem;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);overflow:hidden}
+.strip-item{display:flex;align-items:baseline;gap:.45rem;flex:1 1 auto;min-height:0;padding:.8rem 1.1rem;border:0;border-right:1px solid var(--line);border-radius:0;
+  background:transparent;box-shadow:none;font:inherit;font-weight:400;text-align:left;color:var(--ink)}
+.strip-item:last-child{border-right:0}
+.strip-item b{font-size:1.35rem;font-weight:700;letter-spacing:-.03em;line-height:1}
+.strip-item span{font-size:.82rem;color:var(--muted)}
+.strip-item.is-ok b{color:var(--ok)}.strip-item.is-warn b{color:var(--warn)}.strip-item.is-bad b{color:var(--bad)}
+button.strip-item{cursor:pointer}
+button.strip-item:hover{background:var(--bg);border-color:var(--line);color:var(--ink)}
+button.strip-item:hover span{color:var(--ink);text-decoration:underline}
+
+.dash-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.9fr);gap:1rem;align-items:start}
+.dash-main .card,.dash-side .card{margin-bottom:1rem}
+.dash-side .card h2,.dash-main .card h2{font-size:1rem;margin-bottom:.6rem}
+.card-heading{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.15rem}
+
+.todo-list{margin:.25rem -1.15rem -.4rem}
+.todo-item{display:grid;grid-template-columns:minmax(0,1fr) auto 5.5rem;align-items:center;gap:1rem;padding:.75rem 1.15rem;border-top:1px solid var(--line);
+  color:var(--ink);text-decoration:none}
+.todo-item:hover{background:color-mix(in srgb,var(--bg) 70%,var(--surface))}
+.todo-main{display:flex;flex-direction:column;min-width:0}
+.todo-main b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.todo-main small{color:var(--muted);font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.todo-when{font-size:.82rem;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.todo-more{margin:.75rem 0 0}
+
+.empty-state{display:flex;flex-direction:column;align-items:flex-start;gap:.35rem;padding:.5rem 0 .25rem}
+.empty-state h3{margin:.25rem 0 0;font-size:1.1rem}
+.empty-state p{margin:0 0 .6rem;max-width:44ch}
+.empty-icon{display:grid;place-items:center;width:2.6rem;height:2.6rem;border-radius:50%;background:var(--brand-soft);color:var(--brand);font-size:1.3rem}
+.empty-state.is-ok .empty-icon{background:var(--ok-soft);color:var(--ok)}
+
+.seg-bar{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin:.6rem 0 .5rem;padding:0;list-style:none}
+.seg{position:relative;height:8px;border-radius:99px;background:var(--line)}
+.seg.is-part{background:color-mix(in srgb,var(--brand) 40%,var(--line))}
+.seg.is-done{background:var(--brand)}
+.seg.is-now::after{content:"";position:absolute;left:50%;top:-6px;width:0;height:0;margin-left:-4px;border:4px solid transparent;border-top-color:var(--ink)}
+.seg-count{margin:0 0 1rem;font-size:.85rem;color:var(--muted)}.seg-count b{color:var(--ink)}
+.next-step{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.9rem 1rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg)}
+.next-step h3{margin:.1rem 0 .15rem;font-size:1.05rem}.next-step p{margin:0;font-size:.88rem;max-width:56ch}
+.next-step .dash-eyebrow{margin:0;color:var(--muted)}
+.dash-main .journey-all{margin-top:.9rem}
+.dash-main .journey-all summary{cursor:pointer;font-size:.88rem;color:var(--brand)}
+
+@media(max-width:1000px){
+  .dash-grid{grid-template-columns:1fr}
+  .strip-item{flex:1 1 45%;border-bottom:1px solid var(--line)}
+  .todo-item{grid-template-columns:minmax(0,1fr) auto}.todo-when{display:none}
+  .next-step{flex-direction:column;align-items:flex-start}
+}
+
+
 /* ============================== RESPONSIVO ================================= */
 /* Do maior para o menor: um breakpoint menor sobrescreve o maior. */
 @media(max-width:1180px){
