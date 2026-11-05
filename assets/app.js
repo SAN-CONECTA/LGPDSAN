@@ -248,14 +248,17 @@ async function prepararLogo(file) {
   } finally { URL.revokeObjectURL(url); }
 }
 /* ---------- tema claro / escuro (escolha por usuário) ---------- */
-const TEMAS = { auto: 'Automático (do sistema)', claro: 'Claro (verde-azulado)', azul: 'Azul', lilas: 'Lilás', rosa: 'Rosa', laranja: 'Laranja', verde: 'Verde', grafite: 'Grafite', escuro: 'Escuro', 'escuro-azul': 'Escuro azulado', 'escuro-lilas': 'Escuro lilás', cf: 'Estilo Cloudflare (claro)', 'cf-escuro': 'Estilo Cloudflare (escuro)', estelar: 'Estelar (escuro)' };
+const TEMAS = { claro: 'Claro', estelar: 'Estelar (escuro)' };
+const TEMA_PADRAO = 'estelar';
+// Quem já tinha escolhido um dos temas antigos: os escuros viram Estelar, os demais viram Claro.
+const normalizaTema = t => t in TEMAS ? t : typeof t === 'string' && /escuro|dark/.test(t) ? 'estelar' : typeof t === 'string' && t ? 'claro' : null;
 const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* sem armazenamento: vale só nesta sessão */ } };
 function applyTheme(t) {
-  const el = document.documentElement;
-  if (t === 'claro') el.dataset.theme = 'light'; else if (t === 'escuro') el.dataset.theme = 'dark'; else if (t !== 'auto' && t in TEMAS) el.dataset.theme = t; else delete el.dataset.theme;
+  const el = document.documentElement, tema = normalizaTema(t) || TEMA_PADRAO;
+  el.dataset.theme = tema === 'claro' ? 'light' : tema;
 }
-const temaDe = u => [u && u.tema, u && lsGet('lgpdsan:tema:' + u.id)].find(t => t in TEMAS) || 'auto'; // 'lgpdsan:tema' (sem usuário) só evita o piscar na tela de login
+const temaDe = u => [u && u.tema, u && lsGet('lgpdsan:tema:' + u.id)].map(normalizaTema).find(Boolean) || TEMA_PADRAO; // 'lgpdsan:tema' (sem usuário) só evita o piscar na tela de login
 const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { console.error(e); toast(errMsg(e)); } };
 function modal(html, mount) {
   const d = document.createElement('dialog');

@@ -70,50 +70,8 @@
 
 
 /* ============================== TEMAS ====================================== */
-/* Escuro: o bloco do sistema (prefers-color-scheme) e o [data-theme=dark] devem ter os mesmos valores. */
-@media (prefers-color-scheme:dark){:root:not([data-theme]){
-  --bg:#0f1418;--surface:#171e24;--ink:#e6ebef;--muted:#93a1ad;--line:#26303a;
-  --brand:#2dd4bf;--brand-ink:#04211e;--brand-soft:#12312e;--brand-strong:#0f766e;
-  --warn:#fbbf24;--warn-soft:#33270d;--bad:#f87171;--bad-soft:#381815;--ok:#4ade80;--ok-soft:#10301b;
-  --add:#17391f;--del:#42201f;}}
-:root[data-theme=dark],:root[data-theme=escuro-azul],:root[data-theme=escuro-lilas]{color-scheme:dark;
-  --bg:#0f1418;--surface:#171e24;--ink:#e6ebef;--muted:#93a1ad;--line:#26303a;
-  --brand:#2dd4bf;--brand-ink:#04211e;--brand-soft:#12312e;--brand-strong:#0f766e;
-  --warn:#fbbf24;--warn-soft:#33270d;--bad:#f87171;--bad-soft:#381815;--ok:#4ade80;--ok-soft:#10301b;
-  --add:#17391f;--del:#42201f;}
+/* Dois temas: Claro (padrão do :root) e Estelar (escuro, definido na seção TEMA ESTELAR). */
 :root[data-theme=light]{color-scheme:light}
-/* Temas de cor: só trocam a marca; fundo levemente tingido */
-:root[data-theme=azul]{color-scheme:light;--brand:#1d4ed8;--brand-ink:#fff;--brand-soft:#e3ebfd;--bg:#f3f6fc;--line:#d9e0ee}
-:root[data-theme=lilas]{color-scheme:light;--brand:#6d28d9;--brand-ink:#fff;--brand-soft:#eee6fb;--bg:#f6f4fb;--line:#e0dbee}
-:root[data-theme=rosa]{color-scheme:light;--brand:#be185d;--brand-ink:#fff;--brand-soft:#fbe6ef;--bg:#fbf4f7;--line:#eedbe4}
-:root[data-theme=laranja]{color-scheme:light;--brand:#c2410c;--brand-ink:#fff;--brand-soft:#fdebdf;--bg:#fbf6f2;--line:#eedfd3}
-:root[data-theme=verde]{color-scheme:light;--brand:#15803d;--brand-ink:#fff;--brand-soft:#e1f3e7;--bg:#f3f8f5;--line:#d8e6dd}
-:root[data-theme=grafite]{color-scheme:light;--brand:#374151;--brand-ink:#fff;--brand-soft:#e9ebee;--bg:#f4f5f6;--line:#dfe2e6}
-/* Temas escuros de cor: herdam o escuro acima e trocam a marca */
-:root[data-theme=escuro-azul]{--brand:#60a5fa;--brand-ink:#04152e;--brand-soft:#14253d;--brand-strong:#1d4ed8;--bg:#0c121b;--surface:#151e2b;--line:#243246}
-:root[data-theme=escuro-lilas]{--brand:#a78bfa;--brand-ink:#150b33;--brand-soft:#251a40;--brand-strong:#6d28d9;--bg:#110e19;--surface:#1a1626;--line:#2e2842}
-
-/* Estilo Cloudflare (experimental): além das cores, muda forma, sombra e densidade.
-   Os ajustes de componentes ficam na seção ESTILO CLOUDFLARE, antes de RESPONSIVO. */
-:root[data-theme=cf],:root[data-theme=cf-escuro]{
-  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  --font-size:14px; --h1:1.5rem; --h2:1.05rem; --h3:.95rem; --text-sm:.857rem;
-  --radius-sm:4px; --radius:6px; --radius-lg:8px; --radius-xl:8px;
-  --shadow-soft:none; --shadow:0 1px 3px rgba(0,0,0,.08);
-  --shadow-pop:0 4px 16px rgba(0,0,0,.14); --shadow-dialog:0 8px 32px rgba(0,0,0,.22);
-  --focus-ring:0 0 0 2px color-mix(in srgb,var(--brand) 45%,transparent);
-  --control-h:34px; --button-h:34px; --sidebar-w:240px; --topbar-h:56px;
-  --cf-orange:#f6821f;}
-:root[data-theme=cf]{color-scheme:light;
-  --bg:#f7f7f7;--surface:#fff;--ink:#313131;--muted:#595959;--line:#d9d9d9;
-  --brand:#0051c3;--brand-ink:#fff;--brand-soft:#e7effb;--brand-hover:#003681;--brand-strong:#1d1f20;
-  --ok:#1e7b34;--ok-soft:#e6f4ea;--warn:#a35200;--warn-soft:#fdf1e3;--bad:#c4211b;--bad-soft:#fcebea}
-:root[data-theme=cf-escuro]{color-scheme:dark;
-  --bg:#1d1d1d;--surface:#262626;--ink:#f2f2f2;--muted:#b6b6b6;--line:#3d3d3d;
-  --brand:#5c9dff;--brand-ink:#0b1220;--brand-soft:#1c2a40;--brand-hover:#82b6ff;--brand-strong:#141414;
-  --ok:#6fcf86;--ok-soft:#16301d;--warn:#f5b55b;--warn-soft:#33270f;--bad:#ff7a73;--bad-soft:#3a1a18;
-  --add:#17391f;--del:#42201f}
-
 
 /* ============================== BASE ======================================= */
 *{box-sizing:border-box}
@@ -447,83 +405,6 @@ img.firmlogo{max-height:72px;max-width:260px;width:auto;height:auto;object-fit:c
 .anpd-item.novo{border-left:3px solid var(--brand);padding-left:.7rem}
 .anpd-t a{font-weight:600;text-decoration:none}
 .anpd-t a:hover{text-decoration:underline}
-
-
-/* ============================== ESTILO CLOUDFLARE ========================== */
-/* Só vale nos temas cf / cf-escuro: plano, bordas finas, sem gradientes nem "levitar". */
-:root:is([data-theme=cf],[data-theme=cf-escuro]){
-  & body{letter-spacing:0}
-  & h1,& h2,& h3{font-weight:600;letter-spacing:-.01em}
-
-  /* menu lateral */
-  & .side{box-shadow:none;padding:.75rem .6rem}
-  & .app-brand{padding:.15rem .35rem .6rem;border-bottom:2px solid var(--cf-orange);margin-bottom:.35rem}
-  & .nav .grph{min-height:30px;font-size:.75rem;font-weight:600;letter-spacing:.02em}
-  & .nav a{min-height:32px;padding:.35rem .65rem;font-size:.875rem}
-  & .nav .subnav a{padding:.35rem .65rem;border-radius:var(--radius-sm);font-size:.875rem}
-  & .nav a.on,& .nav .subnav a.on{box-shadow:inset 3px 0 0 var(--brand);font-weight:600}
-  & .nav .subnav .csel{background:var(--surface);padding:.5rem .55rem}
-
-  /* topo */
-  & .topbar{box-shadow:none;padding:.5rem 1.5rem}
-  & .crumbs{color:var(--ink);font-weight:400}
-  & .gsearch-box input{background:var(--surface)}
-
-  /* botões e campos */
-  & :is(button,.btn){font-weight:600;transition:background .12s,border-color .12s}
-  & :is(button,.btn):hover{border-color:var(--muted);background:var(--bg)}
-  & :is(button,.btn).primary{box-shadow:none}
-  & :is(button,.btn).primary:hover{background:var(--brand-hover);border-color:var(--brand-hover);transform:none}
-  & :is(button,.btn).ghost:hover{border-color:transparent}
-  & button.link,& button.link:hover{background:none}
-  & :is(input,select,textarea){box-shadow:none;border-color:color-mix(in srgb,var(--line) 70%,var(--muted))}
-  & :is(input,select,textarea):focus{border-color:var(--brand)}
-  & label{font-weight:600;color:var(--ink)}
-
-  /* cartões, tabelas, tags */
-  & .card,& .stat{border-color:var(--line)}
-  & .card{padding:1rem 1.25rem}
-  & th{background:var(--surface);color:var(--ink);font-size:.8rem;font-weight:600;text-transform:none;letter-spacing:0;border-bottom-color:var(--line)}
-  & tbody tr:hover{background:color-mix(in srgb,var(--bg) 70%,var(--surface))}
-  & td a{font-weight:500}
-  & .tag{border-radius:var(--radius-sm);font-weight:500}
-  & .notice{box-shadow:none;border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));border-left-width:4px}
-  & .notice.bad{border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
-  & a:not(.btn){text-underline-offset:2px}
-
-  /* painel: título direto na página, como no dash da Cloudflare */
-  & .dash-hero{padding:0 0 1rem;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none}
-  & .dash-firm-logo{width:3rem;height:3rem;box-shadow:none}
-  & .dash-eyebrow,& .record-kicker{color:var(--muted);letter-spacing:.06em}
-  & .dash-progress{border-color:color-mix(in srgb,var(--brand) 40%,var(--line));border-left:4px solid var(--brand);background:var(--brand-soft)}
-  & .dash-progress-icon{background:var(--surface)}
-  & .metrics-grid{gap:0;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);overflow:hidden}
-  & .metrics-grid .stat{min-height:84px;border:0;border-right:1px solid var(--line);border-radius:0;background:var(--surface)}
-  & .metrics-grid .stat:last-child{border-right:0}
-  & .metrics-grid .stat:hover{transform:none;box-shadow:none;background:var(--bg)}
-  & .metrics-grid .stat b{font-size:1.45rem;font-weight:600}
-  & .metrics-grid .stat .stat-icon{background:none}
-  & .metrics-grid .stat-main{background:var(--surface)}
-  & .metrics-grid :is(.stat-ok,.stat.is-attention,.stat.is-critical){border-top:0;box-shadow:inset 0 3px 0 var(--tone,var(--line))}
-  & .metrics-grid .stat-ok{--tone:var(--ok)}
-  & .metrics-grid .stat.is-attention{--tone:var(--warn)}
-  & .metrics-grid .stat.is-critical{--tone:var(--bad)}
-  & .journey-next{background:var(--surface);border-color:var(--line);border-left:4px solid var(--brand)}
-  & .journey-mini{background:var(--surface)}
-  & .journey-mini.is-now{background:var(--brand-soft)}
-
-  /* central do registro */
-  & .record-hero{background:var(--surface);border-color:var(--line)}
-  & .record-hero::after{display:none}
-  & .record-hero-foot{background:var(--bg)}
-  & :is(.radar-card,.action-column){background:var(--surface)}
-  & .radar-brand{background:var(--brand-soft)}
-  & .action-card{box-shadow:none}
-
-}
-@media(max-width:1180px){
-  :root:is([data-theme=cf],[data-theme=cf-escuro]) .metrics-grid .stat{border-bottom:1px solid var(--line)}
-}
 
 
 /* ============================== DIREÇÃO CLARA E SÓBRIA ===================== */
