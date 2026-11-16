@@ -38,7 +38,14 @@ service cloud.firestore {
     match /users/{uid} {
       allow get: if request.auth != null && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
-      allow create, update, delete: if isAdmin();
+      // Quem cria um usuário ou muda permissão (perfil, situação, vínculos) assina com o
+      // próprio uid em atualizadoPor: é desse campo que o servidor tira o autor do evento
+      // "Permissão alterada". Outras alterações do administrador não precisam assinar.
+      allow create: if isAdmin() && request.resource.data.atualizadoPor == request.auth.uid;
+      allow update: if isAdmin()
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'ativo', 'contabilidades'])
+            || request.resource.data.atualizadoPor == request.auth.uid);
+      allow delete: if isAdmin();
       // Cada usuário pode alterar apenas a própria preferência de tema (auto, claro, escuro e temas de cor).
       allow update: if request.auth != null && request.auth.uid == uid && active()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tema'])
@@ -93,7 +100,10 @@ service cloud.firestore {
         && request.resource.data.userEmail == resource.data.userEmail
         && request.resource.data.role == resource.data.role
         && request.resource.data.lastSeen == request.time);
-      allow delete: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
+      // O dono só apaga a sessão enquanto ela não foi revogada: apagar e recriar
+      // seria um jeito de "reativar" uma sessão desconectada pelo administrador.
+      allow delete: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid
+        && resource.data.revogada == false);
     }
 
     // Auditoria do SISTEMA (login, usuários, contabilidades, categorias): só o administrador lê; ninguém edita ou apaga.

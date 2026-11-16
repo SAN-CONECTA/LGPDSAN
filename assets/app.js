@@ -12,7 +12,7 @@ import { GUIAS, RESP, guiaDe, itensDe, fmtVal, progresso, pontuacao, critIds, ap
 
 import { ANPD_URL, anpdData, anpdFiltra, anpdOrdena, anpdLidasSet } from './anpd.js?v=2.34.0';
 
-const VERSION = '2.44.1';
+const VERSION = '2.44.2';
 const SITE = 'https://www.sanconecta.com';
 const siteLink = (t = 'www.sanconecta.com') => `<a href="${SITE}" target="_blank" rel="noopener noreferrer">${t}</a>`;
 const ROLES = { consulta: 'Consulta', edicao: 'Edição', admin: 'Administrador' };
@@ -1694,7 +1694,7 @@ function renderContabs() {
         $('#dl', d).onsubmit = guard(async e => { e.preventDefault(); if ($('#dn', d).value.trim() !== c.nome) return;
           const b = writeBatch(fs);
           b.update(doc(fs, 'contabilidades', c.id), { excluida: true, excluidaEm: serverTimestamp() });
-          vinc.forEach(u => { b.update(doc(fs, 'users', u.id), { contabilidades: (u.contabilidades || []).filter(x => x !== c.id) }); b.delete(doc(fs, 'contabilidades', c.id, 'pessoas', u.id)); });
+          vinc.forEach(u => { b.update(doc(fs, 'users', u.id), { contabilidades: (u.contabilidades || []).filter(x => x !== c.id), atualizadoPor: me.id }); b.delete(doc(fs, 'contabilidades', c.id, 'pessoas', u.id)); });
           auditOp(b, 'Contabilidade excluída', null, c.nome + (vinc.length ? ` (acesso removido de: ${vinc.map(u => u.nome).join(', ')})` : ''));
           await b.commit(); d.close(); toast(c.nome + ' excluída.'); await loadCore(); route(); });
       });

@@ -4,7 +4,10 @@ service firebase.storage {
   match /b/{bucket}/o {
     function perfil() { return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
     // Sem firestore.exists(): se o perfil não existir, firestore.get falha e o acesso é negado do mesmo jeito.
-    function ativo() { return request.auth != null && perfil().ativo == true; }
+    // Igual a active() em firestore.rules: depois de "encerrar todas as sessões",
+    // só um novo login (auth_time maior que sessaoMinima) volta a abrir arquivos.
+    function ativo() { return request.auth != null && perfil().ativo == true
+      && request.auth.token.auth_time >= perfil().get('sessaoMinima', 0); }
     function vinculado(cid) { return cid in perfil().get('contabilidades', []); }
     function podeLer(cid) { return ativo() && (perfil().role == 'admin' || vinculado(cid)); }
     function podeEnviar(cid) { return ativo() && (perfil().role == 'admin' || (perfil().role == 'edicao' && vinculado(cid))); }

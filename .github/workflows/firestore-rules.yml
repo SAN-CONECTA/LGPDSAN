@@ -14,7 +14,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # As regras só vão ao ar depois de passar nos testes do emulador.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: tests/rules/package-lock.json
+
+      - name: Instalar dependências dos testes
+        run: npm ci
+        working-directory: tests/rules
+
+      - name: Rodar os testes das regras (emulador)
+        run: npm test
+        working-directory: tests/rules
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
