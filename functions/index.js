@@ -27,12 +27,15 @@ const texto = (v, max) => typeof v === 'string' ? v.trim().slice(0, max) : '';
 const lista = v => v.length ? v.join(', ') : 'nenhuma';
 const hash = v => crypto.createHash('sha256').update(v).digest('hex');
 
-// IP do cliente: primeiro endereço de x-forwarded-for (é o cliente real atrás do
-// proxy do Google) ou, na falta dele, request.rawRequest.ip.
+// IP do cliente: ÚLTIMO endereço de x-forwarded-for. O proxy do Google acrescenta
+// o IP real ao fim da lista; os valores anteriores vêm do próprio cliente e podem
+// ser forjados para escapar do limite por IP. Na falta do cabeçalho, usa a conexão.
+// (Vale para a função chamada direto, sem balanceador próprio na frente.)
 const ipDaRequisicao = raw => {
   const cabecalhos = (raw && raw.headers) || {};
-  const encaminhado = String(cabecalhos['x-forwarded-for'] || '').split(',')[0];
-  return texto(encaminhado, 60) || texto(raw && raw.ip, 60);
+  const cadeia = String(cabecalhos['x-forwarded-for'] || '').split(',').map(s => s.trim()).filter(Boolean);
+  const conexao = raw && raw.socket && raw.socket.remoteAddress;
+  return texto(cadeia[cadeia.length - 1], 60) || texto(conexao, 60) || texto(raw && raw.ip, 60);
 };
 
 // Limite de abuso: no máximo 20 gravações por IP a cada hora. O IP fica em hash
@@ -130,6 +133,10 @@ exports.atualizarUsuario = onCall({ invoker: 'public' }, async request => {
   if (!eu || eu.role !== 'admin' || eu.ativo !== true) {
     throw new HttpsError('permission-denied', 'Somente administradores ativos alteram usuários.');
   }
+  // Mesma trava das regras: sessão encerrada pelo administrador não altera usuários.
+  if (Number((request.auth.token || {}).auth_time || 0) < Number(eu.sessaoMinima || 0)) {
+    throw new HttpsError('permission-denied', 'Sessão encerrada. Entre novamente.');
+  }
 
   const dados = (request && request.data) || {};
   const uid = typeof dados.uid === 'string' ? dados.uid.trim() : '';
@@ -166,7 +173,10 @@ exports.onUserWrite = onDocumentWritten('users/{uid}', async event => {
   if (antes && depois && igual(antes, depois)) return; // nenhuma permissão mudou
 
   const dados = (existeDepois ? depoisDoc.data() : antesDoc.data()) || {};
-  const autorId = texto(dados.atualizadoPor, 128) || null;
+  // Na exclusão só resta o documento antigo, cujo atualizadoPor é de quem fez a
+  // alteração ANTERIOR. Melhor ficar sem autor do que atribuir à pessoa errada
+  // (o app grava "Acesso de usuário removido" com o autor correto).
+  const autorId = existeDepois ? (texto(dados.atualizadoPor, 128) || null) : null;
   const autor = await autorDe(autorId);
   const nome = texto(dados.nome, 100);
   const email = texto(dados.email, MAX_EMAIL);

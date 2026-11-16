@@ -127,8 +127,9 @@ O script sobe o emulador com `firebase emulators:exec --only firestore --project
 - Remover acesso de um usuário apaga só `users/{uid}`; a conta de login continua no Authentication.
 - As Cloud Functions (seção acima) gravam login falho e alterações de permissão e exigem o plano Blaze. O menu Evidências usa o Firebase Storage (seção abaixo), que também exige Blaze.
 - Limitações conhecidas:
-  - O autor (`atualizadoPor`) só é confiável quando a alteração passa por `atualizarUsuario`. Um administrador ainda consegue escrever direto em `users/{uid}` pelo SDK/console e as regras não mudaram nesta versão; nesse caminho o evento do trigger fica sem autoria verificável.
-  - O cabeçalho `x-forwarded-for` pode ser forjado; o limite de 20 gravações por IP/hora é mitigação, não bloqueio absoluto.
+  - Autor (`atualizadoPor`): desde a 2.44.2 as regras exigem que o administrador assine com o próprio uid ao criar usuário ou mudar perfil, situação ou vínculos. Alterações feitas no console do Firebase ignoram as regras e continuam sem autoria verificável; na remoção de usuário o evento do servidor sai sem autor (o evento do app traz o autor).
+  - Limite por IP: desde a 2.44.2 usa o último endereço de `x-forwarded-for`, acrescentado pelo proxy do Google. Confira nos primeiros eventos `Login falhou` se o IP gravado é o do cliente; se um balanceador próprio for colocado na frente da função, a posição muda. Quem troca de IP ainda contorna o limite: é mitigação, não bloqueio absoluto.
+  - "Desconectar sessão" (uma só) encerra a tela pelo aplicativo; o bloqueio no servidor, inclusive para arquivos de evidência, é o de "Encerrar todas as sessões" (`sessaoMinima`).
   - `registrarTentativaLogin` é pública por desenho (é o caso de uso) e aceita e-mails arbitrários até 254 caracteres; o limite por IP contém o abuso.
   - Editar/excluir usuário no app agora depende da função publicada; sem ela a tela mostra erro de chamada.
 

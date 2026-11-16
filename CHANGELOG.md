@@ -1,6 +1,16 @@
 # Changelog
 Formato SemVer.
 
+## [2.44.2] - 2026-11-16
+### Segurança
+- **Limite de tentativas de login:** o IP usado no limite de 20 por hora passa a ser o último de `x-forwarded-for` (acrescentado pelo proxy do Google), não o primeiro, que o cliente consegue forjar. Exige republicar as Cloud Functions.
+- **Evidências e sessões encerradas:** `storage.rules` passa a conferir `sessaoMinima`, como o Firestore já fazia. Depois de "Encerrar todas as sessões", os arquivos só abrem com novo login. Exige publicar `storage.rules` no console.
+- **Sessão desconectada:** o dono não consegue mais apagar uma sessão revogada (apagar e recriar era um jeito de reativá-la).
+- **Autoria das permissões:** as regras exigem que o administrador assine (`atualizadoPor`) ao criar usuário ou mudar perfil, situação ou vínculos. A exclusão de empresa agora também assina ao desvincular usuários. Na remoção de usuário, o evento do servidor não repete mais o autor da alteração anterior.
+- **Publicação das regras:** o fluxo do GitHub só publica `firestore.rules` depois que os testes do emulador passam. Novos testes em `tests/rules/usuarios.test.js`.
+### Corrigido
+- README mostrava a versão 2.34.0.
+
 ## [2.44.1] - 2026-11-05
 ### Corrigido
 - **Logo da empresa no Painel:** a reorganização da 2.44.0 removeu a logo do topo do Painel. Ela volta ao lado do título (e some sem deixar espaço vazio quando a empresa não tem logo). Registros, Termo de Ciência e Relatório não foram afetados.
